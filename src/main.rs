@@ -1,6 +1,6 @@
-use anyhow::Error;
+use weather_api_rust::app::start_app;
 
-#[actix::main]
-async fn main() -> Result<(), Error> {
-    println!("Hello, world!");
+#[actix_rt::main]
+async fn main() {
+    start_app().await
 }
