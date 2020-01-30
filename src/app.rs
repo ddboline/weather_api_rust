@@ -32,11 +32,17 @@ pub async fn start_app() {
     let api_key = config.api_key.as_ref().expect("No API Key");
     let api_endpoint = config
         .api_endpoint
-        .clone()
-        .unwrap_or_else(|| "api.openweathermap.org".to_string());
+        .as_ref()
+        .map(|x| x.as_str())
+        .unwrap_or("api.openweathermap.org");
+    let api_path = config
+        .api_path
+        .as_ref()
+        .map(|x| x.as_str())
+        .unwrap_or("data/2.5/");
 
     let app = AppState {
-        api: Arc::new(WeatherApi::new(api_key, &api_endpoint)),
+        api: Arc::new(WeatherApi::new(api_key, api_endpoint, api_path)),
         data: Arc::new(Mutex::new(TimedCache::with_lifespan_and_capacity(
             3600, 100,
         ))),
@@ -49,7 +55,7 @@ pub async fn start_app() {
         App::new()
             .data(app.clone())
             .service(web::resource("/weather/index.html").route(web::get().to(frontpage)))
-            .service(web::resource("/weather/data").route(web::get().to(weather)))
+            .service(web::resource("/weather/weather").route(web::get().to(weather)))
             .service(web::resource("/weather/forecast").route(web::get().to(forecast)))
     })
     .bind(&format!("127.0.0.1:{}", port))

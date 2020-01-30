@@ -24,6 +24,13 @@ fn form_http_response(body: String) -> Result<HttpResponse, Error> {
         .body(body))
 }
 
+fn to_json<T>(js: &T) -> Result<HttpResponse, Error>
+where
+    T: Serialize,
+{
+    Ok(HttpResponse::Ok().json2(js))
+}
+
 pub async fn frontpage(
     query: Query<WeatherOpts>,
     data: Data<AppState>,
@@ -37,7 +44,9 @@ pub async fn frontpage(
     let weather_data = data.data.lock().await.cache_get(&hash).cloned();
     let weather_forecast = data.forecast.lock().await.cache_get(&hash).cloned();
 
-    let weather_data = if let Some(d) = weather_data {d} else {
+    let weather_data = if let Some(d) = weather_data {
+        d
+    } else {
         let d = api.get_weather_data().await?;
         data.data.lock().await.cache_set(hash.clone(), d.clone());
         d
@@ -45,9 +54,14 @@ pub async fn frontpage(
 
     println!("got data");
 
-    let weather_forecast = if let Some(d) = weather_forecast {d} else {
+    let weather_forecast = if let Some(d) = weather_forecast {
+        d
+    } else {
         let d = api.get_weather_forecast().await?;
-        data.forecast.lock().await.cache_set(hash.clone(), d.clone());
+        data.forecast
+            .lock()
+            .await
+            .cache_set(hash.clone(), d.clone());
         d
     };
 
@@ -75,16 +89,80 @@ pub async fn frontpage(
     form_http_response(body)
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ApiOptions {
+    pub zip: Option<u64>,
+    pub country_code: Option<String>,
+    pub q: Option<String>,
+    pub lat: Option<Latitude>,
+    pub lon: Option<Longitude>,
+    #[serde(rename = "APPID")]
+    pub appid: Option<String>,
+}
+
+impl ApiOptions {
+    fn get_weather_api(&self, api: WeatherApi) -> Result<WeatherApi, Error> {
+        let api = if let Some(appid) = &self.appid {
+            api.with_key(&appid)
+        } else {
+            api
+        };
+
+        let api = if let Some(zipcode) = self.zip {
+            api.with_zipcode(zipcode)
+        } else if let Some(country_code) = &self.country_code {
+            api.with_country_code(country_code)
+        } else if let Some(city_name) = &self.q {
+            api.with_city_name(city_name)
+        } else if self.lat.is_some() && self.lon.is_some() {
+            let lat = self.lat.unwrap();
+            let lon = self.lon.unwrap();
+            api.with_lat_lon(lat, lon)
+        } else {
+            return Err(Error::BadRequest(format!(
+                "\n\nERROR: You must specify at least one option"
+            )));
+        };
+        Ok(api)
+    }
+}
+
 pub async fn weather(
-    query: Query<WeatherOpts>,
+    query: Query<ApiOptions>,
     data: Data<AppState>,
 ) -> Result<HttpResponse, Error> {
-    form_http_response("Dummy".to_string())
+    let query = query.into_inner();
+    let api = query.get_weather_api(WeatherApi::clone(&data.api))?;
+    let hash = api.weather_api_hash();
+    let weather_data = data.data.lock().await.cache_get(&hash).cloned();
+
+    let weather_data = if let Some(d) = weather_data {
+        d
+    } else {
+        let d = api.get_weather_data().await?;
+        data.data.lock().await.cache_set(hash, d.clone());
+        d
+    };
+
+    to_json(&weather_data)
 }
 
 pub async fn forecast(
-    query: Query<WeatherOpts>,
+    query: Query<ApiOptions>,
     data: Data<AppState>,
 ) -> Result<HttpResponse, Error> {
-    form_http_response("Dummy".to_string())
+    let query = query.into_inner();
+    let api = query.get_weather_api(WeatherApi::clone(&data.api))?;
+    let hash = api.weather_api_hash();
+    let weather_forecast = data.forecast.lock().await.cache_get(&hash).cloned();
+
+    let weather_forecast = if let Some(d) = weather_forecast {
+        d
+    } else {
+        let d = api.get_weather_forecast().await?;
+        data.forecast.lock().await.cache_set(hash, d.clone());
+        d
+    };
+
+    to_json(&weather_forecast)
 }
