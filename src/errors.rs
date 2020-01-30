@@ -1,6 +1,7 @@
 use actix_web::{error::ResponseError, HttpResponse};
 use anyhow::Error as AnyhowError;
 use std::fmt::Debug;
+use std::string::FromUtf8Error;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -13,6 +14,8 @@ pub enum ServiceError {
     AnyhowError(#[from] AnyhowError),
     #[error("io Error {0}")]
     IoError(#[from] std::io::Error),
+    #[error("invalid utf8")]
+    Utf8Error(#[from] FromUtf8Error),
 }
 
 // impl ResponseError trait allows to convert our errors into http responses with appropriate data
