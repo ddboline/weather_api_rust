@@ -1,18 +1,12 @@
 use actix_web::http::StatusCode;
-use actix_web::web::{block, Data, Json, Query};
+use actix_web::web::{Data, Query};
 use actix_web::HttpResponse;
 use cached::Cached;
-use maplit::hashmap;
 use serde::{Deserialize, Serialize};
-use std::fs::{remove_file, File};
-use std::io::{Read, Write};
-use std::path::Path;
 
 use weather_util_rust::latitude::Latitude;
 use weather_util_rust::longitude::Longitude;
 use weather_util_rust::weather_api::WeatherApi;
-use weather_util_rust::weather_data::WeatherData;
-use weather_util_rust::weather_forecast::WeatherForecast;
 use weather_util_rust::weather_opts::WeatherOpts;
 
 use crate::app::AppState;
@@ -119,9 +113,9 @@ impl ApiOptions {
             let lon = self.lon.unwrap();
             api.with_lat_lon(lat, lon)
         } else {
-            return Err(Error::BadRequest(format!(
-                "\n\nERROR: You must specify at least one option"
-            )));
+            return Err(Error::BadRequest(
+                "\n\nERROR: You must specify at least one option".into(),
+            ));
         };
         Ok(api)
     }
