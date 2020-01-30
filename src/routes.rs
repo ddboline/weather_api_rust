@@ -34,12 +34,12 @@ pub async fn frontpage(
     let hash = api.weather_api_hash();
     println!("{}", hash);
 
-    let weather_data = data.data.write().await.cache_get(&hash).cloned();
-    let weather_forecast = data.forecast.write().await.cache_get(&hash).cloned();
+    let weather_data = data.data.lock().await.cache_get(&hash).cloned();
+    let weather_forecast = data.forecast.lock().await.cache_get(&hash).cloned();
 
     let weather_data = if let Some(d) = weather_data {d} else {
         let d = api.get_weather_data().await?;
-        data.data.write().await.cache_set(hash.clone(), d.clone());
+        data.data.lock().await.cache_set(hash.clone(), d.clone());
         d
     };
 
@@ -47,7 +47,7 @@ pub async fn frontpage(
 
     let weather_forecast = if let Some(d) = weather_forecast {d} else {
         let d = api.get_weather_forecast().await?;
-        data.forecast.write().await.cache_set(hash.clone(), d.clone());
+        data.forecast.lock().await.cache_set(hash.clone(), d.clone());
         d
     };
 
@@ -55,13 +55,13 @@ pub async fn frontpage(
 
     println!(
         "data hits {}, misses {}",
-        data.data.read().await.cache_hits().unwrap_or(0),
-        data.data.read().await.cache_misses().unwrap_or(0)
+        data.data.lock().await.cache_hits().unwrap_or(0),
+        data.data.lock().await.cache_misses().unwrap_or(0)
     );
     println!(
         "forecast hits {}, misses {}",
-        data.forecast.read().await.cache_hits().unwrap_or(0),
-        data.forecast.read().await.cache_misses().unwrap_or(0)
+        data.forecast.lock().await.cache_hits().unwrap_or(0),
+        data.forecast.lock().await.cache_misses().unwrap_or(0)
     );
 
     let mut buf = Vec::new();

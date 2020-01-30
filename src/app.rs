@@ -2,7 +2,7 @@ use actix_web::{web, App, HttpServer};
 use cached::TimedCache;
 use lazy_static::lazy_static;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::Mutex;
 
 use weather_util_rust::weather_api::WeatherApi;
 use weather_util_rust::weather_data::WeatherData;
@@ -15,7 +15,7 @@ lazy_static! {
     pub static ref CONFIG: Config = Config::init_config().expect("Failed to load config");
 }
 
-type Cache<K, V> = Arc<RwLock<TimedCache<K, V>>>;
+type Cache<K, V> = Arc<Mutex<TimedCache<K, V>>>;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -37,10 +37,10 @@ pub async fn start_app() {
 
     let app = AppState {
         api: Arc::new(WeatherApi::new(api_key, &api_endpoint)),
-        data: Arc::new(RwLock::new(TimedCache::with_lifespan_and_capacity(
+        data: Arc::new(Mutex::new(TimedCache::with_lifespan_and_capacity(
             3600, 100,
         ))),
-        forecast: Arc::new(RwLock::new(TimedCache::with_lifespan_and_capacity(
+        forecast: Arc::new(Mutex::new(TimedCache::with_lifespan_and_capacity(
             3600, 100,
         ))),
     };
