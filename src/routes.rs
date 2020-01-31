@@ -71,16 +71,20 @@ pub async fn frontpage(
 
     println!("got forecast");
 
-    println!(
-        "data hits {}, misses {}",
-        data.data.lock().await.cache_hits().unwrap_or(0),
-        data.data.lock().await.cache_misses().unwrap_or(0)
-    );
-    println!(
-        "forecast hits {}, misses {}",
-        data.forecast.lock().await.cache_hits().unwrap_or(0),
-        data.forecast.lock().await.cache_misses().unwrap_or(0)
-    );
+    {
+        let cache = data.data.lock().await;
+        println!(
+            "data hits {}, misses {}",
+            cache.cache_hits().unwrap_or(0),
+            cache.cache_misses().unwrap_or(0)
+        );
+        let cache = data.forecast.lock().await;
+        println!(
+            "forecast hits {}, misses {}",
+            cache.cache_hits().unwrap_or(0),
+            cache.cache_misses().unwrap_or(0)
+        );
+    }
 
     let mut buf = Vec::new();
     weather_data.get_current_conditions(&mut buf)?;
