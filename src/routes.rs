@@ -35,6 +35,22 @@ pub struct ApiOptions {
     pub appid: Option<String>,
 }
 
+macro_rules! get_cached {
+    ($hash:ident, $mutex:expr, $call:expr) => {
+        {
+            let result = $mutex.lock().await.cache_get(&$hash).cloned();
+
+            if let Some(d) = result {
+                d
+            } else {
+                let d = $call.await?;
+                $mutex.lock().await.cache_set($hash.clone(), d.clone());
+                d
+            }
+        }
+    };
+}
+
 pub async fn frontpage(
     query: Query<ApiOptions>,
     data: Data<AppState>,
@@ -43,48 +59,9 @@ pub async fn frontpage(
     let api = opts.get_weather_api(WeatherApi::clone(&data.api))?;
 
     let hash = api.weather_api_hash();
-    println!("{}", hash);
 
-    let weather_data = data.data.lock().await.cache_get(&hash).cloned();
-    let weather_forecast = data.forecast.lock().await.cache_get(&hash).cloned();
-
-    let weather_data = if let Some(d) = weather_data {
-        d
-    } else {
-        let d = api.get_weather_data().await?;
-        data.data.lock().await.cache_set(hash.clone(), d.clone());
-        d
-    };
-
-    println!("got data");
-
-    let weather_forecast = if let Some(d) = weather_forecast {
-        d
-    } else {
-        let d = api.get_weather_forecast().await?;
-        data.forecast
-            .lock()
-            .await
-            .cache_set(hash.clone(), d.clone());
-        d
-    };
-
-    println!("got forecast");
-
-    {
-        let cache = data.data.lock().await;
-        println!(
-            "data hits {}, misses {}",
-            cache.cache_hits().unwrap_or(0),
-            cache.cache_misses().unwrap_or(0)
-        );
-        let cache = data.forecast.lock().await;
-        println!(
-            "forecast hits {}, misses {}",
-            cache.cache_hits().unwrap_or(0),
-            cache.cache_misses().unwrap_or(0)
-        );
-    }
+    let weather_data = get_cached!(hash, data.data, api.get_weather_data());
+    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast());
 
     let mut buf = Vec::new();
     weather_data.get_current_conditions(&mut buf)?;
@@ -94,6 +71,19 @@ pub async fn frontpage(
     let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
     let rows = lines.len() + 5;
     let body = format!("<textarea rows={} cols={}>{}</textarea>", rows, cols, body);
+    form_http_response(body)
+}
+
+pub async fn statistics(data: Data<AppState>) -> Result<HttpResponse, Error> {
+    let data_cache = data.data.lock().await;
+    let forecast_cache = data.forecast.lock().await;
+    let body = format!(
+        "data hits {}, misses {} : forecast hits {}, misses {}",
+        data_cache.cache_hits().unwrap_or(0),
+        data_cache.cache_misses().unwrap_or(0),
+        forecast_cache.cache_hits().unwrap_or(0),
+        forecast_cache.cache_misses().unwrap_or(0)
+    );
     form_http_response(body)
 }
 
@@ -131,15 +121,8 @@ pub async fn weather(
     let query = query.into_inner();
     let api = query.get_weather_api(WeatherApi::clone(&data.api))?;
     let hash = api.weather_api_hash();
-    let weather_data = data.data.lock().await.cache_get(&hash).cloned();
 
-    let weather_data = if let Some(d) = weather_data {
-        d
-    } else {
-        let d = api.get_weather_data().await?;
-        data.data.lock().await.cache_set(hash, d.clone());
-        d
-    };
+    let weather_data = get_cached!(hash, data.data, api.get_weather_data());
 
     to_json(&weather_data)
 }
@@ -151,15 +134,7 @@ pub async fn forecast(
     let query = query.into_inner();
     let api = query.get_weather_api(WeatherApi::clone(&data.api))?;
     let hash = api.weather_api_hash();
-    let weather_forecast = data.forecast.lock().await.cache_get(&hash).cloned();
-
-    let weather_forecast = if let Some(d) = weather_forecast {
-        d
-    } else {
-        let d = api.get_weather_forecast().await?;
-        data.forecast.lock().await.cache_set(hash, d.clone());
-        d
-    };
+    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast());
 
     to_json(&weather_forecast)
 }

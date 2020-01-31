@@ -9,7 +9,7 @@ use weather_util_rust::weather_data::WeatherData;
 use weather_util_rust::weather_forecast::WeatherForecast;
 
 use super::config::Config;
-use super::routes::{forecast, frontpage, weather};
+use super::routes::{forecast, frontpage, statistics, weather};
 
 lazy_static! {
     pub static ref CONFIG: Config = Config::init_config().expect("Failed to load config");
@@ -57,6 +57,7 @@ pub async fn start_app() {
             .service(web::resource("/weather/index.html").route(web::get().to(frontpage)))
             .service(web::resource("/weather/weather").route(web::get().to(weather)))
             .service(web::resource("/weather/forecast").route(web::get().to(forecast)))
+            .service(web::resource("/weather/statistics").route(web::get().to(statistics)))
     })
     .bind(&format!("127.0.0.1:{}", port))
     .unwrap_or_else(|_| panic!("Failed to bind to port {}", port))
