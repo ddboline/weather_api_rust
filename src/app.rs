@@ -33,13 +33,8 @@ pub async fn start_app() {
     let api_endpoint = config
         .api_endpoint
         .as_ref()
-        .map(|x| x.as_str())
-        .unwrap_or("api.openweathermap.org");
-    let api_path = config
-        .api_path
-        .as_ref()
-        .map(|x| x.as_str())
-        .unwrap_or("data/2.5/");
+        .map_or("api.openweathermap.org", String::as_str);
+    let api_path = config.api_path.as_ref().map_or("data/2.5/", String::as_str);
 
     let app = AppState {
         api: Arc::new(WeatherApi::new(api_key, api_endpoint, api_path)),

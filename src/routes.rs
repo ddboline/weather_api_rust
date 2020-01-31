@@ -36,19 +36,17 @@ pub struct ApiOptions {
 }
 
 macro_rules! get_cached {
-    ($hash:ident, $mutex:expr, $call:expr) => {
-        {
-            let result = $mutex.lock().await.cache_get(&$hash).cloned();
+    ($hash:ident, $mutex:expr, $call:expr) => {{
+        let result = $mutex.lock().await.cache_get(&$hash).cloned();
 
-            if let Some(d) = result {
-                d
-            } else {
-                let d = $call.await?;
-                $mutex.lock().await.cache_set($hash.clone(), d.clone());
-                d
-            }
+        if let Some(d) = result {
+            d
+        } else {
+            let d = $call.await?;
+            $mutex.lock().await.cache_set($hash.clone(), d.clone());
+            d
         }
-    };
+    }};
 }
 
 pub async fn frontpage(
