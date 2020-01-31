@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use weather_util_rust::latitude::Latitude;
 use weather_util_rust::longitude::Longitude;
 use weather_util_rust::weather_api::WeatherApi;
-use weather_util_rust::weather_opts::WeatherOpts;
 
 use crate::app::AppState;
 use crate::errors::ServiceError as Error;
