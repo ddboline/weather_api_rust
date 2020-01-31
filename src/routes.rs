@@ -25,12 +25,23 @@ where
     Ok(HttpResponse::Ok().json2(js))
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ApiOptions {
+    pub zip: Option<u64>,
+    pub country_code: Option<String>,
+    pub q: Option<String>,
+    pub lat: Option<Latitude>,
+    pub lon: Option<Longitude>,
+    #[serde(rename = "APPID")]
+    pub appid: Option<String>,
+}
+
 pub async fn frontpage(
-    query: Query<WeatherOpts>,
+    query: Query<ApiOptions>,
     data: Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let opts = query.into_inner();
-    let api = opts.set_opts(WeatherApi::clone(&data.api))?;
+    let api = opts.get_weather_api(WeatherApi::clone(&data.api))?;
 
     let hash = api.weather_api_hash();
     println!("{}", hash);
@@ -81,17 +92,6 @@ pub async fn frontpage(
     let rows = lines.len() + 5;
     let body = format!("<textarea rows={} cols={}>{}</textarea>", rows, cols, body);
     form_http_response(body)
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ApiOptions {
-    pub zip: Option<u64>,
-    pub country_code: Option<String>,
-    pub q: Option<String>,
-    pub lat: Option<Latitude>,
-    pub lon: Option<Longitude>,
-    #[serde(rename = "APPID")]
-    pub appid: Option<String>,
 }
 
 impl ApiOptions {
