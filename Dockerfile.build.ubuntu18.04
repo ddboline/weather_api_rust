@@ -1,0 +1,9 @@
+FROM rust_stable:latest
+MAINTAINER Daniel Boline
+
+WORKDIR /weather_api_rust
+
+ADD Cargo.toml /weather_api_rust
+ADD src /weather_api_rust/src
+ADD scripts /weather_api_rust/scripts
+ADD Makefile /weather_api_rust
