@@ -8,7 +8,7 @@ use weather_util_rust::latitude::Latitude;
 use weather_util_rust::longitude::Longitude;
 use weather_util_rust::weather_api::WeatherApi;
 
-use crate::app::AppState;
+use crate::app::{AppState, CONFIG};
 use crate::errors::ServiceError as Error;
 
 fn form_http_response(body: String) -> Result<HttpResponse, Error> {
@@ -63,12 +63,32 @@ pub async fn frontpage(
 
     let mut buf = Vec::new();
     weather_data.get_current_conditions(&mut buf)?;
+    let weather_data = String::from_utf8(buf)?;
+
+    let mut buf = Vec::new();
     weather_forecast.get_forecast(&mut buf)?;
-    let body = String::from_utf8(buf)?;
-    let lines: Vec<_> = body.split('\n').collect();
+    let weather_forecast = String::from_utf8(buf)?;
+
+    let lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
     let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
     let rows = lines.len() + 5;
-    let body = format!("<textarea rows={} cols={}>{}</textarea>", rows, cols, body);
+    let body = format!(
+        "<textarea rows={} cols={}>{}</textarea>",
+        rows,
+        cols,
+        lines.join("\n")
+    );
+
+    let lines: Vec<_> = weather_forecast.split('\n').map(str::trim_end).collect();
+    let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
+    let body = format!(
+        "{}<textarea rows={} cols={}>{}</textarea>",
+        body,
+        rows,
+        cols,
+        lines.join("\n")
+    );
+
     form_http_response(body)
 }
 
@@ -87,6 +107,8 @@ pub async fn statistics(data: Data<AppState>) -> Result<HttpResponse, Error> {
 
 impl ApiOptions {
     fn get_weather_api(&self, api: WeatherApi) -> Result<WeatherApi, Error> {
+        let config = &CONFIG;
+
         let api = if let Some(appid) = &self.appid {
             api.with_key(&appid)
         } else {
@@ -102,6 +124,16 @@ impl ApiOptions {
         } else if self.lat.is_some() && self.lon.is_some() {
             let lat = self.lat.unwrap();
             let lon = self.lon.unwrap();
+            api.with_lat_lon(lat, lon)
+        } else if let Some(zipcode) = config.zipcode {
+            api.with_zipcode(zipcode)
+        } else if let Some(country_code) = &config.country_code {
+            api.with_country_code(country_code)
+        } else if let Some(city_name) = &config.city_name {
+            api.with_city_name(city_name)
+        } else if config.lat.is_some() && config.lon.is_some() {
+            let lat = config.lat.unwrap();
+            let lon = config.lon.unwrap();
             api.with_lat_lon(lat, lon)
         } else {
             return Err(Error::BadRequest(
