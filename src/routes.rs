@@ -37,8 +37,9 @@ pub struct ApiOptions {
 
 macro_rules! get_cached {
     ($hash:ident, $mutex:expr, $call:expr) => {{
-        match $mutex.lock().await.cache_get(&$hash) {
-            Some(d) => d.clone(),
+        let result = $mutex.lock().await.cache_get(&$hash).map(|d| d.clone());
+        match result {
+            Some(d) => d,
             None => {
                 let d = $call.await?;
                 $mutex.lock().await.cache_set($hash.clone(), d.clone());
