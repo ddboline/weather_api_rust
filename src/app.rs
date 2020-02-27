@@ -20,8 +20,8 @@ type Cache<K, V> = Arc<Mutex<TimedCache<K, V>>>;
 #[derive(Clone)]
 pub struct AppState {
     pub api: Arc<WeatherApi>,
-    pub data: Cache<String, WeatherData>,
-    pub forecast: Cache<String, WeatherForecast>,
+    pub data: Cache<String, Arc<WeatherData>>,
+    pub forecast: Cache<String, Arc<WeatherForecast>>,
 }
 
 pub async fn start_app() {
