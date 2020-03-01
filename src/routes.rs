@@ -5,6 +5,7 @@ use actix_web::{
 };
 use cached::Cached;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use weather_util_rust::{latitude::Latitude, longitude::Longitude, weather_api::WeatherApi};
 
@@ -39,10 +40,11 @@ pub struct ApiOptions {
 
 macro_rules! get_cached {
     ($hash:ident, $mutex:expr, $call:expr) => {{
-        match $mutex.lock().await.cache_get(&$hash) {
-            Some(d) => d.clone(),
+        let result = $mutex.lock().await.cache_get(&$hash).map(|d| d.clone());
+        match result {
+            Some(d) => d,
             None => {
-                let d = $call.await?;
+                let d = Arc::new($call.await?);
                 $mutex.lock().await.cache_set($hash.clone(), d.clone());
                 d
             }
@@ -155,7 +157,7 @@ pub async fn weather(
 
     let weather_data = get_cached!(hash, data.data, api.get_weather_data());
 
-    to_json(&weather_data)
+    to_json(&(*weather_data))
 }
 
 pub async fn forecast(
@@ -167,5 +169,5 @@ pub async fn forecast(
     let hash = api.weather_api_hash();
     let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast());
 
-    to_json(&weather_forecast)
+    to_json(&(*weather_forecast))
 }
