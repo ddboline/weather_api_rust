@@ -2,6 +2,7 @@ use actix_web::http::StatusCode;
 use actix_web::web::{Data, Query};
 use actix_web::HttpResponse;
 use cached::Cached;
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -90,6 +91,71 @@ pub async fn frontpage(
         lines.join("\n")
     );
 
+    form_http_response(body)
+}
+
+pub async fn forecast_plot(
+    query: Query<ApiOptions>,
+    data: Data<AppState>,
+) -> Result<HttpResponse, Error> {
+    let opts = query.into_inner();
+    let api = opts.get_weather_api(WeatherApi::clone(&data.api))?;
+
+    let hash = api.weather_api_hash();
+
+    let weather_data = get_cached!(hash, data.data, api.get_weather_data());
+    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast());
+
+    let mut buf = Vec::new();
+    weather_data.get_current_conditions(&mut buf)?;
+    let weather_data = String::from_utf8(buf)?;
+    let lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
+    let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
+    let rows = lines.len() + 5;
+    let body = format!(
+        "<textarea rows={} cols={}>{}</textarea>",
+        rows,
+        cols,
+        lines.join("\n")
+    );
+
+    let data: Vec<_> = weather_forecast
+        .list
+        .iter()
+        .map(|entry| {
+            (
+                entry
+                    .dt
+                    .with_timezone(&Local)
+                    .format("%Y-%m-%dT%H:%M:%S%z")
+                    .to_string(),
+                entry.main.temp.fahrenheit(),
+            )
+        })
+        .collect();
+
+    let mut buf = Vec::new();
+    weather_forecast.get_forecast(&mut buf)?;
+    let weather_forecast = String::from_utf8(buf)?;
+    let lines: Vec<_> = weather_forecast.split('\n').map(str::trim_end).collect();
+    let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
+    let body = format!(
+        "{}<textarea rows={} cols={}>{}</textarea>",
+        body,
+        rows,
+        cols,
+        lines.join("\n")
+    );
+
+    let js_str = serde_json::to_string(&data).unwrap_or_else(|_| "".to_string());
+    let js_str = include_str!("../templates/TIMESERIESTEMPLATE.js").replace("DATA", &js_str);
+    let body = format!("{}<br><script>{}</script>", body, js_str);
+
+    let body = include_str!("../templates/PLOT_TEMPLATE.html")
+        .replace("INSERTOTHERIMAGESHERE", &body)
+        .replace("YAXIS", "F")
+        .replace("XAXIS", "")
+        .replace("EXAMPLETITLE", "Temperature Forecast");
     form_http_response(body)
 }
 

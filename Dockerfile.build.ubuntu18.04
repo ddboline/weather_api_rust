@@ -7,3 +7,4 @@ ADD Cargo.toml /weather_api_rust
 ADD src /weather_api_rust/src
 ADD scripts /weather_api_rust/scripts
 ADD Makefile /weather_api_rust
+ADD templates /weather_api_rust/templates
