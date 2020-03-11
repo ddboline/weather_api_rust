@@ -56,9 +56,9 @@ pub async fn frontpage(
     data: Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let opts = query.into_inner();
-    let api = opts.get_weather_api(WeatherApi::clone(&data.api))?;
+    let api = opts.get_weather_api(&data.api)?;
 
-    let hash = api.weather_api_hash();
+    let hash = format!("{:?}", api);
 
     let weather_data = get_cached!(hash, data.data, api.get_weather_data());
     let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast());
@@ -99,9 +99,9 @@ pub async fn forecast_plot(
     data: Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let opts = query.into_inner();
-    let api = opts.get_weather_api(WeatherApi::clone(&data.api))?;
+    let api = opts.get_weather_api(&data.api)?;
 
-    let hash = api.weather_api_hash();
+    let hash = format!("{:?}", api);
 
     let weather_data = get_cached!(hash, data.data, api.get_weather_data());
     let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast());
@@ -173,19 +173,21 @@ pub async fn statistics(data: Data<AppState>) -> Result<HttpResponse, Error> {
 }
 
 impl ApiOptions {
-    fn get_weather_api(&self, api: WeatherApi) -> Result<WeatherApi, Error> {
+    fn get_weather_api(&self, api: &WeatherApi) -> Result<WeatherApi, Error> {
         let config = &CONFIG;
 
         let api = if let Some(appid) = &self.appid {
-            api.with_key(&appid)
+            api.clone().with_key(&appid)
         } else {
-            api
+            api.clone()
         };
 
         let api = if let Some(zipcode) = self.zip {
-            api.with_zipcode(zipcode)
-        } else if let Some(country_code) = &self.country_code {
-            api.with_country_code(country_code)
+            if let Some(country_code) = &self.country_code {
+                api.with_zipcode_country_code(zipcode, country_code)
+            } else {
+                api.with_zipcode(zipcode)
+            }
         } else if let Some(city_name) = &self.q {
             api.with_city_name(city_name)
         } else if self.lat.is_some() && self.lon.is_some() {
@@ -193,9 +195,11 @@ impl ApiOptions {
             let lon = self.lon.unwrap();
             api.with_lat_lon(lat, lon)
         } else if let Some(zipcode) = config.zipcode {
-            api.with_zipcode(zipcode)
-        } else if let Some(country_code) = &config.country_code {
-            api.with_country_code(country_code)
+            if let Some(country_code) = &config.country_code {
+                api.with_zipcode_country_code(zipcode, country_code)
+            } else {
+                api.with_zipcode(zipcode)
+            }
         } else if let Some(city_name) = &config.city_name {
             api.with_city_name(city_name)
         } else if config.lat.is_some() && config.lon.is_some() {
@@ -216,8 +220,8 @@ pub async fn weather(
     data: Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let query = query.into_inner();
-    let api = query.get_weather_api(WeatherApi::clone(&data.api))?;
-    let hash = api.weather_api_hash();
+    let api = query.get_weather_api(&data.api)?;
+    let hash = format!("{:?}", api);
 
     let weather_data = get_cached!(hash, data.data, api.get_weather_data());
 
@@ -229,8 +233,8 @@ pub async fn forecast(
     data: Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let query = query.into_inner();
-    let api = query.get_weather_api(WeatherApi::clone(&data.api))?;
-    let hash = api.weather_api_hash();
+    let api = query.get_weather_api(&data.api)?;
+    let hash = format!("{:?}", api);
     let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast());
 
     to_json(&(*weather_forecast))
