@@ -41,14 +41,13 @@ pub struct ApiOptions {
 
 macro_rules! get_cached {
     ($hash:ident, $mutex:expr, $call:expr) => {{
-        let result = $mutex.lock().await.cache_get(&$hash).map(|d| d.clone());
-        match result {
-            Some(d) => d,
-            None => {
-                let d = Arc::new($call.await?);
-                $mutex.lock().await.cache_set($hash.clone(), d.clone());
-                d
-            }
+        let result = $mutex.lock().await.cache_get(&$hash).map(Clone::clone);
+        if let Some(d) = result {
+            d
+        } else {
+            let d = Arc::new($call.await?);
+            $mutex.lock().await.cache_set($hash.clone(), d.clone());
+            d
         }
     }};
 }
