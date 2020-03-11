@@ -1,7 +1,6 @@
 use actix_web::{error::ResponseError, HttpResponse};
 use anyhow::Error as AnyhowError;
-use std::fmt::Debug;
-use std::string::FromUtf8Error;
+use std::{fmt::Debug, string::FromUtf8Error};
 use thiserror::Error;
 
 #[derive(Error, Debug)]

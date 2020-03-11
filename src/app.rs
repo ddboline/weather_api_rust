@@ -4,12 +4,14 @@ use lazy_static::lazy_static;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use weather_util_rust::weather_api::WeatherApi;
-use weather_util_rust::weather_data::WeatherData;
-use weather_util_rust::weather_forecast::WeatherForecast;
+use weather_util_rust::{
+    weather_api::WeatherApi, weather_data::WeatherData, weather_forecast::WeatherForecast,
+};
 
-use super::config::Config;
-use super::routes::{forecast, forecast_plot, frontpage, statistics, weather};
+use super::{
+    config::Config,
+    routes::{forecast, frontpage, statistics, weather, forecast_plot},
+};
 
 lazy_static! {
     pub static ref CONFIG: Config = Config::init_config().expect("Failed to load config");

@@ -1,17 +1,19 @@
-use actix_web::http::StatusCode;
-use actix_web::web::{Data, Query};
-use actix_web::HttpResponse;
+use actix_web::{
+    http::StatusCode,
+    web::{Data, Query},
+    HttpResponse,
+};
 use cached::Cached;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use weather_util_rust::latitude::Latitude;
-use weather_util_rust::longitude::Longitude;
-use weather_util_rust::weather_api::WeatherApi;
+use weather_util_rust::{latitude::Latitude, longitude::Longitude, weather_api::WeatherApi};
 
-use crate::app::{AppState, CONFIG};
-use crate::errors::ServiceError as Error;
+use crate::{
+    app::{AppState, CONFIG},
+    errors::ServiceError as Error,
+};
 
 fn form_http_response(body: String) -> Result<HttpResponse, Error> {
     Ok(HttpResponse::build(StatusCode::OK)
