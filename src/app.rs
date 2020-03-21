@@ -10,7 +10,7 @@ use weather_util_rust::{
 
 use super::{
     config::Config,
-    routes::{forecast, frontpage, statistics, weather, forecast_plot},
+    routes::{forecast, forecast_plot, frontpage, statistics, weather},
 };
 
 lazy_static! {
