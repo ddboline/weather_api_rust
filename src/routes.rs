@@ -135,19 +135,6 @@ pub async fn forecast_plot(
         })
         .collect();
 
-    let mut buf = Vec::new();
-    weather_forecast.get_forecast(&mut buf)?;
-    let weather_forecast = String::from_utf8(buf)?;
-    let lines: Vec<_> = weather_forecast.split('\n').map(str::trim_end).collect();
-    let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
-    let body = format!(
-        "{}<textarea rows={} cols={}>{}</textarea>",
-        body,
-        rows,
-        cols,
-        lines.join("\n")
-    );
-
     let js_str = serde_json::to_string(&data).unwrap_or_else(|_| "".to_string());
     let js_str = include_str!("../templates/TIMESERIESTEMPLATE.js").replace("DATA", &js_str);
     let body = format!("{}<br><script>{}</script>", body, js_str);
