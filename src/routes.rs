@@ -8,7 +8,9 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use weather_util_rust::{latitude::Latitude, longitude::Longitude, weather_api::WeatherApi};
+use weather_util_rust::{
+    latitude::Latitude, longitude::Longitude, precipitation::Precipitation, weather_api::WeatherApi,
+};
 
 use crate::{
     app::{AppState, CONFIG},
@@ -136,14 +138,48 @@ pub async fn forecast_plot(
         .collect();
 
     let js_str = serde_json::to_string(&data).unwrap_or_else(|_| "".to_string());
-    let js_str = include_str!("../templates/TIMESERIESTEMPLATE.js").replace("DATA", &js_str);
-    let body = format!("{}<br><script>{}</script>", body, js_str);
-
-    let body = include_str!("../templates/PLOT_TEMPLATE.html")
-        .replace("INSERTOTHERIMAGESHERE", &body)
+    let js_str = include_str!("../templates/TIMESERIESTEMPLATE.js")
+        .replace("DATA", &js_str)
         .replace("YAXIS", "F")
         .replace("XAXIS", "")
         .replace("EXAMPLETITLE", "Temperature Forecast");
+    let body = format!("{}<br><script>{}</script>", body, js_str);
+
+    let data: Vec<_> = weather_forecast
+        .list
+        .iter()
+        .map(|entry| {
+            let rain = if let Some(rain) = &entry.rain {
+                rain.three_hour.unwrap_or_default()
+            } else {
+                Precipitation::default()
+            };
+            let snow = if let Some(snow) = &entry.snow {
+                snow.three_hour.unwrap_or_default()
+            } else {
+                Precipitation::default()
+            };
+            (
+                entry
+                    .dt
+                    .with_timezone(&Local)
+                    .format("%Y-%m-%dT%H:%M:%S%z")
+                    .to_string(),
+                (rain + snow).inches(),
+            )
+        })
+        .collect();
+
+    let js_str = serde_json::to_string(&data).unwrap_or_else(|_| "".to_string());
+    let js_str = include_str!("../templates/TIMESERIESTEMPLATE.js")
+        .replace("DATA", &js_str)
+        .replace("YAXIS", "in")
+        .replace("XAXIS", "")
+        .replace("EXAMPLETITLE", "Precipitation Forecast");
+    let body = format!("{}<br><script>{}</script>", body, js_str);
+
+    let body =
+        include_str!("../templates/PLOT_TEMPLATE.html").replace("INSERTOTHERIMAGESHERE", &body);
     form_http_response(body)
 }
 
