@@ -4,7 +4,7 @@ use actix_web::{
     HttpResponse,
 };
 use cached::Cached;
-use chrono::Local;
+use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -122,6 +122,7 @@ pub async fn forecast_plot(
         lines.join("\n")
     );
 
+    let fo: FixedOffset = weather_forecast.city.timezone.into();
     let data: Vec<_> = weather_forecast
         .list
         .iter()
@@ -129,7 +130,7 @@ pub async fn forecast_plot(
             (
                 entry
                     .dt
-                    .with_timezone(&Local)
+                    .with_timezone(&fo)
                     .format("%Y-%m-%dT%H:%M:%S%z")
                     .to_string(),
                 entry.main.temp.fahrenheit(),
@@ -162,7 +163,7 @@ pub async fn forecast_plot(
             (
                 entry
                     .dt
-                    .with_timezone(&Local)
+                    .with_timezone(&fo)
                     .format("%Y-%m-%dT%H:%M:%S%z")
                     .to_string(),
                 (rain + snow).inches(),
