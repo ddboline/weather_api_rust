@@ -131,7 +131,7 @@ pub async fn forecast_plot(
                 entry
                     .dt
                     .with_timezone(&fo)
-                    .format("%Y-%m-%dT%H:%M:%S%z")
+                    .format("%Y-%m-%dT%H:%M:%S")
                     .to_string(),
                 entry.main.temp.fahrenheit(),
             )
@@ -164,7 +164,7 @@ pub async fn forecast_plot(
                 entry
                     .dt
                     .with_timezone(&fo)
-                    .format("%Y-%m-%dT%H:%M:%S%z")
+                    .format("%Y-%m-%dT%H:%M:%S")
                     .to_string(),
                 (rain + snow).inches(),
             )
