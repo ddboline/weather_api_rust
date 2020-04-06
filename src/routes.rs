@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use weather_util_rust::{
-    latitude::Latitude, longitude::Longitude, precipitation::Precipitation, weather_api::WeatherApi,
+    latitude::Latitude,
+    longitude::Longitude,
+    precipitation::Precipitation,
+    weather_api::{WeatherApi, WeatherLocation},
 };
 
 use crate::{
@@ -60,11 +63,12 @@ pub async fn frontpage(
 ) -> Result<HttpResponse, Error> {
     let opts = query.into_inner();
     let api = opts.get_weather_api(&data.api)?;
+    let loc = opts.get_weather_location()?;
 
-    let hash = format!("{:?}", api);
+    let hash = format!("{:?}", loc);
 
-    let weather_data = get_cached!(hash, data.data, api.get_weather_data());
-    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast());
+    let weather_data = get_cached!(hash, data.data, api.get_weather_data(&loc));
+    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast(&loc));
 
     let mut buf = Vec::new();
     weather_data.get_current_conditions(&mut buf)?;
@@ -103,11 +107,12 @@ pub async fn forecast_plot(
 ) -> Result<HttpResponse, Error> {
     let opts = query.into_inner();
     let api = opts.get_weather_api(&data.api)?;
+    let loc = opts.get_weather_location()?;
 
-    let hash = format!("{:?}", api);
+    let hash = format!("{:?}", loc);
 
-    let weather_data = get_cached!(hash, data.data, api.get_weather_data());
-    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast());
+    let weather_data = get_cached!(hash, data.data, api.get_weather_data(&loc));
+    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast(&loc));
 
     let mut buf = Vec::new();
     weather_data.get_current_conditions(&mut buf)?;
@@ -199,44 +204,46 @@ pub async fn statistics(data: Data<AppState>) -> Result<HttpResponse, Error> {
 
 impl ApiOptions {
     fn get_weather_api(&self, api: &WeatherApi) -> Result<WeatherApi, Error> {
-        let config = &CONFIG;
-
         let api = if let Some(appid) = &self.appid {
             api.clone().with_key(&appid)
         } else {
             api.clone()
         };
+        Ok(api)
+    }
 
-        let api = if let Some(zipcode) = self.zip {
+    fn get_weather_location(&self) -> Result<WeatherLocation, Error> {
+        let config = &CONFIG;
+        let loc = if let Some(zipcode) = self.zip {
             if let Some(country_code) = &self.country_code {
-                api.with_zipcode_country_code(zipcode, country_code)
+                WeatherLocation::from_zipcode_country_code(zipcode, country_code)
             } else {
-                api.with_zipcode(zipcode)
+                WeatherLocation::from_zipcode(zipcode)
             }
         } else if let Some(city_name) = &self.q {
-            api.with_city_name(city_name)
+            WeatherLocation::from_city_name(city_name)
         } else if self.lat.is_some() && self.lon.is_some() {
             let lat = self.lat.unwrap();
             let lon = self.lon.unwrap();
-            api.with_lat_lon(lat, lon)
+            WeatherLocation::from_lat_lon(lat, lon)
         } else if let Some(zipcode) = config.zipcode {
             if let Some(country_code) = &config.country_code {
-                api.with_zipcode_country_code(zipcode, country_code)
+                WeatherLocation::from_zipcode_country_code(zipcode, country_code)
             } else {
-                api.with_zipcode(zipcode)
+                WeatherLocation::from_zipcode(zipcode)
             }
         } else if let Some(city_name) = &config.city_name {
-            api.with_city_name(city_name)
+            WeatherLocation::from_city_name(city_name)
         } else if config.lat.is_some() && config.lon.is_some() {
             let lat = config.lat.unwrap();
             let lon = config.lon.unwrap();
-            api.with_lat_lon(lat, lon)
+            WeatherLocation::from_lat_lon(lat, lon)
         } else {
             return Err(Error::BadRequest(
                 "\n\nERROR: You must specify at least one option".into(),
             ));
         };
-        Ok(api)
+        Ok(loc)
     }
 }
 
@@ -246,9 +253,10 @@ pub async fn weather(
 ) -> Result<HttpResponse, Error> {
     let query = query.into_inner();
     let api = query.get_weather_api(&data.api)?;
-    let hash = format!("{:?}", api);
+    let loc = query.get_weather_location()?;
+    let hash = format!("{:?}", loc);
 
-    let weather_data = get_cached!(hash, data.data, api.get_weather_data());
+    let weather_data = get_cached!(hash, data.data, api.get_weather_data(&loc));
 
     to_json(&(*weather_data))
 }
@@ -259,8 +267,9 @@ pub async fn forecast(
 ) -> Result<HttpResponse, Error> {
     let query = query.into_inner();
     let api = query.get_weather_api(&data.api)?;
-    let hash = format!("{:?}", api);
-    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast());
+    let loc = query.get_weather_location()?;
+    let hash = format!("{:?}", loc);
+    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast(&loc));
 
     to_json(&(*weather_forecast))
 }
