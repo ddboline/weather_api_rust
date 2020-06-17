@@ -1,17 +1,20 @@
 use anyhow::{format_err, Error};
-use std::{env::var, ops::Deref, path::Path, sync::Arc};
+use serde::Deserialize;
+use std::{ops::Deref, path::Path, sync::Arc};
 
 use weather_util_rust::{latitude::Latitude, longitude::Longitude};
 
 /// Configuration data
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Deserialize)]
 pub struct ConfigInner {
     /// openweathermap.org api key
-    pub api_key: Option<String>,
+    pub api_key: String,
     /// openweathermap.org api endpoint
-    pub api_endpoint: Option<String>,
+    #[serde(default = "default_api_endpoint")]
+    pub api_endpoint: String,
     /// api path (default `data/2.5/`)
-    pub api_path: Option<String>,
+    #[serde(default = "default_api_path")]
+    pub api_path: String,
     /// optional default zipcode
     pub zipcode: Option<u64>,
     /// optional default country code
@@ -22,35 +25,23 @@ pub struct ConfigInner {
     pub lat: Option<Latitude>,
     /// optional default longitude
     pub lon: Option<Longitude>,
+    #[serde(default = "default_port")]
     pub port: u32,
+}
+
+fn default_port() -> u32 {
+    3097
+}
+fn default_api_endpoint() -> String {
+    "api.openweathermap.org".to_string()
+}
+fn default_api_path() -> String {
+    "data/2.5/".to_string()
 }
 
 /// Configuration struct
 #[derive(Default, Debug, Clone)]
 pub struct Config(Arc<ConfigInner>);
-
-macro_rules! set_config_ok {
-    ($s:ident, $id:ident) => {
-        $s.$id = var(&stringify!($id).to_uppercase()).ok();
-    };
-}
-
-macro_rules! set_config_parse {
-    ($s:ident, $id:ident) => {
-        $s.$id = var(&stringify!($id).to_uppercase())
-            .ok()
-            .and_then(|x| x.parse().ok());
-    };
-}
-
-macro_rules! set_config_parse_default {
-    ($s:ident, $id:ident, $d:expr) => {
-        $s.$id = var(&stringify!($id).to_uppercase())
-            .ok()
-            .and_then(|x| x.parse().ok())
-            .unwrap_or_else(|| $d);
-    };
-}
 
 impl Config {
     pub fn new() -> Self {
@@ -72,7 +63,7 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// # use std::env::{set_var, var};
+    /// # use std::env::set_var;
     /// use weather_util_rust::config::Config;
     /// use anyhow::Error;
     ///
@@ -80,8 +71,8 @@ impl Config {
     /// # set_var("API_KEY", "api_key_value");
     /// # set_var("API_ENDPOINT", "api.openweathermap.org");
     /// let config = Config::init_config()?;
-    /// assert_eq!(config.api_key, var("API_KEY").ok());
-    /// assert_eq!(config.api_endpoint, var("API_ENDPOINT").ok());
+    /// assert_eq!(config.api_key, Some("api_key_value".into()));
+    /// assert_eq!(config.api_endpoint, Some("api.openweathermap.org".into()));
     /// # Ok(())
     /// # }
     /// ```
@@ -102,17 +93,7 @@ impl Config {
             dotenv::from_path(env_file).ok();
         }
 
-        let mut conf = ConfigInner::default();
-
-        set_config_ok!(conf, api_key);
-        set_config_ok!(conf, api_endpoint);
-        set_config_ok!(conf, api_path);
-        set_config_parse!(conf, zipcode);
-        set_config_ok!(conf, country_code);
-        set_config_ok!(conf, city_name);
-        set_config_parse!(conf, lat);
-        set_config_parse!(conf, lon);
-        set_config_parse_default!(conf, port, 3097);
+        let conf: ConfigInner = envy::from_env()?;
 
         Ok(Self(Arc::new(conf)))
     }

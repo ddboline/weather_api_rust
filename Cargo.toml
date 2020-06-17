@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.2.7"
+version = "0.2.8"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -21,6 +21,7 @@ maplit = "1.0"
 dotenv = "0.15"
 dirs = "2.0"
 chrono = "0.4"
+envy = "0.4"
 
 [[bin]]
 name = "weather-api-rust"

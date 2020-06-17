@@ -31,15 +31,12 @@ pub async fn start_app() {
 
     let port = config.port;
 
-    let api_key = config.api_key.as_ref().expect("No API Key");
-    let api_endpoint = config
-        .api_endpoint
-        .as_ref()
-        .map_or("api.openweathermap.org", String::as_str);
-    let api_path = config.api_path.as_ref().map_or("data/2.5/", String::as_str);
-
     let app = AppState {
-        api: Arc::new(WeatherApi::new(api_key, api_endpoint, api_path)),
+        api: Arc::new(WeatherApi::new(
+            &config.api_key,
+            &config.api_endpoint,
+            &config.api_path,
+        )),
         data: Arc::new(Mutex::new(TimedCache::with_lifespan_and_capacity(
             3600, 100,
         ))),
