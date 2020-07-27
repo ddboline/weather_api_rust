@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.2.9"
+version = "0.2.10"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -10,7 +10,7 @@ edition = "2018"
 weather_util_rust = "0.3"
 actix-rt = "1.1"
 anyhow = "1.0"
-cached = "0.16"
+cached = "0.18"
 thiserror = "1.0"
 actix-web = "2.0"
 tokio = {version="0.2", features=["full"]}
