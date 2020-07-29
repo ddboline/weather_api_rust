@@ -148,7 +148,8 @@ pub async fn forecast_plot(
         .replace("DATA", &js_str)
         .replace("YAXIS", "F")
         .replace("XAXIS", "")
-        .replace("EXAMPLETITLE", "Temperature Forecast");
+        .replace("EXAMPLETITLE", "Temperature Forecast")
+        .replace("NAME", "temperature_forecast");
     let body = format!("{}<br><script>{}</script>", body, js_str);
 
     let data: Vec<_> = weather_forecast
@@ -181,7 +182,8 @@ pub async fn forecast_plot(
         .replace("DATA", &js_str)
         .replace("YAXIS", "in")
         .replace("XAXIS", "")
-        .replace("EXAMPLETITLE", "Precipitation Forecast");
+        .replace("EXAMPLETITLE", "Precipitation Forecast")
+        .replace("NAME", "precipitation_forecast");
     let body = format!("{}<br><script>{}</script>", body, js_str);
 
     let body =
