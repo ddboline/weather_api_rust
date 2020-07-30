@@ -5,6 +5,8 @@ use actix_web::{
 };
 use cached::Cached;
 use chrono::FixedOffset;
+use handlebars::Handlebars;
+use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -143,14 +145,26 @@ pub async fn forecast_plot(
         })
         .collect();
 
+    let mut handlebars = Handlebars::new();
+    handlebars
+        .register_template_string("ts", include_str!("../templates/TIMESERIESTEMPLATE.js.hbr"))?;
+    handlebars.register_template_string("ht", include_str!("../templates/PLOT_TEMPLATE.html.hbr"))?;
+
     let js_str = serde_json::to_string(&data).unwrap_or_else(|_| "".to_string());
-    let js_str = include_str!("../templates/TIMESERIESTEMPLATE.js")
-        .replace("DATA", &js_str)
-        .replace("YAXIS", "F")
-        .replace("XAXIS", "")
-        .replace("EXAMPLETITLE", "Temperature Forecast")
-        .replace("NAME", "temperature_forecast");
-    let body = format!("{}<br><script>{}</script>", body, js_str);
+
+    let params = hashmap! {
+        "DATA" => js_str.as_str(),
+        "YAXIS" => "F",
+        "XAXIS" => "",
+        "EXAMPLETITLE" => "Temperature Forecast",
+        "NAME" => "temperature_forecast",
+    };
+
+    let body = format!(
+        "{}<br>{}",
+        body,
+        handlebars.render("ts", &params)?
+    );
 
     let data: Vec<_> = weather_forecast
         .list
@@ -178,16 +192,23 @@ pub async fn forecast_plot(
         .collect();
 
     let js_str = serde_json::to_string(&data).unwrap_or_else(|_| "".to_string());
-    let js_str = include_str!("../templates/TIMESERIESTEMPLATE.js")
-        .replace("DATA", &js_str)
-        .replace("YAXIS", "in")
-        .replace("XAXIS", "")
-        .replace("EXAMPLETITLE", "Precipitation Forecast")
-        .replace("NAME", "precipitation_forecast");
-    let body = format!("{}<br><script>{}</script>", body, js_str);
 
-    let body =
-        include_str!("../templates/PLOT_TEMPLATE.html").replace("INSERTOTHERIMAGESHERE", &body);
+    let params = hashmap! {
+        "DATA"=> js_str.as_str(),
+        "YAXIS"=> "in",
+        "XAXIS"=> "",
+        "EXAMPLETITLE"=> "Precipitation Forecast",
+        "NAME"=> "precipitation_forecast",
+    };
+
+    let body = format!(
+        "{}<br>{}",
+        body,
+        handlebars.render("ts", &params)?
+    );
+
+    let body = handlebars.render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?;
+
     form_http_response(body)
 }
 
