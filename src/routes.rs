@@ -72,13 +72,8 @@ pub async fn frontpage(
     let weather_data = get_cached!(hash, data.data, api.get_weather_data(&loc));
     let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast(&loc));
 
-    let mut buf = Vec::new();
-    weather_data.get_current_conditions(&mut buf)?;
-    let weather_data = String::from_utf8(buf)?;
-
-    let mut buf = Vec::new();
-    weather_forecast.get_forecast(&mut buf)?;
-    let weather_forecast = String::from_utf8(buf)?;
+    let weather_data = weather_data.get_current_conditions()?;
+    let weather_forecast = weather_forecast.get_forecast()?;
 
     let lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
     let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
@@ -116,9 +111,8 @@ pub async fn forecast_plot(
     let weather_data = get_cached!(hash, data.data, api.get_weather_data(&loc));
     let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast(&loc));
 
-    let mut buf = Vec::new();
-    weather_data.get_current_conditions(&mut buf)?;
-    let weather_data = String::from_utf8(buf)?;
+    let weather_data = weather_data.get_current_conditions()?;
+
     let lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
     let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
     let rows = lines.len() + 5;

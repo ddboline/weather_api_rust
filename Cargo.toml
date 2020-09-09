@@ -7,10 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-weather_util_rust = "0.3"
+weather_util_rust = "0.4"
 actix-rt = "1.1"
 anyhow = "1.0"
-cached = "0.18"
+cached = "0.19"
 thiserror = "1.0"
 actix-web = "2.0"
 tokio = {version="0.2", features=["full"]}
@@ -22,7 +22,7 @@ dotenv = "0.15"
 dirs = "3.0"
 chrono = "0.4"
 envy = "0.4"
-handlebars = "3.3"
+handlebars = "3.4"
 
 [[bin]]
 name = "weather-api-rust"
