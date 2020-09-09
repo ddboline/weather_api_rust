@@ -142,7 +142,8 @@ pub async fn forecast_plot(
     let mut handlebars = Handlebars::new();
     handlebars
         .register_template_string("ts", include_str!("../templates/TIMESERIESTEMPLATE.js.hbr"))?;
-    handlebars.register_template_string("ht", include_str!("../templates/PLOT_TEMPLATE.html.hbr"))?;
+    handlebars
+        .register_template_string("ht", include_str!("../templates/PLOT_TEMPLATE.html.hbr"))?;
 
     let js_str = serde_json::to_string(&data).unwrap_or_else(|_| "".to_string());
 
@@ -154,11 +155,7 @@ pub async fn forecast_plot(
         "NAME" => "temperature_forecast",
     };
 
-    let body = format!(
-        "{}<br>{}",
-        body,
-        handlebars.render("ts", &params)?
-    );
+    let body = format!("{}<br>{}", body, handlebars.render("ts", &params)?);
 
     let data: Vec<_> = weather_forecast
         .list
@@ -195,11 +192,7 @@ pub async fn forecast_plot(
         "NAME"=> "precipitation_forecast",
     };
 
-    let body = format!(
-        "{}<br>{}",
-        body,
-        handlebars.render("ts", &params)?
-    );
+    let body = format!("{}<br>{}", body, handlebars.render("ts", &params)?);
 
     let body = handlebars.render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?;
 
