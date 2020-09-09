@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.2.12"
+version = "0.3.0"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
