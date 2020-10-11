@@ -8,11 +8,10 @@ edition = "2018"
 
 [dependencies]
 weather_util_rust = "0.4"
-actix-rt = "1.1"
 anyhow = "1.0"
 cached = "0.19"
 thiserror = "1.0"
-actix-web = "3.0"
+actix-web = "3.1"
 tokio = {version="0.2", features=["full"]}
 lazy_static = "1.4"
 serde = {version="1.0", features=["derive"]}
@@ -22,7 +21,7 @@ dotenv = "0.15"
 dirs = "3.0"
 chrono = "0.4"
 envy = "0.4"
-handlebars = "3.4"
+handlebars = "3.5"
 
 [[bin]]
 name = "weather-api-rust"
