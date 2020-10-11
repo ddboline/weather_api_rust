@@ -9,6 +9,7 @@ use handlebars::Handlebars;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use lazy_static::lazy_static;
 
 use weather_util_rust::{
     latitude::Latitude,
@@ -21,6 +22,19 @@ use crate::{
     app::{AppState, CONFIG},
     errors::ServiceError as Error,
 };
+
+lazy_static! {
+    static ref HBR: Handlebars<'static> = get_templates().expect("Failed to register templates");
+}
+
+fn get_templates() -> Result<Handlebars<'static>, Error> {
+    let mut handlebars = Handlebars::new();
+    handlebars
+        .register_template_string("ts", include_str!("../templates/TIMESERIESTEMPLATE.js.hbr"))?;
+    handlebars
+        .register_template_string("ht", include_str!("../templates/PLOT_TEMPLATE.html.hbr"))?;
+    Ok(handlebars)
+}
 
 fn form_http_response(body: String) -> Result<HttpResponse, Error> {
     Ok(HttpResponse::build(StatusCode::OK)
@@ -139,12 +153,6 @@ pub async fn forecast_plot(
         })
         .collect();
 
-    let mut handlebars = Handlebars::new();
-    handlebars
-        .register_template_string("ts", include_str!("../templates/TIMESERIESTEMPLATE.js.hbr"))?;
-    handlebars
-        .register_template_string("ht", include_str!("../templates/PLOT_TEMPLATE.html.hbr"))?;
-
     let js_str = serde_json::to_string(&data).unwrap_or_else(|_| "".to_string());
 
     let params = hashmap! {
@@ -155,7 +163,7 @@ pub async fn forecast_plot(
         "NAME" => "temperature_forecast",
     };
 
-    let body = format!("{}<br>{}", body, handlebars.render("ts", &params)?);
+    let body = format!("{}<br>{}", body, HBR.render("ts", &params)?);
 
     let data: Vec<_> = weather_forecast
         .list
@@ -192,9 +200,9 @@ pub async fn forecast_plot(
         "NAME"=> "precipitation_forecast",
     };
 
-    let body = format!("{}<br>{}", body, handlebars.render("ts", &params)?);
+    let body = format!("{}<br>{}", body, HBR.render("ts", &params)?);
 
-    let body = handlebars.render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?;
+    let body = HBR.render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?;
 
     form_http_response(body)
 }
