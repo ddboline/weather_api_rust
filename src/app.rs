@@ -90,6 +90,16 @@ mod test {
         println!("{:?}", forecast);
         assert_eq!(forecast.list.len(), 40);
         assert_eq!(forecast.city.timezone, (-18000).try_into()?);
+
+        let url = format!("http://localhost:{}/weather/index.html?zip=55427", test_port);
+        let text = reqwest::get(&url).await?.error_for_status()?.text().await?;
+        println!("{}", text);
+        assert!(text.len() > 0);
+
+        let url = format!("http://localhost:{}/weather/plot.html?zip=55427", test_port);
+        let text = reqwest::get(&url).await?.error_for_status()?.text().await?;
+        println!("{}", text);
+        assert!(text.len() > 0);
         Ok(())
     }
 }
