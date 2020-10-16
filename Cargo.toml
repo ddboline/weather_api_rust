@@ -1,13 +1,13 @@
 [package]
 name = "weather_api_rust"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-weather_util_rust = "0.4"
+weather_util_rust = "0.5"
 anyhow = "1.0"
 cached = "0.19"
 thiserror = "1.0"

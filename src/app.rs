@@ -1,9 +1,9 @@
 use actix_web::{web, App, HttpServer};
+use anyhow::Error;
 use cached::TimedCache;
 use lazy_static::lazy_static;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use anyhow::Error;
 
 use weather_util_rust::{
     weather_api::WeatherApi, weather_data::WeatherData, weather_forecast::WeatherForecast,
@@ -59,28 +59,37 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
             .service(web::resource("/weather/statistics").route(web::get().to(statistics)))
     })
     .bind(&format!("127.0.0.1:{}", port))?
-    .run().await?;
+    .run()
+    .await?;
     Ok(())
 }
 
 #[cfg(test)]
 mod test {
     use anyhow::Error;
-    use weather_util_rust::weather_data::WeatherData;
+    use std::convert::TryInto;
 
-    use crate::app::run_app;
-    use crate::config::Config;
+    use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
+
+    use crate::{app::run_app, config::Config};
 
     #[actix_rt::test]
     async fn test_run_app() -> Result<(), Error> {
         let config = Config::init_config()?;
         let test_port = 12345;
-        actix_rt::spawn(async move {run_app(&config, test_port).await.unwrap()});
+        actix_rt::spawn(async move { run_app(&config, test_port).await.unwrap() });
         actix_rt::time::delay_for(std::time::Duration::from_secs(10)).await;
 
         let url = format!("http://localhost:{}/weather/weather?zip=55427", test_port);
         let weather: WeatherData = reqwest::get(&url).await?.error_for_status()?.json().await?;
         assert_eq!(weather.name.as_str(), "Minneapolis");
+
+        let url = format!("http://localhost:{}/weather/forecast?zip=55427", test_port);
+        let forecast: WeatherForecast =
+            reqwest::get(&url).await?.error_for_status()?.json().await?;
+        println!("{:?}", forecast);
+        assert_eq!(forecast.list.len(), 40);
+        assert_eq!(forecast.city.timezone, (-18000).try_into()?);
         Ok(())
     }
 }

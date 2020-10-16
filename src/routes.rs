@@ -6,10 +6,10 @@ use actix_web::{
 use cached::Cached;
 use chrono::FixedOffset;
 use handlebars::Handlebars;
+use lazy_static::lazy_static;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use lazy_static::lazy_static;
 
 use weather_util_rust::{
     latitude::Latitude,
