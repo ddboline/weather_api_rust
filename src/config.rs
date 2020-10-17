@@ -106,3 +106,22 @@ impl Deref for Config {
         &self.0
     }
 }
+
+#[cfg(test)]
+mod test {
+    use anyhow::Error;
+
+    use crate::config::Config;
+
+    #[test]
+    fn test_config() -> Result<(), Error> {
+        let config = Config::default();
+        assert_eq!(&config.api_endpoint, "");
+
+        let config = Config::init_config()?;
+        if let Some(api_key) = std::env::var_os("API_KEY") {
+            assert_eq!(api_key.to_string_lossy().as_ref(), config.api_key.as_str());
+        }
+        Ok(())
+    }
+}

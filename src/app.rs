@@ -100,6 +100,23 @@ mod test {
         let text = reqwest::get(&url).await?.error_for_status()?.text().await?;
         println!("{}", text);
         assert!(text.len() > 0);
+
+        let url = format!("http://localhost:{}/weather/statistics", test_port);
+        let text = reqwest::get(&url).await?.error_for_status()?.text().await?;
+        assert!(text.len() > 0);
+        assert!(text.contains("data hits"));
+        assert!(text.contains("misses"));
+        assert!(text.contains("forecast hits"));
+
+        let url = format!("http://localhost:{}/weather/weather?q=Minneapolis", test_port);
+        let weather: WeatherData = reqwest::get(&url).await?.error_for_status()?.json().await?;
+        assert_eq!(weather.name.as_str(), "Minneapolis");
+
+        let url = format!("http://localhost:{}/weather/weather?lat=0&lon=0", test_port);
+        let weather: WeatherData = reqwest::get(&url).await?.error_for_status()?.json().await?;
+        assert_eq!(weather.coord.lat, 0.0.try_into()?);
+        assert_eq!(weather.coord.lon, 0.0.try_into()?);
+
         Ok(())
     }
 }
