@@ -35,3 +35,20 @@ impl ResponseError for ServiceError {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use anyhow::Error;
+    use actix_web::error::ResponseError;
+
+    use crate::errors::ServiceError;
+
+    #[test]
+    fn test_service_error() -> Result<(), Error> {
+        let err = ServiceError::BadRequest("TEST ERROR".into());
+
+        let resp = err.error_response();
+        assert_eq!(resp.status().as_u16(), 400);
+        Ok(())
+    }
+}
