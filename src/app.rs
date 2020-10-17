@@ -71,11 +71,11 @@ mod test {
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
-    use crate::{app::run_app, config::Config};
+    use crate::app::{run_app, CONFIG};
 
     #[actix_rt::test]
     async fn test_run_app() -> Result<(), Error> {
-        let config = Config::init_config()?;
+        let config = CONFIG.clone();
         let test_port = 12345;
         actix_rt::spawn(async move { run_app(&config, test_port).await.unwrap() });
         actix_rt::time::delay_for(std::time::Duration::from_secs(10)).await;
@@ -91,7 +91,10 @@ mod test {
         assert_eq!(forecast.list.len(), 40);
         assert_eq!(forecast.city.timezone, (-18000).try_into()?);
 
-        let url = format!("http://localhost:{}/weather/index.html?zip=55427", test_port);
+        let url = format!(
+            "http://localhost:{}/weather/index.html?zip=55427",
+            test_port
+        );
         let text = reqwest::get(&url).await?.error_for_status()?.text().await?;
         println!("{}", text);
         assert!(text.len() > 0);
@@ -108,7 +111,10 @@ mod test {
         assert!(text.contains("misses"));
         assert!(text.contains("forecast hits"));
 
-        let url = format!("http://localhost:{}/weather/weather?q=Minneapolis", test_port);
+        let url = format!(
+            "http://localhost:{}/weather/weather?q=Minneapolis",
+            test_port
+        );
         let weather: WeatherData = reqwest::get(&url).await?.error_for_status()?.json().await?;
         assert_eq!(weather.name.as_str(), "Minneapolis");
 

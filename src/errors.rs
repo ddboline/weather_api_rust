@@ -38,8 +38,8 @@ impl ResponseError for ServiceError {
 
 #[cfg(test)]
 mod test {
-    use anyhow::Error;
     use actix_web::error::ResponseError;
+    use anyhow::Error;
 
     use crate::errors::ServiceError;
 
