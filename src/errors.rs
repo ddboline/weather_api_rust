@@ -46,9 +46,12 @@ mod test {
     #[test]
     fn test_service_error() -> Result<(), Error> {
         let err = ServiceError::BadRequest("TEST ERROR".into());
-
         let resp = err.error_response();
         assert_eq!(resp.status().as_u16(), 400);
+
+        let err = ServiceError::InternalServerError;
+        let resp = err.error_response();
+        assert_eq!(resp.status().as_u16(), 500);
         Ok(())
     }
 }

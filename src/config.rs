@@ -5,7 +5,7 @@ use std::{ops::Deref, path::Path, sync::Arc};
 use weather_util_rust::{latitude::Latitude, longitude::Longitude};
 
 /// Configuration data
-#[derive(Default, Debug, Deserialize)]
+#[derive(Default, Debug, Deserialize, PartialEq)]
 pub struct ConfigInner {
     /// openweathermap.org api key
     pub api_key: String,
@@ -40,7 +40,7 @@ fn default_api_path() -> String {
 }
 
 /// Configuration struct
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Config(Arc<ConfigInner>);
 
 impl Config {
@@ -111,7 +111,7 @@ impl Deref for Config {
 mod test {
     use anyhow::Error;
 
-    use crate::config::Config;
+    use crate::config::{Config, default_api_endpoint};
 
     #[test]
     fn test_config() -> Result<(), Error> {
@@ -122,6 +122,9 @@ mod test {
         if let Some(api_key) = std::env::var_os("API_KEY") {
             assert_eq!(api_key.to_string_lossy().as_ref(), config.api_key.as_str());
         }
+
+        assert_eq!(Config::default(), Config::new());
+        assert_eq!(&default_api_endpoint(), "api.openweathermap.org");
         Ok(())
     }
 }
