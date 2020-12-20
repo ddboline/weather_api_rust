@@ -67,10 +67,9 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
 #[cfg(test)]
 mod test {
     use anyhow::Error;
-    use std::convert::TryInto;
-    use chrono::offset::FixedOffset;
+    use chrono::{offset::FixedOffset, Offset};
     use chrono_tz::US::Central;
-    use chrono::Offset;
+    use std::convert::TryInto;
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 

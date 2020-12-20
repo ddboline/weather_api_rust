@@ -111,7 +111,7 @@ impl Deref for Config {
 mod test {
     use anyhow::Error;
 
-    use crate::config::{Config, default_api_endpoint};
+    use crate::config::{default_api_endpoint, Config};
 
     #[test]
     fn test_config() -> Result<(), Error> {
