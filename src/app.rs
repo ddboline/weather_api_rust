@@ -68,6 +68,9 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
 mod test {
     use anyhow::Error;
     use std::convert::TryInto;
+    use chrono::offset::FixedOffset;
+    use chrono_tz::US::Central;
+    use chrono::Offset;
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
@@ -89,7 +92,11 @@ mod test {
             reqwest::get(&url).await?.error_for_status()?.json().await?;
         println!("{:?}", forecast);
         assert_eq!(forecast.list.len(), 40);
-        assert_eq!(forecast.city.timezone, (-18000).try_into()?);
+        let city_offset: FixedOffset = forecast.city.timezone.into();
+
+        let local = weather.dt.with_timezone(&Central);
+        let expected_offset: FixedOffset = local.offset().fix();
+        assert_eq!(city_offset, expected_offset);
 
         let url = format!(
             "http://localhost:{}/weather/index.html?zip=55427",
