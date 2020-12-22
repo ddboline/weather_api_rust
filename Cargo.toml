@@ -1,20 +1,25 @@
 [package]
 name = "weather_api_rust"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
 [package.metadata.deb]
 name = "weather-api-rust"
+priority = "optional"
+section = "rust"
+provides = "sync-app-rust"
+extended-description = """\
+Weather API."""
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 weather_util_rust = "0.5"
 anyhow = "1.0"
-cached = "0.19"
+cached = "0.22"
 thiserror = "1.0"
-actix-web = "3.1"
+actix-web = "3.3"
 actix-rt = "1.1"
 tokio = {version="0.3", features=["full"]}
 lazy_static = "1.4"
