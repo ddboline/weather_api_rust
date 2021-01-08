@@ -80,7 +80,7 @@ mod test {
         let config = CONFIG.clone();
         let test_port = 12345;
         actix_rt::spawn(async move { run_app(&config, test_port).await.unwrap() });
-        actix_rt::time::delay_for(std::time::Duration::from_secs(10)).await;
+        actix_rt::time::sleep(std::time::Duration::from_secs(10)).await;
 
         let url = format!("http://localhost:{}/weather/weather?zip=55427", test_port);
         let weather: WeatherData = reqwest::get(&url).await?.error_for_status()?.json().await?;

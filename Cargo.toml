@@ -19,8 +19,8 @@ weather_util_rust = "0.6"
 anyhow = "1.0"
 cached = "0.22"
 thiserror = "1.0"
-actix-web = "3.3"
-actix-rt = "1.1"
+actix-web = "4.0.0-beta.1"
+actix-rt = "2.0.0-beta.1"
 tokio = {version="1.0", features=["full"]}
 lazy_static = "1.4"
 serde = {version="1.0", features=["derive"]}
