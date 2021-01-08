@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.3.3"
+version = "0.4.0"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -15,13 +15,13 @@ Weather API."""
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-weather_util_rust = "0.5"
+weather_util_rust = "0.6"
 anyhow = "1.0"
 cached = "0.22"
 thiserror = "1.0"
 actix-web = "3.3"
 actix-rt = "1.1"
-tokio = {version="0.3", features=["full"]}
+tokio = {version="1.0", features=["full"]}
 lazy_static = "1.4"
 serde = {version="1.0", features=["derive"]}
 serde_json = "1.0"
@@ -33,8 +33,7 @@ envy = "0.4"
 handlebars = "3.5"
 
 [dev-dependencies]
-reqwest = {version = "0.10", features=["cookies", "rustls-tls", "gzip", "json"]}
-tokio-compat-02 = "0.1"
+reqwest = {version = "0.11", features=["cookies", "rustls-tls", "gzip", "json"]}
 chrono-tz = "0.5"
 
 [[bin]]
