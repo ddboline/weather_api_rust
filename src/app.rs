@@ -15,8 +15,9 @@ lazy_static! {
     pub static ref CONFIG: Config = Config::init_config().expect("Failed to load config");
 }
 
+#[derive(Clone)]
 pub struct AppState {
-    pub api: WeatherApi,
+    pub api: Arc<WeatherApi>,
 }
 
 pub async fn start_app() -> Result<(), Error> {
@@ -27,9 +28,9 @@ pub async fn start_app() -> Result<(), Error> {
 }
 
 async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
-    let app = Arc::new(AppState {
-        api: WeatherApi::new(&config.api_key, &config.api_endpoint, &config.api_path),
-    });
+    let app = AppState {
+        api: Arc::new(WeatherApi::new(&config.api_key, &config.api_endpoint, &config.api_path)),
+    };
 
     let data = warp::any().map(move || app.clone());
     let cors = warp::cors()

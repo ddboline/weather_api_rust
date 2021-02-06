@@ -5,7 +5,6 @@ use http::{header::CONTENT_TYPE, Response, StatusCode};
 use lazy_static::lazy_static;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 use weather_util_rust::{
     latitude::Latitude,
@@ -101,7 +100,7 @@ pub struct ApiOptions {
     pub appid: Option<String>,
 }
 
-pub async fn frontpage(data: Arc<AppState>, query: ApiOptions) -> HttpResult {
+pub async fn frontpage(data: AppState, query: ApiOptions) -> HttpResult {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location()?;
 
@@ -134,7 +133,7 @@ pub async fn frontpage(data: Arc<AppState>, query: ApiOptions) -> HttpResult {
     form_http_response(body)
 }
 
-pub async fn forecast_plot(data: Arc<AppState>, query: ApiOptions) -> HttpResult {
+pub async fn forecast_plot(data: AppState, query: ApiOptions) -> HttpResult {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location()?;
 
@@ -281,14 +280,14 @@ impl ApiOptions {
     }
 }
 
-pub async fn weather(data: Arc<AppState>, query: ApiOptions) -> HttpResult {
+pub async fn weather(data: AppState, query: ApiOptions) -> HttpResult {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location()?;
     let weather_data = get_weather_data(&api, &loc).await?;
     to_json(&weather_data)
 }
 
-pub async fn forecast(data: Arc<AppState>, query: ApiOptions) -> HttpResult {
+pub async fn forecast(data: AppState, query: ApiOptions) -> HttpResult {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location()?;
     let weather_forecast = get_weather_forecast(&api, &loc).await?;
