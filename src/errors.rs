@@ -1,8 +1,11 @@
-use actix_web::{error::ResponseError, HttpResponse};
 use anyhow::Error as AnyhowError;
 use handlebars::{RenderError, TemplateError};
-use std::{fmt::Debug, string::FromUtf8Error};
+use http::{Error as HTTPError, StatusCode};
+use serde::Serialize;
+use serde_json::Error as SerdeJsonError;
+use std::{convert::Infallible, fmt::Debug, string::FromUtf8Error};
 use thiserror::Error;
+use warp::{reject::Reject, Rejection, Reply};
 
 #[derive(Error, Debug)]
 pub enum ServiceError {
@@ -20,37 +23,71 @@ pub enum ServiceError {
     RenderError(#[from] RenderError),
     #[error("template error")]
     TemplateError(#[from] TemplateError),
+    #[error("HTTP error {0}")]
+    HTTPError(#[from] HTTPError),
+    #[error("SerdeJsonError {0}")]
+    SerdeJsonError(#[from] SerdeJsonError),
+}
+
+impl Reject for ServiceError {}
+
+#[derive(Serialize)]
+struct ErrorMessage {
+    code: u16,
+    message: String,
 }
 
 // impl ResponseError trait allows to convert our errors into http responses
 // with appropriate data
-impl ResponseError for ServiceError {
-    fn error_response(&self) -> HttpResponse {
-        match *self {
-            Self::BadRequest(ref message) => HttpResponse::BadRequest().json(message),
-            _ => HttpResponse::InternalServerError().json(format!(
-                "Internal Server Error, Please try later {:?}",
-                self
-            )),
+pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
+    let code;
+    let message;
+
+    if err.is_not_found() {
+        code = StatusCode::NOT_FOUND;
+        message = "NOT FOUND";
+    } else if let Some(service_err) = err.find::<ServiceError>() {
+        match service_err {
+            ServiceError::BadRequest(msg) => {
+                code = StatusCode::BAD_REQUEST;
+                message = msg.as_str();
+            }
+            _ => {
+                code = StatusCode::INTERNAL_SERVER_ERROR;
+                message = "Internal Server Error, Please try again later";
+            }
         }
-    }
+    } else if let Some(_) = err.find::<warp::reject::MethodNotAllowed>() {
+        code = StatusCode::METHOD_NOT_ALLOWED;
+        message = "METHOD NOT ALLOWED";
+    } else {
+        code = StatusCode::INTERNAL_SERVER_ERROR;
+        message = "Internal Server Error, Please try again later";
+    };
+
+    let json = warp::reply::json(&ErrorMessage {
+        code: code.as_u16(),
+        message: message.into(),
+    });
+
+    Ok(warp::reply::with_status(json, code))
 }
 
 #[cfg(test)]
 mod test {
-    use actix_web::error::ResponseError;
     use anyhow::Error;
+    use warp::Reply;
 
-    use crate::errors::ServiceError;
+    use crate::errors::{error_response, ServiceError};
 
-    #[test]
-    fn test_service_error() -> Result<(), Error> {
-        let err = ServiceError::BadRequest("TEST ERROR".into());
-        let resp = err.error_response();
+    #[tokio::test]
+    async fn test_service_error() -> Result<(), Error> {
+        let err = ServiceError::BadRequest("TEST ERROR".into()).into();
+        let resp = error_response(err).await?.into_response();
         assert_eq!(resp.status().as_u16(), 400);
 
-        let err = ServiceError::InternalServerError;
-        let resp = err.error_response();
+        let err = ServiceError::InternalServerError.into();
+        let resp = error_response(err).await?.into_response();
         assert_eq!(resp.status().as_u16(), 500);
         Ok(())
     }

@@ -17,10 +17,10 @@ Weather API."""
 [dependencies]
 weather_util_rust = "0.6"
 anyhow = "1.0"
-cached = "0.22"
+cached = "0.23"
 thiserror = "1.0"
-actix-web = "4.0.0-beta.1"
-actix-rt = "2.0.0-beta.1"
+warp = "0.3"
+http = "0.2"
 tokio = {version="1.0", features=["full"]}
 lazy_static = "1.4"
 serde = {version="1.0", features=["derive"]}
