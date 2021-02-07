@@ -1,21 +1,18 @@
-use actix_web::{
-    http::StatusCode,
-    web::{Data, Query},
-    HttpResponse,
-};
-use cached::Cached;
+use cached::{proc_macro::cached, Cached, TimedSizedCache};
 use chrono::FixedOffset;
 use handlebars::Handlebars;
+use http::{header::CONTENT_TYPE, Response, StatusCode};
 use lazy_static::lazy_static;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 use weather_util_rust::{
     latitude::Latitude,
     longitude::Longitude,
     precipitation::Precipitation,
     weather_api::{WeatherApi, WeatherLocation},
+    weather_data::WeatherData,
+    weather_forecast::WeatherForecast,
 };
 
 use crate::{
@@ -36,17 +33,60 @@ fn get_templates() -> Result<Handlebars<'static>, Error> {
     Ok(handlebars)
 }
 
-fn form_http_response(body: String) -> Result<HttpResponse, Error> {
-    Ok(HttpResponse::build(StatusCode::OK)
-        .content_type("text/html; charset=utf-8")
-        .body(body))
+#[cached(
+    type = "TimedSizedCache<String, WeatherData>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
+    convert = r#"{ format!("{:?}", loc) }"#,
+    result = true
+)]
+async fn get_weather_data(api: &WeatherApi, loc: &WeatherLocation) -> Result<WeatherData, Error> {
+    api.get_weather_data(loc).await.map_err(Into::into)
 }
 
-fn to_json<T>(js: &T) -> Result<HttpResponse, Error>
+#[cached(
+    type = "TimedSizedCache<String, WeatherForecast>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
+    convert = r#"{ format!("{:?}", loc) }"#,
+    result = true
+)]
+async fn get_weather_forecast(
+    api: &WeatherApi,
+    loc: &WeatherLocation,
+) -> Result<WeatherForecast, Error> {
+    api.get_weather_forecast(loc).await.map_err(Into::into)
+}
+
+pub type HttpResult = Result<Response<String>, Error>;
+
+fn form_http_response(body: String) -> HttpResult {
+    form_http_response_status(body, StatusCode::OK)
+}
+
+fn form_http_response_status(body: String, code: StatusCode) -> HttpResult {
+    Response::builder()
+        .status(code)
+        .header(CONTENT_TYPE, "text/html; charset=utf-8")
+        .body(body)
+        .map_err(Into::into)
+}
+
+fn to_json<T>(js: T) -> HttpResult
 where
     T: Serialize,
 {
-    Ok(HttpResponse::Ok().json2(js))
+    to_json_status(js, StatusCode::OK)
+}
+
+fn to_json_status<T>(js: T, code: StatusCode) -> HttpResult
+where
+    T: Serialize,
+{
+    let body = serde_json::to_string(&js)?;
+    Response::builder()
+        .status(code)
+        .header(CONTENT_TYPE, "application/json")
+        .body(body)
+        .map_err(Into::into)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -60,31 +100,12 @@ pub struct ApiOptions {
     pub appid: Option<String>,
 }
 
-macro_rules! get_cached {
-    ($hash:ident, $mutex:expr, $call:expr) => {{
-        let result = $mutex.lock().await.cache_get(&$hash).map(Clone::clone);
-        if let Some(d) = result {
-            d
-        } else {
-            let d = Arc::new($call.await?);
-            $mutex.lock().await.cache_set($hash.clone(), d.clone());
-            d
-        }
-    }};
-}
+pub async fn frontpage(data: AppState, query: ApiOptions) -> HttpResult {
+    let api = query.get_weather_api(&data.api)?;
+    let loc = query.get_weather_location()?;
 
-pub async fn frontpage(
-    query: Query<ApiOptions>,
-    data: Data<AppState>,
-) -> Result<HttpResponse, Error> {
-    let opts = query.into_inner();
-    let api = opts.get_weather_api(&data.api)?;
-    let loc = opts.get_weather_location()?;
-
-    let hash = format!("{:?}", loc);
-
-    let weather_data = get_cached!(hash, data.data, api.get_weather_data(&loc));
-    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast(&loc));
+    let weather_data = get_weather_data(&api, &loc).await?;
+    let weather_forecast = get_weather_forecast(&api, &loc).await?;
 
     let weather_data = weather_data.get_current_conditions()?;
     let weather_forecast = weather_forecast.get_forecast()?;
@@ -112,18 +133,12 @@ pub async fn frontpage(
     form_http_response(body)
 }
 
-pub async fn forecast_plot(
-    query: Query<ApiOptions>,
-    data: Data<AppState>,
-) -> Result<HttpResponse, Error> {
-    let opts = query.into_inner();
-    let api = opts.get_weather_api(&data.api)?;
-    let loc = opts.get_weather_location()?;
+pub async fn forecast_plot(data: AppState, query: ApiOptions) -> HttpResult {
+    let api = query.get_weather_api(&data.api)?;
+    let loc = query.get_weather_location()?;
 
-    let hash = format!("{:?}", loc);
-
-    let weather_data = get_cached!(hash, data.data, api.get_weather_data(&loc));
-    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast(&loc));
+    let weather_data = get_weather_data(&api, &loc).await?;
+    let weather_forecast = get_weather_forecast(&api, &loc).await?;
 
     let weather_data = weather_data.get_current_conditions()?;
 
@@ -207,9 +222,9 @@ pub async fn forecast_plot(
     form_http_response(body)
 }
 
-pub async fn statistics(data: Data<AppState>) -> Result<HttpResponse, Error> {
-    let data_cache = data.data.lock().await;
-    let forecast_cache = data.forecast.lock().await;
+pub async fn statistics() -> HttpResult {
+    let data_cache = GET_WEATHER_DATA.lock().await;
+    let forecast_cache = GET_WEATHER_FORECAST.lock().await;
     let body = format!(
         "data hits {}, misses {} : forecast hits {}, misses {}",
         data_cache.cache_hits().unwrap_or(0),
@@ -265,29 +280,16 @@ impl ApiOptions {
     }
 }
 
-pub async fn weather(
-    query: Query<ApiOptions>,
-    data: Data<AppState>,
-) -> Result<HttpResponse, Error> {
-    let query = query.into_inner();
+pub async fn weather(data: AppState, query: ApiOptions) -> HttpResult {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location()?;
-    let hash = format!("{:?}", loc);
-
-    let weather_data = get_cached!(hash, data.data, api.get_weather_data(&loc));
-
-    to_json(&(*weather_data))
+    let weather_data = get_weather_data(&api, &loc).await?;
+    to_json(&weather_data)
 }
 
-pub async fn forecast(
-    query: Query<ApiOptions>,
-    data: Data<AppState>,
-) -> Result<HttpResponse, Error> {
-    let query = query.into_inner();
+pub async fn forecast(data: AppState, query: ApiOptions) -> HttpResult {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location()?;
-    let hash = format!("{:?}", loc);
-    let weather_forecast = get_cached!(hash, data.forecast, api.get_weather_forecast(&loc));
-
-    to_json(&(*weather_forecast))
+    let weather_forecast = get_weather_forecast(&api, &loc).await?;
+    to_json(&weather_forecast)
 }

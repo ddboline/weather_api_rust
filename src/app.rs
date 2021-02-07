@@ -1,16 +1,13 @@
-use actix_web::{web, App, HttpServer};
 use anyhow::Error;
-use cached::TimedCache;
 use lazy_static::lazy_static;
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::{net::SocketAddr, sync::Arc};
+use warp::{Filter, Rejection};
 
-use weather_util_rust::{
-    weather_api::WeatherApi, weather_data::WeatherData, weather_forecast::WeatherForecast,
-};
+use weather_util_rust::weather_api::WeatherApi;
 
 use super::{
     config::Config,
+    errors::error_response,
     routes::{forecast, forecast_plot, frontpage, statistics, weather},
 };
 
@@ -18,13 +15,9 @@ lazy_static! {
     pub static ref CONFIG: Config = Config::init_config().expect("Failed to load config");
 }
 
-type Cache<K, V> = Arc<Mutex<TimedCache<K, V>>>;
-
 #[derive(Clone)]
 pub struct AppState {
     pub api: Arc<WeatherApi>,
-    pub data: Cache<String, Arc<WeatherData>>,
-    pub forecast: Cache<String, Arc<WeatherForecast>>,
 }
 
 pub async fn start_app() -> Result<(), Error> {
@@ -36,31 +29,75 @@ pub async fn start_app() -> Result<(), Error> {
 
 async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
     let app = AppState {
-        api: Arc::new(WeatherApi::new(
-            &config.api_key,
-            &config.api_endpoint,
-            &config.api_path,
-        )),
-        data: Arc::new(Mutex::new(TimedCache::with_lifespan_and_capacity(
-            3600, 100,
-        ))),
-        forecast: Arc::new(Mutex::new(TimedCache::with_lifespan_and_capacity(
-            3600, 100,
-        ))),
+        api: Arc::new(WeatherApi::new(&config.api_key, &config.api_endpoint, &config.api_path)),
     };
 
-    HttpServer::new(move || {
-        App::new()
-            .data(app.clone())
-            .service(web::resource("/weather/index.html").route(web::get().to(frontpage)))
-            .service(web::resource("/weather/plot.html").route(web::get().to(forecast_plot)))
-            .service(web::resource("/weather/weather").route(web::get().to(weather)))
-            .service(web::resource("/weather/forecast").route(web::get().to(forecast)))
-            .service(web::resource("/weather/statistics").route(web::get().to(statistics)))
-    })
-    .bind(&format!("127.0.0.1:{}", port))?
-    .run()
-    .await?;
+    let data = warp::any().map(move || app.clone());
+    let cors = warp::cors()
+        .allow_methods(vec!["GET"])
+        .allow_header("content-type")
+        .allow_header("authorization")
+        .allow_any_origin()
+        .build();
+
+    let frontpage_path = warp::path("index.html")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and(data.clone())
+        .and(warp::query())
+        .and_then(|data, query| async move {
+            frontpage(data, query)
+                .await
+                .map_err(Into::<Rejection>::into)
+        });
+
+    let forecast_plot_path = warp::path("plot.html")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and(data.clone())
+        .and(warp::query())
+        .and_then(|data, query| async move {
+            forecast_plot(data, query)
+                .await
+                .map_err(Into::<Rejection>::into)
+        });
+
+    let weather_path = warp::path("weather")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and(data.clone())
+        .and(warp::query())
+        .and_then(|data, query| async move {
+            weather(data, query).await.map_err(Into::<Rejection>::into)
+        });
+
+    let forecast_path = warp::path("forecast")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and(data.clone())
+        .and(warp::query())
+        .and_then(|data, query| async move {
+            forecast(data, query).await.map_err(Into::<Rejection>::into)
+        });
+
+    let statistics_path = warp::path("statistics")
+        .and(warp::get())
+        .and(warp::path::end())
+        .and_then(|| async move { statistics().await.map_err(Into::<Rejection>::into) });
+
+    let routes = warp::path("weather")
+        .and(
+            frontpage_path
+                .or(forecast_plot_path)
+                .or(weather_path)
+                .or(forecast_path)
+                .or(statistics_path),
+        )
+        .recover(error_response)
+        .with(cors);
+    let addr: SocketAddr = format!("127.0.0.1:{}", port).parse()?;
+    warp::serve(routes).bind(addr).await;
+
     Ok(())
 }
 
@@ -75,12 +112,12 @@ mod test {
 
     use crate::app::{run_app, CONFIG};
 
-    #[actix_rt::test]
+    #[tokio::test]
     async fn test_run_app() -> Result<(), Error> {
         let config = CONFIG.clone();
         let test_port = 12345;
-        actix_rt::spawn(async move { run_app(&config, test_port).await.unwrap() });
-        actix_rt::time::sleep(std::time::Duration::from_secs(10)).await;
+        tokio::task::spawn(async move { run_app(&config, test_port).await.unwrap() });
+        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
         let url = format!("http://localhost:{}/weather/weather?zip=55427", test_port);
         let weather: WeatherData = reqwest::get(&url).await?.error_for_status()?.json().await?;
