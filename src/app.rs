@@ -1,5 +1,4 @@
 use anyhow::Error;
-use lazy_static::lazy_static;
 use std::{net::SocketAddr, sync::Arc};
 use warp::{Filter, Rejection};
 
@@ -11,17 +10,14 @@ use super::{
     routes::{forecast, forecast_plot, frontpage, statistics, weather},
 };
 
-lazy_static! {
-    pub static ref CONFIG: Config = Config::init_config().expect("Failed to load config");
-}
-
 #[derive(Clone)]
 pub struct AppState {
     pub api: Arc<WeatherApi>,
+    pub config: Config,
 }
 
 pub async fn start_app() -> Result<(), Error> {
-    let config = &CONFIG;
+    let config = Config::init_config()?;
 
     let port = config.port;
     run_app(&config, port).await
@@ -29,7 +25,12 @@ pub async fn start_app() -> Result<(), Error> {
 
 async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
     let app = AppState {
-        api: Arc::new(WeatherApi::new(&config.api_key, &config.api_endpoint, &config.api_path)),
+        api: Arc::new(WeatherApi::new(
+            &config.api_key,
+            &config.api_endpoint,
+            &config.api_path,
+        )),
+        config: config.clone(),
     };
 
     let data = warp::any().map(move || app.clone());
@@ -110,13 +111,16 @@ mod test {
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
-    use crate::app::{run_app, CONFIG};
+    use crate::{app::run_app, config::Config};
 
     #[tokio::test]
     async fn test_run_app() -> Result<(), Error> {
-        let config = CONFIG.clone();
+        let config = Config::init_config()?;
         let test_port = 12345;
-        tokio::task::spawn(async move { run_app(&config, test_port).await.unwrap() });
+        tokio::task::spawn(async move {
+            env_logger::init();
+            run_app(&config, test_port).await.unwrap()
+        });
         tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
         let url = format!("http://localhost:{}/weather/weather?zip=55427", test_port);
