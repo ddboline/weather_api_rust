@@ -4,7 +4,7 @@ use handlebars::Handlebars;
 use lazy_static::lazy_static;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
-use warp::reply::{Html, Json};
+use warp::{Rejection, Reply};
 
 use weather_util_rust::{
     latitude::Latitude,
@@ -17,8 +17,8 @@ use weather_util_rust::{
 
 use crate::{app::AppState, config::Config, errors::ServiceError as Error};
 
-pub type HttpResult = Result<Html<String>, Error>;
-pub type JsonResult = Result<Json, Error>;
+pub type RejectResult<T> = Result<T, Rejection>;
+pub type HttpResult<T> = Result<T, Error>;
 
 lazy_static! {
     static ref HBR: Handlebars<'static> = get_templates().expect("Failed to register templates");
@@ -67,7 +67,12 @@ pub struct ApiOptions {
     pub appid: Option<String>,
 }
 
-pub async fn frontpage(data: AppState, query: ApiOptions) -> HttpResult {
+pub async fn frontpage(data: AppState, query: ApiOptions) -> RejectResult<impl Reply> {
+    let body = frontpage_body(data, query).await?;
+    Ok(warp::reply::html(body))
+}
+
+async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location(&data.config)?;
 
@@ -96,13 +101,15 @@ pub async fn frontpage(data: AppState, query: ApiOptions) -> HttpResult {
         cols,
         lines.join("\n")
     );
-
-    let reply = warp::reply::html(body);
-
-    Ok(reply)
+    Ok(body)
 }
 
-pub async fn forecast_plot(data: AppState, query: ApiOptions) -> HttpResult {
+pub async fn forecast_plot(data: AppState, query: ApiOptions) -> RejectResult<impl Reply> {
+    let body = forecast_plot_body(data, query).await?;
+    Ok(warp::reply::html(body))
+}
+
+async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location(&data.config)?;
 
@@ -186,13 +193,15 @@ pub async fn forecast_plot(data: AppState, query: ApiOptions) -> HttpResult {
 
     let body = format!("{}<br>{}", body, HBR.render("ts", &params)?);
 
-    let body = HBR.render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?;
-
-    let reply = warp::reply::html(body);
-    Ok(reply)
+    Ok(HBR.render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?)
 }
 
-pub async fn statistics() -> HttpResult {
+pub async fn statistics() -> RejectResult<impl Reply> {
+    let body = statistics_body().await?;
+    Ok(warp::reply::html(body))
+}
+
+async fn statistics_body() -> HttpResult<String> {
     let data_cache = GET_WEATHER_DATA.lock().await;
     let forecast_cache = GET_WEATHER_FORECAST.lock().await;
     let body = format!(
@@ -202,8 +211,7 @@ pub async fn statistics() -> HttpResult {
         forecast_cache.cache_hits().unwrap_or(0),
         forecast_cache.cache_misses().unwrap_or(0)
     );
-    let reply = warp::reply::html(body);
-    Ok(reply)
+    Ok(body)
 }
 
 impl ApiOptions {
@@ -250,18 +258,26 @@ impl ApiOptions {
     }
 }
 
-pub async fn weather(data: AppState, query: ApiOptions) -> JsonResult {
+pub async fn weather(data: AppState, query: ApiOptions) -> RejectResult<impl Reply> {
+    let weather_data = weather_json(data, query).await?;
+    Ok(warp::reply::json(&weather_data))
+}
+
+async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherData> {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location(&data.config)?;
     let weather_data = get_weather_data(&api, &loc).await?;
-    let reply = warp::reply::json(&weather_data);
-    Ok(reply)
+    Ok(weather_data)
 }
 
-pub async fn forecast(data: AppState, query: ApiOptions) -> JsonResult {
+pub async fn forecast(data: AppState, query: ApiOptions) -> RejectResult<impl Reply> {
+    let weather_forecast = forecast_body(data, query).await?;
+    Ok(warp::reply::json(&weather_forecast))
+}
+
+async fn forecast_body(data: AppState, query: ApiOptions) -> HttpResult<WeatherForecast> {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location(&data.config)?;
     let weather_forecast = get_weather_forecast(&api, &loc).await?;
-    let reply = warp::reply::json(&weather_forecast);
-    Ok(reply)
+    Ok(weather_forecast)
 }

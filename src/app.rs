@@ -1,6 +1,6 @@
 use anyhow::Error;
 use std::{net::SocketAddr, sync::Arc};
-use warp::{Filter, Rejection};
+use warp::Filter;
 
 use weather_util_rust::weather_api::WeatherApi;
 
@@ -34,57 +34,46 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
     };
 
     let data = warp::any().map(move || app.clone());
-    let cors = warp::cors()
-        .allow_methods(vec!["GET"])
-        .allow_header("content-type")
-        .allow_header("authorization")
-        .allow_any_origin()
-        .build();
 
     let frontpage_path = warp::path("index.html")
         .and(warp::get())
         .and(warp::path::end())
         .and(data.clone())
         .and(warp::query())
-        .and_then(|data, query| async move {
-            frontpage(data, query)
-                .await
-                .map_err(Into::<Rejection>::into)
-        });
+        .and_then(frontpage);
 
     let forecast_plot_path = warp::path("plot.html")
-        .and(warp::get())
         .and(warp::path::end())
+        .and(warp::get())
         .and(data.clone())
         .and(warp::query())
-        .and_then(|data, query| async move {
-            forecast_plot(data, query)
-                .await
-                .map_err(Into::<Rejection>::into)
-        });
+        .and_then(forecast_plot);
 
     let weather_path = warp::path("weather")
         .and(warp::get())
         .and(warp::path::end())
         .and(data.clone())
         .and(warp::query())
-        .and_then(|data, query| async move {
-            weather(data, query).await.map_err(Into::<Rejection>::into)
-        });
+        .and_then(weather);
 
     let forecast_path = warp::path("forecast")
         .and(warp::get())
         .and(warp::path::end())
         .and(data.clone())
         .and(warp::query())
-        .and_then(|data, query| async move {
-            forecast(data, query).await.map_err(Into::<Rejection>::into)
-        });
+        .and_then(forecast);
 
     let statistics_path = warp::path("statistics")
         .and(warp::get())
         .and(warp::path::end())
-        .and_then(|| async move { statistics().await.map_err(Into::<Rejection>::into) });
+        .and_then(statistics);
+
+    let cors = warp::cors()
+        .allow_methods(vec!["GET"])
+        .allow_header("content-type")
+        .allow_header("authorization")
+        .allow_any_origin()
+        .build();
 
     let routes = warp::path("weather")
         .and(
