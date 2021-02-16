@@ -71,7 +71,6 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
     let cors = warp::cors()
         .allow_methods(vec!["GET"])
         .allow_header("content-type")
-        .allow_header("authorization")
         .allow_any_origin()
         .build();
 
