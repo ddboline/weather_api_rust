@@ -69,12 +69,9 @@ pub struct ApiOptions {
 }
 
 #[get("/weather/index.html")]
-pub async fn frontpage(
-    #[data] data: AppState,
-    query: Query<ApiOptions>,
-) -> Result<String, Rejection> {
+pub async fn frontpage(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
     let body = frontpage_body(data.clone(), query.into_inner()).await?;
-    Ok(body)
+    Ok(warp::reply::html(body))
 }
 
 async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
@@ -110,7 +107,10 @@ async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String>
 }
 
 #[get("/weather/plot.html")]
-pub async fn forecast_plot(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
+pub async fn forecast_plot(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+) -> WarpResult<impl Reply> {
     let body = forecast_plot_body(data.clone(), query.into_inner()).await?;
     Ok(warp::reply::html(body))
 }
