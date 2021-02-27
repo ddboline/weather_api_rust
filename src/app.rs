@@ -40,11 +40,14 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         .allow_any_origin()
         .build();
 
-    let routes = frontpage(app.clone())
-        .or(forecast_plot(app.clone()))
-        .or(weather(app.clone()))
-        .or(forecast(app.clone()))
-        .or(statistics())
+    let routes = warp::path("weather")
+        .and(
+            frontpage(app.clone())
+                .or(forecast_plot(app.clone()))
+                .or(weather(app.clone()))
+                .or(forecast(app.clone()))
+                .or(statistics()),
+        )
         .recover(error_response)
         .with(cors);
 
