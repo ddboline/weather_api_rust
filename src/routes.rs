@@ -3,6 +3,7 @@ use chrono::FixedOffset;
 use handlebars::Handlebars;
 use lazy_static::lazy_static;
 use maplit::hashmap;
+use rweb::{get, Query};
 use serde::{Deserialize, Serialize};
 use warp::{Rejection, Reply};
 
@@ -17,7 +18,7 @@ use weather_util_rust::{
 
 use crate::{app::AppState, config::Config, errors::ServiceError as Error};
 
-pub type RejectResult<T> = Result<T, Rejection>;
+pub type WarpResult<T> = Result<T, Rejection>;
 pub type HttpResult<T> = Result<T, Error>;
 
 lazy_static! {
@@ -67,9 +68,13 @@ pub struct ApiOptions {
     pub appid: Option<String>,
 }
 
-pub async fn frontpage(data: AppState, query: ApiOptions) -> RejectResult<impl Reply> {
-    let body = frontpage_body(data, query).await?;
-    Ok(warp::reply::html(body))
+#[get("/weather/index.html")]
+pub async fn frontpage(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+) -> Result<String, Rejection> {
+    let body = frontpage_body(data.clone(), query.into_inner()).await?;
+    Ok(body)
 }
 
 async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
@@ -104,8 +109,9 @@ async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String>
     Ok(body)
 }
 
-pub async fn forecast_plot(data: AppState, query: ApiOptions) -> RejectResult<impl Reply> {
-    let body = forecast_plot_body(data, query).await?;
+#[get("/weather/plot.html")]
+pub async fn forecast_plot(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
+    let body = forecast_plot_body(data.clone(), query.into_inner()).await?;
     Ok(warp::reply::html(body))
 }
 
@@ -196,7 +202,8 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
     Ok(HBR.render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?)
 }
 
-pub async fn statistics() -> RejectResult<impl Reply> {
+#[get("/weather/statistics")]
+pub async fn statistics() -> WarpResult<impl Reply> {
     let body = statistics_body().await?;
     Ok(warp::reply::html(body))
 }
@@ -258,8 +265,9 @@ impl ApiOptions {
     }
 }
 
-pub async fn weather(data: AppState, query: ApiOptions) -> RejectResult<impl Reply> {
-    let weather_data = weather_json(data, query).await?;
+#[get("/weather/weather")]
+pub async fn weather(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
+    let weather_data = weather_json(data, query.into_inner()).await?;
     Ok(warp::reply::json(&weather_data))
 }
 
@@ -270,8 +278,9 @@ async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherDa
     Ok(weather_data)
 }
 
-pub async fn forecast(data: AppState, query: ApiOptions) -> RejectResult<impl Reply> {
-    let weather_forecast = forecast_body(data, query).await?;
+#[get("/weather/forecast")]
+pub async fn forecast(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
+    let weather_forecast = forecast_body(data, query.into_inner()).await?;
     Ok(warp::reply::json(&weather_forecast))
 }
 

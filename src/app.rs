@@ -33,41 +33,6 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         config: config.clone(),
     };
 
-    let data = warp::any().map(move || app.clone());
-
-    let frontpage_path = warp::path("index.html")
-        .and(warp::get())
-        .and(warp::path::end())
-        .and(data.clone())
-        .and(warp::query())
-        .and_then(frontpage);
-
-    let forecast_plot_path = warp::path("plot.html")
-        .and(warp::path::end())
-        .and(warp::get())
-        .and(data.clone())
-        .and(warp::query())
-        .and_then(forecast_plot);
-
-    let weather_path = warp::path("weather")
-        .and(warp::get())
-        .and(warp::path::end())
-        .and(data.clone())
-        .and(warp::query())
-        .and_then(weather);
-
-    let forecast_path = warp::path("forecast")
-        .and(warp::get())
-        .and(warp::path::end())
-        .and(data.clone())
-        .and(warp::query())
-        .and_then(forecast);
-
-    let statistics_path = warp::path("statistics")
-        .and(warp::get())
-        .and(warp::path::end())
-        .and_then(statistics);
-
     let cors = warp::cors()
         .allow_methods(vec!["GET"])
         .allow_header("content-type")
@@ -75,16 +40,14 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         .allow_any_origin()
         .build();
 
-    let routes = warp::path("weather")
-        .and(
-            frontpage_path
-                .or(forecast_plot_path)
-                .or(weather_path)
-                .or(forecast_path)
-                .or(statistics_path),
-        )
+    let routes = frontpage(app.clone())
+        .or(forecast_plot(app.clone()))
+        .or(weather(app.clone()))
+        .or(forecast(app.clone()))
+        .or(statistics())
         .recover(error_response)
         .with(cors);
+
     let addr: SocketAddr = format!("127.0.0.1:{}", port).parse()?;
     warp::serve(routes).bind(addr).await;
 
