@@ -1,5 +1,7 @@
 use anyhow::{format_err, Error};
+use isocountry::CountryCode;
 use serde::Deserialize;
+use stack_string::StackString;
 use std::{ops::Deref, path::Path, sync::Arc};
 
 use weather_util_rust::{latitude::Latitude, longitude::Longitude};
@@ -8,19 +10,19 @@ use weather_util_rust::{latitude::Latitude, longitude::Longitude};
 #[derive(Default, Debug, Deserialize, PartialEq)]
 pub struct ConfigInner {
     /// openweathermap.org api key
-    pub api_key: String,
+    pub api_key: StackString,
     /// openweathermap.org api endpoint
     #[serde(default = "default_api_endpoint")]
-    pub api_endpoint: String,
+    pub api_endpoint: StackString,
     /// api path (default `data/2.5/`)
     #[serde(default = "default_api_path")]
-    pub api_path: String,
+    pub api_path: StackString,
     /// optional default zipcode
     pub zipcode: Option<u64>,
     /// optional default country code
-    pub country_code: Option<String>,
+    pub country_code: Option<CountryCode>,
     /// optional default city name
-    pub city_name: Option<String>,
+    pub city_name: Option<StackString>,
     /// optional default latitude
     pub lat: Option<Latitude>,
     /// optional default longitude
@@ -32,11 +34,11 @@ pub struct ConfigInner {
 fn default_port() -> u32 {
     3097
 }
-fn default_api_endpoint() -> String {
-    "api.openweathermap.org".to_string()
+fn default_api_endpoint() -> StackString {
+    "api.openweathermap.org".into()
 }
-fn default_api_path() -> String {
-    "data/2.5/".to_string()
+fn default_api_path() -> StackString {
+    "data/2.5/".into()
 }
 
 /// Configuration struct

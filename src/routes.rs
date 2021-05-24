@@ -3,20 +3,17 @@ use chrono::FixedOffset;
 use handlebars::Handlebars;
 use lazy_static::lazy_static;
 use maplit::hashmap;
-use rweb::{get, Query};
-use serde::{Deserialize, Serialize};
-use warp::{Rejection, Reply};
+use rweb::{get, Query, Rejection, Reply};
+use stack_string::StackString;
 
 use weather_util_rust::{
-    latitude::Latitude,
-    longitude::Longitude,
     precipitation::Precipitation,
     weather_api::{WeatherApi, WeatherLocation},
     weather_data::WeatherData,
     weather_forecast::WeatherForecast,
 };
 
-use crate::{app::AppState, config::Config, errors::ServiceError as Error};
+use crate::{api_options::ApiOptions, app::AppState, errors::ServiceError as Error};
 
 pub type WarpResult<T> = Result<T, Rejection>;
 pub type HttpResult<T> = Result<T, Error>;
@@ -35,9 +32,9 @@ fn get_templates() -> Result<Handlebars<'static>, Error> {
 }
 
 #[cached(
-    type = "TimedSizedCache<String, WeatherData>",
+    type = "TimedSizedCache<StackString, WeatherData>",
     create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
-    convert = r#"{ format!("{:?}", loc) }"#,
+    convert = r#"{ format!("{:?}", loc).into() }"#,
     result = true
 )]
 async fn get_weather_data(api: &WeatherApi, loc: &WeatherLocation) -> Result<WeatherData, Error> {
@@ -45,9 +42,9 @@ async fn get_weather_data(api: &WeatherApi, loc: &WeatherLocation) -> Result<Wea
 }
 
 #[cached(
-    type = "TimedSizedCache<String, WeatherForecast>",
+    type = "TimedSizedCache<StackString, WeatherForecast>",
     create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
-    convert = r#"{ format!("{:?}", loc) }"#,
+    convert = r#"{ format!("{:?}", loc).into() }"#,
     result = true
 )]
 async fn get_weather_forecast(
@@ -57,21 +54,10 @@ async fn get_weather_forecast(
     api.get_weather_forecast(loc).await.map_err(Into::into)
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ApiOptions {
-    pub zip: Option<u64>,
-    pub country_code: Option<String>,
-    pub q: Option<String>,
-    pub lat: Option<Latitude>,
-    pub lon: Option<Longitude>,
-    #[serde(rename = "APPID")]
-    pub appid: Option<String>,
-}
-
 #[get("/index.html")]
 pub async fn frontpage(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
-    let body = frontpage_body(data.clone(), query.into_inner()).await?;
-    Ok(warp::reply::html(body))
+    let body = frontpage_body(data, query.into_inner()).await?;
+    Ok(rweb::reply::html(body))
 }
 
 async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
@@ -94,8 +80,7 @@ async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String>
         lines.join("\n")
     );
 
-    let lines: Vec<_> = weather_forecast.split('\n').map(str::trim_end).collect();
-    let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
+    let cols = weather_forecast.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
     let body = format!(
         "{}<textarea rows={} cols={}>{}</textarea>",
         body,
@@ -111,8 +96,8 @@ pub async fn forecast_plot(
     #[data] data: AppState,
     query: Query<ApiOptions>,
 ) -> WarpResult<impl Reply> {
-    let body = forecast_plot_body(data.clone(), query.into_inner()).await?;
-    Ok(warp::reply::html(body))
+    let body = forecast_plot_body(data, query.into_inner()).await?;
+    Ok(rweb::reply::html(body))
 }
 
 async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
@@ -205,7 +190,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
 #[get("/statistics")]
 pub async fn statistics() -> WarpResult<impl Reply> {
     let body = statistics_body().await?;
-    Ok(warp::reply::html(body))
+    Ok(rweb::reply::html(body))
 }
 
 async fn statistics_body() -> HttpResult<String> {
@@ -221,54 +206,10 @@ async fn statistics_body() -> HttpResult<String> {
     Ok(body)
 }
 
-impl ApiOptions {
-    fn get_weather_api(&self, api: &WeatherApi) -> Result<WeatherApi, Error> {
-        let api = if let Some(appid) = &self.appid {
-            api.clone().with_key(&appid)
-        } else {
-            api.clone()
-        };
-        Ok(api)
-    }
-
-    fn get_weather_location(&self, config: &Config) -> Result<WeatherLocation, Error> {
-        let loc = if let Some(zipcode) = self.zip {
-            if let Some(country_code) = &self.country_code {
-                WeatherLocation::from_zipcode_country_code(zipcode, country_code)
-            } else {
-                WeatherLocation::from_zipcode(zipcode)
-            }
-        } else if let Some(city_name) = &self.q {
-            WeatherLocation::from_city_name(city_name)
-        } else if self.lat.is_some() && self.lon.is_some() {
-            let lat = self.lat.unwrap();
-            let lon = self.lon.unwrap();
-            WeatherLocation::from_lat_lon(lat, lon)
-        } else if let Some(zipcode) = config.zipcode {
-            if let Some(country_code) = &config.country_code {
-                WeatherLocation::from_zipcode_country_code(zipcode, country_code)
-            } else {
-                WeatherLocation::from_zipcode(zipcode)
-            }
-        } else if let Some(city_name) = &config.city_name {
-            WeatherLocation::from_city_name(city_name)
-        } else if config.lat.is_some() && config.lon.is_some() {
-            let lat = config.lat.unwrap();
-            let lon = config.lon.unwrap();
-            WeatherLocation::from_lat_lon(lat, lon)
-        } else {
-            return Err(Error::BadRequest(
-                "\n\nERROR: You must specify at least one option".into(),
-            ));
-        };
-        Ok(loc)
-    }
-}
-
 #[get("/weather")]
 pub async fn weather(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
     let weather_data = weather_json(data, query.into_inner()).await?;
-    Ok(warp::reply::json(&weather_data))
+    Ok(rweb::reply::json(&weather_data))
 }
 
 async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherData> {
@@ -281,7 +222,7 @@ async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherDa
 #[get("/forecast")]
 pub async fn forecast(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
     let weather_forecast = forecast_body(data, query.into_inner()).await?;
-    Ok(warp::reply::json(&weather_forecast))
+    Ok(rweb::reply::json(&weather_forecast))
 }
 
 async fn forecast_body(data: AppState, query: ApiOptions) -> HttpResult<WeatherForecast> {

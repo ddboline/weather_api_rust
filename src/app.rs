@@ -1,6 +1,6 @@
 use anyhow::Error;
+use rweb::Filter;
 use std::{net::SocketAddr, sync::Arc};
-use warp::Filter;
 
 use weather_util_rust::weather_api::WeatherApi;
 
@@ -33,13 +33,13 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         config: config.clone(),
     };
 
-    let cors = warp::cors()
+    let cors = rweb::cors()
         .allow_methods(vec!["GET"])
         .allow_header("content-type")
         .allow_any_origin()
         .build();
 
-    let routes = warp::path("weather")
+    let routes = rweb::path("weather")
         .and(
             frontpage(app.clone())
                 .or(forecast_plot(app.clone()))
@@ -51,7 +51,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         .with(cors);
 
     let addr: SocketAddr = format!("127.0.0.1:{}", port).parse()?;
-    warp::serve(routes).bind(addr).await;
+    rweb::serve(routes).bind(addr).await;
 
     Ok(())
 }

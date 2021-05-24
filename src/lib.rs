@@ -6,6 +6,7 @@
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::missing_errors_doc)]
 
+pub mod api_options;
 pub mod app;
 pub mod config;
 pub mod errors;

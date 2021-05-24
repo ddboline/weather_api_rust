@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.5.3"
+version = "0.5.4"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -15,11 +15,10 @@ Weather API."""
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-weather_util_rust = "0.6"
+weather_util_rust = "0.7"
 anyhow = "1.0"
 cached = "0.23"
 thiserror = "1.0"
-warp = "0.3"
 http = "0.2"
 tokio = {version="1.2", features=["full"]}
 lazy_static = "1.4"
@@ -31,7 +30,9 @@ dirs = "3.0"
 chrono = "0.4"
 envy = "0.4"
 handlebars = "3.5"
-rweb = "0.6"
+rweb = "0.12"
+stack-string = "0.2"
+isocountry = "0.3"
 
 [dev-dependencies]
 reqwest = {version = "0.11", features=["cookies", "rustls-tls", "gzip", "json"]}

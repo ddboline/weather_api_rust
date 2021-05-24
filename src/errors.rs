@@ -1,18 +1,19 @@
 use anyhow::Error as AnyhowError;
 use handlebars::{RenderError, TemplateError};
 use http::{Error as HTTPError, StatusCode};
+use rweb::{reject::Reject, Rejection, Reply};
 use serde::Serialize;
 use serde_json::Error as SerdeJsonError;
+use stack_string::StackString;
 use std::{convert::Infallible, fmt::Debug, string::FromUtf8Error};
 use thiserror::Error;
-use warp::{reject::Reject, Rejection, Reply};
 
 #[derive(Error, Debug)]
 pub enum ServiceError {
     #[error("Internal Server Error")]
     InternalServerError,
     #[error("BadRequest: {}", _0)]
-    BadRequest(String),
+    BadRequest(StackString),
     #[error("Anyhow error {0}")]
     AnyhowError(#[from] AnyhowError),
     #[error("io Error {0}")]
@@ -34,7 +35,7 @@ impl Reject for ServiceError {}
 #[derive(Serialize)]
 struct ErrorMessage {
     code: u16,
-    message: String,
+    message: StackString,
 }
 
 // impl ResponseError trait allows to convert our errors into http responses
@@ -57,7 +58,7 @@ pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
                 message = "Internal Server Error, Please try again later";
             }
         }
-    } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
+    } else if err.find::<rweb::reject::MethodNotAllowed>().is_some() {
         code = StatusCode::METHOD_NOT_ALLOWED;
         message = "METHOD NOT ALLOWED";
     } else {
@@ -65,18 +66,18 @@ pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
         message = "Internal Server Error, Please try again later";
     };
 
-    let json = warp::reply::json(&ErrorMessage {
+    let json = rweb::reply::json(&ErrorMessage {
         code: code.as_u16(),
         message: message.into(),
     });
 
-    Ok(warp::reply::with_status(json, code))
+    Ok(rweb::reply::with_status(json, code))
 }
 
 #[cfg(test)]
 mod test {
     use anyhow::Error;
-    use warp::Reply;
+    use rweb::Reply;
 
     use crate::errors::{error_response, ServiceError};
 
