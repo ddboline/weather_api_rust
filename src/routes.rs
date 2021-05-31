@@ -3,7 +3,7 @@ use chrono::FixedOffset;
 use handlebars::Handlebars;
 use maplit::hashmap;
 use rweb::{get, Query, Rejection, Schema};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use stack_string::StackString;
 
 use weather_util_rust::{
@@ -191,12 +191,12 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         .render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?)
 }
 
-#[derive(Serialize, Schema, Clone, Copy)]
-struct StatisticsObject {
-    data_cache_hits: u64,
-    data_cache_misses: u64,
-    forecast_cache_hits: u64,
-    forecast_cache_misses: u64,
+#[derive(Serialize, Deserialize, Schema, Clone, Copy)]
+pub struct StatisticsObject {
+    pub data_cache_hits: u64,
+    pub data_cache_misses: u64,
+    pub forecast_cache_hits: u64,
+    pub forecast_cache_misses: u64,
 }
 
 #[get("/weather/statistics")]

@@ -132,7 +132,7 @@ mod test {
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
-    use crate::{app::run_app, config::Config};
+    use crate::{app::run_app, config::Config, routes::StatisticsObject};
 
     #[tokio::test]
     async fn test_run_app() -> Result<(), Error> {
@@ -173,11 +173,12 @@ mod test {
         assert!(text.len() > 0);
 
         let url = format!("http://localhost:{}/weather/statistics", test_port);
-        let text = reqwest::get(&url).await?.error_for_status()?.text().await?;
-        assert!(text.len() > 0);
-        assert!(text.contains("data hits"));
-        assert!(text.contains("misses"));
-        assert!(text.contains("forecast hits"));
+        let stats: StatisticsObject = reqwest::get(&url).await?.error_for_status()?.json().await?;
+        println!("{}", serde_json::to_string(&stats)?);
+        assert!(stats.data_cache_hits == 2);
+        assert!(stats.data_cache_misses == 1);
+        assert!(stats.forecast_cache_hits == 2);
+        assert!(stats.forecast_cache_misses == 1);
 
         let url = format!(
             "http://localhost:{}/weather/weather?q=Minneapolis",
