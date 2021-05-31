@@ -2,11 +2,11 @@ use http::status::StatusCode;
 use indexmap::IndexMap;
 use rweb::{
     hyper::{Body, Response},
-    openapi::{self, Entity, ResponseEntity, Responses, MediaType, ObjectOrReference},
+    openapi::{self, Entity, MediaType, ObjectOrReference, ResponseEntity, Responses},
     Reply,
 };
-use std::borrow::Cow;
 use stack_string::StackString;
+use std::borrow::Cow;
 
 use crate::errors::ServiceError as Error;
 

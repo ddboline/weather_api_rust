@@ -2,9 +2,9 @@ use cached::{proc_macro::cached, Cached, TimedSizedCache};
 use chrono::FixedOffset;
 use handlebars::Handlebars;
 use maplit::hashmap;
-use rweb::{Query, Rejection, Schema, get};
-use stack_string::StackString;
+use rweb::{get, Query, Rejection, Schema};
 use serde::Serialize;
+use stack_string::StackString;
 
 use weather_util_rust::{
     precipitation::Precipitation,

@@ -1,14 +1,13 @@
 use anyhow::Error;
 use handlebars::Handlebars;
-use rweb::Filter;
+use maplit::hashmap;
 use rweb::{
     filters::BoxedFilter,
-    Reply, openapi::{self, Spec},
-    http::{StatusCode, header::CONTENT_TYPE},
+    http::{header::CONTENT_TYPE, StatusCode},
+    openapi::{self, Spec},
+    Filter, Reply,
 };
-use maplit::hashmap;
-use std::borrow::Cow;
-use std::{net::SocketAddr, sync::Arc};
+use std::{borrow::Cow, net::SocketAddr, sync::Arc};
 
 use weather_util_rust::weather_api::WeatherApi;
 
@@ -39,13 +38,17 @@ fn get_api_scope(app: &AppState) -> BoxedFilter<(impl Reply,)> {
     let forecast_path = forecast(app.clone());
     let statistics_path = statistics();
 
-    frontpage_path.or(forecast_plot_path).or(weather_path).or(forecast_path).or(statistics_path).boxed()
+    frontpage_path
+        .or(forecast_plot_path)
+        .or(weather_path)
+        .or(forecast_path)
+        .or(statistics_path)
+        .boxed()
 }
 
 fn modify_spec(spec: &mut Spec) {
     spec.info.title = "Weather App".into();
-    spec.info.description = "Web App to disply weather from openweatherapi"
-        .into();
+    spec.info.description = "Web App to disply weather from openweatherapi".into();
     spec.info.version = env!("CARGO_PKG_VERSION").into();
 
     let response_descriptions = hashmap! {
@@ -108,7 +111,9 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         .allow_any_origin()
         .build();
 
-    let routes = api_scope.or(spec_json_path).or(spec_yaml_path)
+    let routes = api_scope
+        .or(spec_json_path)
+        .or(spec_yaml_path)
         .recover(error_response)
         .with(cors);
 
