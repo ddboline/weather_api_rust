@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.5.4"
+version = "0.5.5"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -15,7 +15,7 @@ Weather API."""
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-weather_util_rust = "0.7"
+weather_util_rust = "0.8"
 anyhow = "1.0"
 cached = "0.23"
 thiserror = "1.0"
@@ -24,15 +24,18 @@ tokio = {version="1.2", features=["full"]}
 lazy_static = "1.4"
 serde = {version="1.0", features=["derive"]}
 serde_json = "1.0"
+serde_yaml = "0.8"
 maplit = "1.0"
 dotenv = "0.15"
 dirs = "3.0"
 chrono = "0.4"
 envy = "0.4"
-handlebars = "3.5"
-rweb = "0.12"
-stack-string = "0.2"
+handlebars = "4.0"
+rweb = {version="0.12", features=["openapi"]}
+stack-string = {version="0.2", features=["rweb-openapi"]}
 isocountry = "0.3"
+derive_more = "0.99"
+indexmap = "1.6"
 
 [dev-dependencies]
 reqwest = {version = "0.11", features=["cookies", "rustls-tls", "gzip", "json"]}

@@ -9,5 +9,10 @@
 pub mod api_options;
 pub mod app;
 pub mod config;
+pub mod country_code_wrapper;
 pub mod errors;
+pub mod html_response;
+pub mod json_response;
+pub mod latitude_wrapper;
+pub mod longitude_wrapper;
 pub mod routes;

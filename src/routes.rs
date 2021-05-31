@@ -1,10 +1,10 @@
 use cached::{proc_macro::cached, Cached, TimedSizedCache};
 use chrono::FixedOffset;
 use handlebars::Handlebars;
-use lazy_static::lazy_static;
 use maplit::hashmap;
-use rweb::{get, Query, Rejection, Reply};
+use rweb::{Query, Rejection, Schema, get};
 use stack_string::StackString;
+use serde::Serialize;
 
 use weather_util_rust::{
     precipitation::Precipitation,
@@ -13,16 +13,15 @@ use weather_util_rust::{
     weather_forecast::WeatherForecast,
 };
 
-use crate::{api_options::ApiOptions, app::AppState, errors::ServiceError as Error};
+use crate::{
+    api_options::ApiOptions, app::AppState, errors::ServiceError as Error,
+    html_response::HtmlResponse, json_response::JsonResponse,
+};
 
 pub type WarpResult<T> = Result<T, Rejection>;
 pub type HttpResult<T> = Result<T, Error>;
 
-lazy_static! {
-    static ref HBR: Handlebars<'static> = get_templates().expect("Failed to register templates");
-}
-
-fn get_templates() -> Result<Handlebars<'static>, Error> {
+pub fn get_templates() -> Result<Handlebars<'static>, Error> {
     let mut handlebars = Handlebars::new();
     handlebars
         .register_template_string("ts", include_str!("../templates/TIMESERIESTEMPLATE.js.hbr"))?;
@@ -54,10 +53,13 @@ async fn get_weather_forecast(
     api.get_weather_forecast(loc).await.map_err(Into::into)
 }
 
-#[get("/index.html")]
-pub async fn frontpage(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
+#[get("/weather/index.html")]
+pub async fn frontpage(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+) -> WarpResult<HtmlResponse<String>> {
     let body = frontpage_body(data, query.into_inner()).await?;
-    Ok(rweb::reply::html(body))
+    Ok(HtmlResponse::new(body))
 }
 
 async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
@@ -74,7 +76,7 @@ async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String>
     let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
     let rows = lines.len() + 5;
     let body = format!(
-        "<textarea rows={} cols={}>{}</textarea>",
+        "<textarea readonly rows={} cols={}>{}</textarea>",
         rows,
         cols,
         lines.join("\n")
@@ -82,7 +84,7 @@ async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String>
 
     let cols = weather_forecast.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
     let body = format!(
-        "{}<textarea rows={} cols={}>{}</textarea>",
+        "{}<textarea readonly rows={} cols={}>{}</textarea>",
         body,
         rows,
         cols,
@@ -91,13 +93,13 @@ async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String>
     Ok(body)
 }
 
-#[get("/plot.html")]
+#[get("/weather/plot.html")]
 pub async fn forecast_plot(
     #[data] data: AppState,
     query: Query<ApiOptions>,
-) -> WarpResult<impl Reply> {
+) -> WarpResult<HtmlResponse<String>> {
     let body = forecast_plot_body(data, query.into_inner()).await?;
-    Ok(rweb::reply::html(body))
+    Ok(HtmlResponse::new(body))
 }
 
 async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
@@ -113,14 +115,14 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
     let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
     let rows = lines.len() + 5;
     let body = format!(
-        "<textarea rows={} cols={}>{}</textarea>",
+        "<textarea readonly rows={} cols={}>{}</textarea>",
         rows,
         cols,
         lines.join("\n")
     );
 
     let fo: FixedOffset = weather_forecast.city.timezone.into();
-    let data: Vec<_> = weather_forecast
+    let forecast_data: Vec<_> = weather_forecast
         .list
         .iter()
         .map(|entry| {
@@ -135,7 +137,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         })
         .collect();
 
-    let js_str = serde_json::to_string(&data).unwrap_or_else(|_| "".to_string());
+    let js_str = serde_json::to_string(&forecast_data).unwrap_or_else(|_| "".to_string());
 
     let params = hashmap! {
         "DATA" => js_str.as_str(),
@@ -145,9 +147,9 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         "NAME" => "temperature_forecast",
     };
 
-    let body = format!("{}<br>{}", body, HBR.render("ts", &params)?);
+    let body = format!("{}<br>{}", body, data.hbr.render("ts", &params)?);
 
-    let data: Vec<_> = weather_forecast
+    let forecast_data: Vec<_> = weather_forecast
         .list
         .iter()
         .map(|entry| {
@@ -172,7 +174,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         })
         .collect();
 
-    let js_str = serde_json::to_string(&data).unwrap_or_else(|_| "".to_string());
+    let js_str = serde_json::to_string(&forecast_data).unwrap_or_else(|_| "".to_string());
 
     let params = hashmap! {
         "DATA"=> js_str.as_str(),
@@ -182,34 +184,43 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         "NAME"=> "precipitation_forecast",
     };
 
-    let body = format!("{}<br>{}", body, HBR.render("ts", &params)?);
+    let body = format!("{}<br>{}", body, data.hbr.render("ts", &params)?);
 
-    Ok(HBR.render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?)
+    Ok(data
+        .hbr
+        .render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?)
 }
 
-#[get("/statistics")]
-pub async fn statistics() -> WarpResult<impl Reply> {
-    let body = statistics_body().await?;
-    Ok(rweb::reply::html(body))
+#[derive(Serialize, Schema, Clone, Copy)]
+struct StatisticsObject {
+    data_cache_hits: u64,
+    data_cache_misses: u64,
+    forecast_cache_hits: u64,
+    forecast_cache_misses: u64,
 }
 
-async fn statistics_body() -> HttpResult<String> {
+#[get("/weather/statistics")]
+pub async fn statistics() -> WarpResult<JsonResponse<StatisticsObject>> {
     let data_cache = GET_WEATHER_DATA.lock().await;
     let forecast_cache = GET_WEATHER_FORECAST.lock().await;
-    let body = format!(
-        "data hits {}, misses {} : forecast hits {}, misses {}",
-        data_cache.cache_hits().unwrap_or(0),
-        data_cache.cache_misses().unwrap_or(0),
-        forecast_cache.cache_hits().unwrap_or(0),
-        forecast_cache.cache_misses().unwrap_or(0)
-    );
-    Ok(body)
+
+    let stat = StatisticsObject {
+        data_cache_hits: data_cache.cache_hits().unwrap_or(0),
+        data_cache_misses: data_cache.cache_misses().unwrap_or(0),
+        forecast_cache_hits: forecast_cache.cache_hits().unwrap_or(0),
+        forecast_cache_misses: forecast_cache.cache_misses().unwrap_or(0),
+    };
+
+    Ok(JsonResponse::new(stat))
 }
 
-#[get("/weather")]
-pub async fn weather(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
+#[get("/weather/weather")]
+pub async fn weather(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+) -> WarpResult<JsonResponse<WeatherData>> {
     let weather_data = weather_json(data, query.into_inner()).await?;
-    Ok(rweb::reply::json(&weather_data))
+    Ok(JsonResponse::new(weather_data))
 }
 
 async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherData> {
@@ -219,10 +230,13 @@ async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherDa
     Ok(weather_data)
 }
 
-#[get("/forecast")]
-pub async fn forecast(#[data] data: AppState, query: Query<ApiOptions>) -> WarpResult<impl Reply> {
+#[get("/weather/forecast")]
+pub async fn forecast(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+) -> WarpResult<JsonResponse<WeatherForecast>> {
     let weather_forecast = forecast_body(data, query.into_inner()).await?;
-    Ok(rweb::reply::json(&weather_forecast))
+    Ok(JsonResponse::new(weather_forecast))
 }
 
 async fn forecast_body(data: AppState, query: ApiOptions) -> HttpResult<WeatherForecast> {

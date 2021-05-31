@@ -1,0 +1,429 @@
+---
+openapi: 3.0.1
+info:
+  title: Weather App
+  description: Web App to disply weather from openweatherapi
+  version: 0.5.5
+paths:
+  /weather/index.html:
+    get:
+      parameters:
+        - name: zip
+          in: query
+          schema:
+            nullable: true
+            type: integer
+        - name: country_code
+          in: query
+          schema:
+            nullable: true
+            type: string
+        - name: q
+          in: query
+          schema:
+            nullable: true
+            type: string
+        - name: lat
+          in: query
+          schema:
+            format: latitude
+            nullable: true
+            type: number
+        - name: lon
+          in: query
+          schema:
+            format: longitude
+            nullable: true
+            type: number
+        - name: APPID
+          in: query
+          schema:
+            nullable: true
+            type: string
+      responses:
+        "200":
+          description: Display Current Weather and Forecast
+          content:
+            text/html:
+              schema:
+                oneOf:
+                  - type: string
+                  - type: object
+  /weather/plot.html:
+    get:
+      parameters:
+        - name: zip
+          in: query
+          schema:
+            nullable: true
+            type: integer
+        - name: country_code
+          in: query
+          schema:
+            nullable: true
+            type: string
+        - name: q
+          in: query
+          schema:
+            nullable: true
+            type: string
+        - name: lat
+          in: query
+          schema:
+            format: latitude
+            nullable: true
+            type: number
+        - name: lon
+          in: query
+          schema:
+            format: longitude
+            nullable: true
+            type: number
+        - name: APPID
+          in: query
+          schema:
+            nullable: true
+            type: string
+      responses:
+        "200":
+          description: Show Plot of Current Weather and Forecast
+          content:
+            text/html:
+              schema:
+                oneOf:
+                  - type: string
+                  - type: object
+  /weather/weather:
+    get:
+      parameters:
+        - name: zip
+          in: query
+          schema:
+            nullable: true
+            type: integer
+        - name: country_code
+          in: query
+          schema:
+            nullable: true
+            type: string
+        - name: q
+          in: query
+          schema:
+            nullable: true
+            type: string
+        - name: lat
+          in: query
+          schema:
+            format: latitude
+            nullable: true
+            type: number
+        - name: lon
+          in: query
+          schema:
+            format: longitude
+            nullable: true
+            type: number
+        - name: APPID
+          in: query
+          schema:
+            nullable: true
+            type: string
+      responses:
+        "200":
+          description: Get WeatherData Api Json
+          content:
+            application/json:
+              schema:
+                properties:
+                  coord:
+                    properties:
+                      lon:
+                        description: " Longitude in degrees, required be within the range -180.0 to 180.0"
+                        type: object
+                      lat:
+                        description: " Latitude in degrees, required be within the range -90.0 to 90.0"
+                        type: object
+                    type: object
+                    required:
+                      - lon
+                      - lat
+                  weather:
+                    items:
+                      properties:
+                        main:
+                          type: string
+                        description:
+                          type: string
+                      type: object
+                      required:
+                        - main
+                        - description
+                    type: array
+                  base:
+                    type: string
+                  main:
+                    properties:
+                      temp:
+                        description: " Temperature struct, data is stored as Kelvin"
+                        type: object
+                      feels_like:
+                        description: " Temperature struct, data is stored as Kelvin"
+                        type: object
+                      temp_min:
+                        description: " Temperature struct, data is stored as Kelvin"
+                        type: object
+                      temp_max:
+                        description: " Temperature struct, data is stored as Kelvin"
+                        type: object
+                      pressure:
+                        description: " Pressure struct, data is stored as hPa (100 Pa)"
+                        type: object
+                      humidity:
+                        description: " Relative Humidity as Percent"
+                        type: object
+                    type: object
+                    required:
+                      - temp
+                      - feels_like
+                      - temp_min
+                      - temp_max
+                      - pressure
+                      - humidity
+                  visibility:
+                    description: " Distance in meters"
+                    nullable: true
+                    type: object
+                  wind:
+                    properties:
+                      speed:
+                        description: " Speed in meters per second"
+                        type: object
+                      deg:
+                        description: " Direction in degrees"
+                        nullable: true
+                        type: object
+                    type: object
+                    required:
+                      - speed
+                  rain:
+                    properties:
+                      three_hour:
+                        description: " Precipitation in mm"
+                        nullable: true
+                        type: object
+                    nullable: true
+                    type: object
+                  snow:
+                    properties:
+                      three_hour:
+                        description: " Precipitation in mm"
+                        nullable: true
+                        type: object
+                    nullable: true
+                    type: object
+                  dt:
+                    format: datetime
+                    type: string
+                  sys:
+                    properties:
+                      country:
+                        nullable: true
+                        type: string
+                      sunrise:
+                        format: datetime
+                        type: string
+                      sunset:
+                        format: datetime
+                        type: string
+                    type: object
+                    required:
+                      - sunrise
+                      - sunset
+                  timezone:
+                    description: " Direction in degrees"
+                    type: object
+                  name:
+                    type: string
+                type: object
+                required:
+                  - coord
+                  - weather
+                  - base
+                  - main
+                  - wind
+                  - dt
+                  - sys
+                  - timezone
+                  - name
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+        "400":
+          description: Bad Request
+        "405":
+          description: Method not allowed
+  /weather/forecast:
+    get:
+      parameters:
+        - name: zip
+          in: query
+          schema:
+            nullable: true
+            type: integer
+        - name: country_code
+          in: query
+          schema:
+            nullable: true
+            type: string
+        - name: q
+          in: query
+          schema:
+            nullable: true
+            type: string
+        - name: lat
+          in: query
+          schema:
+            format: latitude
+            nullable: true
+            type: number
+        - name: lon
+          in: query
+          schema:
+            format: longitude
+            nullable: true
+            type: number
+        - name: APPID
+          in: query
+          schema:
+            nullable: true
+            type: string
+      responses:
+        "200":
+          description: Get WeatherForecast Api Json
+          content:
+            application/json:
+              schema:
+                properties:
+                  list:
+                    items:
+                      properties:
+                        dt:
+                          format: datetime
+                          type: string
+                        main:
+                          properties:
+                            temp:
+                              description: " Temperature struct, data is stored as Kelvin"
+                              type: object
+                            feels_like:
+                              description: " Temperature struct, data is stored as Kelvin"
+                              type: object
+                            temp_min:
+                              description: " Temperature struct, data is stored as Kelvin"
+                              type: object
+                            temp_max:
+                              description: " Temperature struct, data is stored as Kelvin"
+                              type: object
+                            pressure:
+                              description: " Pressure struct, data is stored as hPa (100 Pa)"
+                              type: object
+                            sea_level:
+                              description: " Pressure struct, data is stored as hPa (100 Pa)"
+                              type: object
+                            grnd_level:
+                              description: " Pressure struct, data is stored as hPa (100 Pa)"
+                              type: object
+                            humidity:
+                              description: " Relative Humidity as Percent"
+                              type: object
+                          type: object
+                          required:
+                            - temp
+                            - feels_like
+                            - temp_min
+                            - temp_max
+                            - pressure
+                            - sea_level
+                            - grnd_level
+                            - humidity
+                        rain:
+                          properties:
+                            three_hour:
+                              description: " Precipitation in mm"
+                              nullable: true
+                              type: object
+                          nullable: true
+                          type: object
+                        snow:
+                          properties:
+                            three_hour:
+                              description: " Precipitation in mm"
+                              nullable: true
+                              type: object
+                          nullable: true
+                          type: object
+                      type: object
+                      required:
+                        - dt
+                        - main
+                    type: array
+                  city:
+                    properties:
+                      timezone:
+                        description: " Direction in degrees"
+                        type: object
+                      sunrise:
+                        format: datetime
+                        type: string
+                      sunset:
+                        format: datetime
+                        type: string
+                    type: object
+                    required:
+                      - timezone
+                      - sunrise
+                      - sunset
+                type: object
+                required:
+                  - list
+                  - city
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+        "400":
+          description: Bad Request
+        "405":
+          description: Method not allowed
+  /weather/statistics:
+    get:
+      responses:
+        "200":
+          description: Get Cache Statistics
+          content:
+            application/json:
+              schema:
+                properties:
+                  data_cache_hits:
+                    type: integer
+                  data_cache_misses:
+                    type: integer
+                  forecast_cache_hits:
+                    type: integer
+                  forecast_cache_misses:
+                    type: integer
+                type: object
+                required:
+                  - data_cache_hits
+                  - data_cache_misses
+                  - forecast_cache_hits
+                  - forecast_cache_misses
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+        "400":
+          description: Bad Request
+        "405":
+          description: Method not allowed

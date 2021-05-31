@@ -1,11 +1,16 @@
 use anyhow::Error as AnyhowError;
 use handlebars::{RenderError, TemplateError};
 use http::{Error as HTTPError, StatusCode};
-use rweb::{reject::Reject, Rejection, Reply};
+use indexmap::IndexMap;
+use rweb::{
+    openapi::{Entity, Response, ResponseEntity, Responses, Schema},
+    reject::Reject,
+    Rejection, Reply,
+};
 use serde::Serialize;
 use serde_json::Error as SerdeJsonError;
 use stack_string::StackString;
-use std::{convert::Infallible, fmt::Debug, string::FromUtf8Error};
+use std::{borrow::Cow, convert::Infallible, fmt::Debug, string::FromUtf8Error};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -72,6 +77,37 @@ pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
     });
 
     Ok(rweb::reply::with_status(json, code))
+}
+
+impl Entity for ServiceError {
+    fn describe() -> Schema {
+        rweb::http::Error::describe()
+    }
+}
+
+impl ResponseEntity for ServiceError {
+    fn describe_responses() -> Responses {
+        let mut map = IndexMap::new();
+
+        let error_responses = [
+            (StatusCode::NOT_FOUND, "Not Found"),
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"),
+            (StatusCode::BAD_REQUEST, "Bad Request"),
+            (StatusCode::METHOD_NOT_ALLOWED, "Method not allowed"),
+        ];
+
+        for (code, msg) in &error_responses {
+            map.insert(
+                Cow::Owned(code.as_str().into()),
+                Response {
+                    description: Cow::Borrowed(*msg),
+                    ..Response::default()
+                },
+            );
+        }
+
+        map
+    }
 }
 
 #[cfg(test)]
