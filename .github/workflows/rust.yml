@@ -25,8 +25,8 @@ jobs:
     - name: Run tests
       run: |
         cargo test --verbose && \
-        cargo install cargo-tarpaulin && \
-        cargo tarpaulin --verbose --all-features --workspace --out Xml
+        cargo install cargo-tarpaulin --version 0.18.0-alpha3 && \
+        cargo tarpaulin --verbose --all-features --workspace --out Xml --avoid-cfg-tarpaulin
       env:
         API_KEY: ${{secrets.API_KEY}}
         API_ENDPOINT: api.openweathermap.org
