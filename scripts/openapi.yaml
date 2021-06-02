@@ -46,9 +46,15 @@ paths:
           content:
             text/html:
               schema:
-                oneOf:
-                  - type: string
-                  - type: object
+                type: string
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "405":
+          description: Method not allowed
+        "500":
+          description: Internal Server Error
   /weather/plot.html:
     get:
       parameters:
@@ -90,9 +96,15 @@ paths:
           content:
             text/html:
               schema:
-                oneOf:
-                  - type: string
-                  - type: object
+                type: string
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "405":
+          description: Method not allowed
+        "500":
+          description: Internal Server Error
   /weather/weather:
     get:
       parameters:
@@ -255,14 +267,14 @@ paths:
                   - sys
                   - timezone
                   - name
-        "404":
-          description: Not Found
-        "500":
-          description: Internal Server Error
         "400":
           description: Bad Request
+        "404":
+          description: Not Found
         "405":
           description: Method not allowed
+        "500":
+          description: Internal Server Error
   /weather/forecast:
     get:
       parameters:
@@ -388,14 +400,14 @@ paths:
                 required:
                   - list
                   - city
-        "404":
-          description: Not Found
-        "500":
-          description: Internal Server Error
         "400":
           description: Bad Request
+        "404":
+          description: Not Found
         "405":
           description: Method not allowed
+        "500":
+          description: Internal Server Error
   /weather/statistics:
     get:
       responses:
@@ -419,11 +431,11 @@ paths:
                   - data_cache_misses
                   - forecast_cache_hits
                   - forecast_cache_misses
-        "404":
-          description: Not Found
-        "500":
-          description: Internal Server Error
         "400":
           description: Bad Request
+        "404":
+          description: Not Found
         "405":
           description: Method not allowed
+        "500":
+          description: Internal Server Error

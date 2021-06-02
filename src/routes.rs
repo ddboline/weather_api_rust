@@ -12,10 +12,13 @@ use weather_util_rust::{
     weather_data::WeatherData,
     weather_forecast::WeatherForecast,
 };
+use rweb_helper::{
+    html_response::HtmlResponse as HtmlBase,
+    json_response::JsonResponse as JsonBase,
+};
 
 use crate::{
     api_options::ApiOptions, app::AppState, errors::ServiceError as Error,
-    html_response::HtmlResponse, json_response::JsonResponse,
 };
 
 pub type WarpResult<T> = Result<T, Rejection>;
@@ -53,13 +56,15 @@ async fn get_weather_forecast(
     api.get_weather_forecast(loc).await.map_err(Into::into)
 }
 
+type HtmlResponse<T> = HtmlBase<T, Error>;
+
 #[get("/weather/index.html")]
 pub async fn frontpage(
     #[data] data: AppState,
     query: Query<ApiOptions>,
 ) -> WarpResult<HtmlResponse<String>> {
     let body = frontpage_body(data, query.into_inner()).await?;
-    Ok(HtmlResponse::new(body))
+    Ok(HtmlBase::new(body))
 }
 
 async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
@@ -99,7 +104,7 @@ pub async fn forecast_plot(
     query: Query<ApiOptions>,
 ) -> WarpResult<HtmlResponse<String>> {
     let body = forecast_plot_body(data, query.into_inner()).await?;
-    Ok(HtmlResponse::new(body))
+    Ok(HtmlBase::new(body))
 }
 
 async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
@@ -199,6 +204,8 @@ pub struct StatisticsObject {
     pub forecast_cache_misses: u64,
 }
 
+type JsonResponse<T> = JsonBase<T, Error>;
+
 #[get("/weather/statistics")]
 pub async fn statistics() -> WarpResult<JsonResponse<StatisticsObject>> {
     let data_cache = GET_WEATHER_DATA.lock().await;
@@ -211,7 +218,7 @@ pub async fn statistics() -> WarpResult<JsonResponse<StatisticsObject>> {
         forecast_cache_misses: forecast_cache.cache_misses().unwrap_or(0),
     };
 
-    Ok(JsonResponse::new(stat))
+    Ok(JsonBase::new(stat))
 }
 
 #[get("/weather/weather")]
@@ -220,7 +227,7 @@ pub async fn weather(
     query: Query<ApiOptions>,
 ) -> WarpResult<JsonResponse<WeatherData>> {
     let weather_data = weather_json(data, query.into_inner()).await?;
-    Ok(JsonResponse::new(weather_data))
+    Ok(JsonBase::new(weather_data))
 }
 
 async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherData> {
@@ -236,7 +243,7 @@ pub async fn forecast(
     query: Query<ApiOptions>,
 ) -> WarpResult<JsonResponse<WeatherForecast>> {
     let weather_forecast = forecast_body(data, query.into_inner()).await?;
-    Ok(JsonResponse::new(weather_forecast))
+    Ok(JsonBase::new(weather_forecast))
 }
 
 async fn forecast_body(data: AppState, query: ApiOptions) -> HttpResult<WeatherForecast> {
