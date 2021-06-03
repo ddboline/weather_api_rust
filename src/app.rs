@@ -1,13 +1,7 @@
 use anyhow::Error;
 use handlebars::Handlebars;
-use maplit::hashmap;
-use rweb::{
-    filters::BoxedFilter,
-    http::{header::CONTENT_TYPE, StatusCode},
-    openapi::{self, Spec},
-    Filter, Reply,
-};
-use std::{borrow::Cow, net::SocketAddr, sync::Arc};
+use rweb::{filters::BoxedFilter, http::header::CONTENT_TYPE, openapi, Filter, Reply};
+use std::{net::SocketAddr, sync::Arc};
 
 use weather_util_rust::weather_api::WeatherApi;
 
@@ -31,7 +25,7 @@ pub async fn start_app() -> Result<(), Error> {
     run_app(&config, port).await
 }
 
-fn get_api_scope(app: &AppState) -> BoxedFilter<(impl Reply,)> {
+fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
     let frontpage_path = frontpage(app.clone());
     let forecast_plot_path = forecast_plot(app.clone());
     let weather_path = weather(app.clone());
@@ -46,37 +40,6 @@ fn get_api_scope(app: &AppState) -> BoxedFilter<(impl Reply,)> {
         .boxed()
 }
 
-fn modify_spec(spec: &mut Spec) {
-    spec.info.title = "Weather App".into();
-    spec.info.description = "Web App to disply weather from openweatherapi".into();
-    spec.info.version = env!("CARGO_PKG_VERSION").into();
-
-    let response_descriptions = hashmap! {
-        ("/weather/index.html", "get", StatusCode::OK) => "Display Current Weather and Forecast",
-        ("/weather/plot.html", "get", StatusCode::OK) => "Show Plot of Current Weather and Forecast",
-        ("/weather/statistics", "get", StatusCode::OK) => "Get Cache Statistics",
-        ("/weather/weather", "get", StatusCode::OK) => "Get WeatherData Api Json",
-        ("/weather/forecast", "get", StatusCode::OK) => "Get WeatherForecast Api Json",
-    };
-
-    for ((path, method, code), description) in response_descriptions {
-        let code: Cow<'static, str> = code.as_u16().to_string().into();
-        if let Some(path) = spec.paths.get_mut(path) {
-            if let Some(method) = match method {
-                "get" => path.get.as_mut(),
-                "patch" => path.patch.as_mut(),
-                "post" => path.post.as_mut(),
-                "delete" => path.delete.as_mut(),
-                _ => panic!("Unsupported"),
-            } {
-                if let Some(resp) = method.responses.get_mut(&code) {
-                    resp.description = description.into();
-                }
-            }
-        }
-    }
-}
-
 async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
     let app = AppState {
         api: Arc::new(WeatherApi::new(
@@ -88,8 +51,14 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         hbr: Arc::new(get_templates()?),
     };
 
-    let (mut spec, api_scope) = openapi::spec().build(|| get_api_scope(&app));
-    modify_spec(&mut spec);
+    let (spec, api_path) = openapi::spec()
+        .info(openapi::Info {
+            title: "Weather App".into(),
+            description: "Web App to disply weather from openweatherapi".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
+            ..openapi::Info::default()
+        })
+        .build(|| get_api_path(&app));
     let spec = Arc::new(spec);
     let spec_json_path = rweb::path!("weather" / "openapi" / "json")
         .and(rweb::path::end())
@@ -111,7 +80,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         .allow_any_origin()
         .build();
 
-    let routes = api_scope
+    let routes = api_path
         .or(spec_json_path)
         .or(spec_yaml_path)
         .recover(error_response)
