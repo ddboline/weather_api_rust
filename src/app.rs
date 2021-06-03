@@ -1,6 +1,11 @@
 use anyhow::Error;
 use handlebars::Handlebars;
-use rweb::{filters::BoxedFilter, http::header::CONTENT_TYPE, openapi, Filter, Reply};
+use rweb::{
+    filters::BoxedFilter,
+    http::header::CONTENT_TYPE,
+    openapi::{self, Info},
+    reply, Filter, Reply,
+};
 use std::{net::SocketAddr, sync::Arc};
 
 use weather_util_rust::weather_api::WeatherApi;
@@ -52,11 +57,11 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
     };
 
     let (spec, api_path) = openapi::spec()
-        .info(openapi::Info {
+        .info(Info {
             title: "Weather App".into(),
             description: "Web App to disply weather from openweatherapi".into(),
             version: env!("CARGO_PKG_VERSION").into(),
-            ..openapi::Info::default()
+            ..Info::default()
         })
         .build(|| get_api_path(&app));
     let spec = Arc::new(spec);
@@ -64,14 +69,14 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         .and(rweb::path::end())
         .map({
             let spec = spec.clone();
-            move || rweb::reply::json(spec.as_ref())
+            move || reply::json(spec.as_ref())
         });
     let spec_yaml = serde_yaml::to_string(spec.as_ref())?;
     let spec_yaml_path = rweb::path!("weather" / "openapi" / "yaml")
         .and(rweb::path::end())
         .map(move || {
-            let reply = rweb::reply::html(spec_yaml.clone());
-            rweb::reply::with_header(reply, CONTENT_TYPE, "text/yaml")
+            let reply = reply::html(spec_yaml.clone());
+            reply::with_header(reply, CONTENT_TYPE, "text/yaml")
         });
 
     let cors = rweb::cors()
