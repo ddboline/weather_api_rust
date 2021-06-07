@@ -7,9 +7,8 @@ use serde::{Deserialize, Serialize};
 use stack_string::StackString;
 
 use rweb_helper::{
-    content_type_trait::ContentTypeHtml, derive_response_description,
     html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase,
-    status_code_trait::StatusCodeOk,
+    RwebResponse,
 };
 use weather_util_rust::{
     precipitation::Precipitation,
@@ -55,13 +54,9 @@ async fn get_weather_forecast(
     api.get_weather_forecast(loc).await.map_err(Into::into)
 }
 
-struct WeatherIndexDescription {}
-derive_response_description!(
-    WeatherIndexDescription,
-    "Display Current Weather and Forecast"
-);
-type IndexResponse =
-    HtmlBase<String, Error, StatusCodeOk, ContentTypeHtml, WeatherIndexDescription>;
+#[derive(RwebResponse)]
+#[response(description="Display Current Weather and Forecast", content="html")]
+struct IndexResponse(HtmlBase<String, Error>);
 
 #[get("/weather/index.html")]
 pub async fn frontpage(
@@ -69,7 +64,7 @@ pub async fn frontpage(
     query: Query<ApiOptions>,
 ) -> WarpResult<IndexResponse> {
     let body = frontpage_body(data, query.into_inner()).await?;
-    Ok(HtmlBase::new(body))
+    Ok(HtmlBase::new(body).into())
 }
 
 async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
@@ -103,13 +98,9 @@ async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String>
     Ok(body)
 }
 
-struct WeatherPlotDescription {}
-derive_response_description!(
-    WeatherPlotDescription,
-    "Show Plot of Current Weather and Forecast"
-);
-type WeatherPlotResponse =
-    HtmlBase<String, Error, StatusCodeOk, ContentTypeHtml, WeatherPlotDescription>;
+#[derive(RwebResponse)]
+#[response(description="Show Plot of Current Weather and Forecast", content="html")]
+struct WeatherPlotResponse(HtmlBase<String, Error>);
 
 #[get("/weather/plot.html")]
 pub async fn forecast_plot(
@@ -117,7 +108,7 @@ pub async fn forecast_plot(
     query: Query<ApiOptions>,
 ) -> WarpResult<WeatherPlotResponse> {
     let body = forecast_plot_body(data, query.into_inner()).await?;
-    Ok(HtmlBase::new(body))
+    Ok(HtmlBase::new(body).into())
 }
 
 async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
@@ -217,9 +208,9 @@ pub struct StatisticsObject {
     pub forecast_cache_misses: u64,
 }
 
-struct StatisticsDescription {}
-derive_response_description!(StatisticsDescription, "Get Cache Statistics");
-type StatisticsResponse = JsonBase<StatisticsObject, Error, StatusCodeOk, StatisticsDescription>;
+#[derive(RwebResponse)]
+#[response(description="Get Cache Statistics")]
+struct StatisticsResponse(JsonBase<StatisticsObject, Error>);
 
 #[get("/weather/statistics")]
 pub async fn statistics() -> WarpResult<StatisticsResponse> {
@@ -233,12 +224,12 @@ pub async fn statistics() -> WarpResult<StatisticsResponse> {
         forecast_cache_misses: forecast_cache.cache_misses().unwrap_or(0),
     };
 
-    Ok(JsonBase::new(stat))
+    Ok(JsonBase::new(stat).into())
 }
 
-struct WeatherDescription {}
-derive_response_description!(WeatherDescription, "Get WeatherData Api Json");
-type WeatherResponse = JsonBase<WeatherData, Error, StatusCodeOk, WeatherDescription>;
+#[derive(RwebResponse)]
+#[response(description="Get WeatherData Api Json")]
+struct WeatherResponse(JsonBase<WeatherData, Error>);
 
 #[get("/weather/weather")]
 pub async fn weather(
@@ -246,7 +237,7 @@ pub async fn weather(
     query: Query<ApiOptions>,
 ) -> WarpResult<WeatherResponse> {
     let weather_data = weather_json(data, query.into_inner()).await?;
-    Ok(JsonBase::new(weather_data))
+    Ok(JsonBase::new(weather_data).into())
 }
 
 async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherData> {
@@ -256,9 +247,9 @@ async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherDa
     Ok(weather_data)
 }
 
-struct ForecastDescription {}
-derive_response_description!(ForecastDescription, "Get WeatherForecast Api Json");
-type ForecastResponse = JsonBase<WeatherForecast, Error, StatusCodeOk, ForecastDescription>;
+#[derive(RwebResponse)]
+#[response(description="Get WeatherForecast Api Json")]
+struct ForecastResponse(JsonBase<WeatherForecast, Error>);
 
 #[get("/weather/forecast")]
 pub async fn forecast(
@@ -266,7 +257,7 @@ pub async fn forecast(
     query: Query<ApiOptions>,
 ) -> WarpResult<ForecastResponse> {
     let weather_forecast = forecast_body(data, query.into_inner()).await?;
-    Ok(JsonBase::new(weather_forecast))
+    Ok(JsonBase::new(weather_forecast).into())
 }
 
 async fn forecast_body(data: AppState, query: ApiOptions) -> HttpResult<WeatherForecast> {
