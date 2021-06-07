@@ -3,7 +3,7 @@ openapi: 3.0.1
 info:
   title: Weather App
   description: Web App to disply weather from openweatherapi
-  version: 0.5.5
+  version: 0.5.7
 paths:
   /weather/index.html:
     get:
