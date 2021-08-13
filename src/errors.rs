@@ -3,7 +3,9 @@ use handlebars::{RenderError, TemplateError};
 use http::{Error as HTTPError, StatusCode};
 use indexmap::IndexMap;
 use rweb::{
-    openapi::{Entity, Response, ResponseEntity, Responses, Schema},
+    openapi::{
+        ComponentDescriptor, ComponentOrInlineSchema, Entity, Response, ResponseEntity, Responses,
+    },
     reject::Reject,
     Rejection, Reply,
 };
@@ -80,13 +82,16 @@ pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
 }
 
 impl Entity for ServiceError {
-    fn describe() -> Schema {
-        rweb::http::Error::describe()
+    fn type_name() -> Cow<'static, str> {
+        rweb::http::Error::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        rweb::http::Error::describe(comp_d)
     }
 }
 
 impl ResponseEntity for ServiceError {
-    fn describe_responses() -> Responses {
+    fn describe_responses(_: &mut ComponentDescriptor) -> Responses {
         let mut map = IndexMap::new();
 
         let error_responses = [

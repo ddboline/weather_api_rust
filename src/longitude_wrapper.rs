@@ -1,6 +1,7 @@
 use derive_more::{Deref, Display, From, FromStr, Into};
-use rweb::openapi::{Entity, Schema, Type};
+use rweb::openapi::{ComponentDescriptor, ComponentOrInlineSchema, Entity, Schema, Type};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 use weather_util_rust::longitude::Longitude;
 
@@ -10,12 +11,16 @@ use weather_util_rust::longitude::Longitude;
 pub struct LongitudeWrapper(Longitude);
 
 impl Entity for LongitudeWrapper {
+    fn type_name() -> Cow<'static, str> {
+        "longitude".into()
+    }
+
     #[inline]
-    fn describe() -> Schema {
-        Schema {
+    fn describe(_: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        ComponentOrInlineSchema::Inline(Schema {
             schema_type: Some(Type::Number),
             format: "longitude".into(),
             ..Schema::default()
-        }
+        })
     }
 }

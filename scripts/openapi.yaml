@@ -10,33 +10,40 @@ paths:
       parameters:
         - name: zip
           in: query
+          required: false
           schema:
             nullable: true
             type: integer
+            minimum: 0
         - name: country_code
           in: query
+          required: false
           schema:
             nullable: true
             type: string
         - name: q
           in: query
+          required: false
           schema:
             nullable: true
             type: string
         - name: lat
           in: query
+          required: false
           schema:
             format: latitude
             nullable: true
             type: number
         - name: lon
           in: query
+          required: false
           schema:
             format: longitude
             nullable: true
             type: number
         - name: APPID
           in: query
+          required: false
           schema:
             nullable: true
             type: string
@@ -60,33 +67,40 @@ paths:
       parameters:
         - name: zip
           in: query
+          required: false
           schema:
             nullable: true
             type: integer
+            minimum: 0
         - name: country_code
           in: query
+          required: false
           schema:
             nullable: true
             type: string
         - name: q
           in: query
+          required: false
           schema:
             nullable: true
             type: string
         - name: lat
           in: query
+          required: false
           schema:
             format: latitude
             nullable: true
             type: number
         - name: lon
           in: query
+          required: false
           schema:
             format: longitude
             nullable: true
             type: number
         - name: APPID
           in: query
+          required: false
           schema:
             nullable: true
             type: string
@@ -110,33 +124,40 @@ paths:
       parameters:
         - name: zip
           in: query
+          required: false
           schema:
             nullable: true
             type: integer
+            minimum: 0
         - name: country_code
           in: query
+          required: false
           schema:
             nullable: true
             type: string
         - name: q
           in: query
+          required: false
           schema:
             nullable: true
             type: string
         - name: lat
           in: query
+          required: false
           schema:
             format: latitude
             nullable: true
             type: number
         - name: lon
           in: query
+          required: false
           schema:
             format: longitude
             nullable: true
             type: number
         - name: APPID
           in: query
+          required: false
           schema:
             nullable: true
             type: string
@@ -148,18 +169,20 @@ paths:
               schema:
                 properties:
                   coord:
+                    description: Coordinates
                     properties:
                       lon:
-                        description: " Longitude in degrees, required be within the range -180.0 to 180.0"
-                        type: object
+                        description: Longitude
+                        type: number
                       lat:
-                        description: " Latitude in degrees, required be within the range -90.0 to 90.0"
-                        type: object
+                        description: Latitude
+                        type: number
                     type: object
                     required:
                       - lon
                       - lat
                   weather:
+                    description: Weather Conditions
                     items:
                       properties:
                         main:
@@ -176,23 +199,23 @@ paths:
                   main:
                     properties:
                       temp:
-                        description: " Temperature struct, data is stored as Kelvin"
-                        type: object
+                        description: Temperature (K)
+                        type: number
                       feels_like:
-                        description: " Temperature struct, data is stored as Kelvin"
-                        type: object
+                        description: Feels Like Temperature (K)
+                        type: number
                       temp_min:
-                        description: " Temperature struct, data is stored as Kelvin"
-                        type: object
+                        description: Minimum Temperature (K)
+                        type: number
                       temp_max:
-                        description: " Temperature struct, data is stored as Kelvin"
-                        type: object
+                        description: Maximum Temperature (K)
+                        type: number
                       pressure:
-                        description: " Pressure struct, data is stored as hPa (100 Pa)"
-                        type: object
+                        description: "Atmospheric Pressure (hPa, h=10^2)"
+                        type: number
                       humidity:
-                        description: " Relative Humidity as Percent"
-                        type: object
+                        description: Humidity %
+                        type: integer
                     type: object
                     required:
                       - temp
@@ -202,39 +225,40 @@ paths:
                       - pressure
                       - humidity
                   visibility:
-                    description: " Distance in meters"
+                    description: Visibility (m)
                     nullable: true
-                    type: object
+                    type: number
                   wind:
                     properties:
                       speed:
-                        description: " Speed in meters per second"
-                        type: object
+                        description: Speed (m/s)
+                        type: number
                       deg:
-                        description: " Direction in degrees"
+                        description: Direction (degrees)
                         nullable: true
-                        type: object
+                        type: number
                     type: object
                     required:
                       - speed
                   rain:
                     properties:
                       three_hour:
-                        description: " Precipitation in mm"
+                        description: Rain (mm over previous 3 hours)
                         nullable: true
-                        type: object
+                        type: number
                     nullable: true
                     type: object
                   snow:
                     properties:
                       three_hour:
-                        description: " Precipitation in mm"
+                        description: Snow (mm over previous 3 hours)
                         nullable: true
-                        type: object
+                        type: number
                     nullable: true
                     type: object
                   dt:
-                    format: datetime
+                    description: Current Datetime (Unix Timestamp)
+                    format: date-time
                     type: string
                   sys:
                     properties:
@@ -242,19 +266,22 @@ paths:
                         nullable: true
                         type: string
                       sunrise:
-                        format: datetime
+                        description: Sunrise (Unix Timestamp)
+                        format: date-time
                         type: string
                       sunset:
-                        format: datetime
+                        description: Sunset (Unix Timestamp)
+                        format: date-time
                         type: string
                     type: object
                     required:
                       - sunrise
                       - sunset
                   timezone:
-                    description: " Direction in degrees"
-                    type: object
+                    description: Timezone (seconds offset from UTC)
+                    type: integer
                   name:
+                    description: Location Name
                     type: string
                 type: object
                 required:
@@ -280,33 +307,40 @@ paths:
       parameters:
         - name: zip
           in: query
+          required: false
           schema:
             nullable: true
             type: integer
+            minimum: 0
         - name: country_code
           in: query
+          required: false
           schema:
             nullable: true
             type: string
         - name: q
           in: query
+          required: false
           schema:
             nullable: true
             type: string
         - name: lat
           in: query
+          required: false
           schema:
             format: latitude
             nullable: true
             type: number
         - name: lon
           in: query
+          required: false
           schema:
             format: longitude
             nullable: true
             type: number
         - name: APPID
           in: query
+          required: false
           schema:
             nullable: true
             type: string
@@ -318,37 +352,39 @@ paths:
               schema:
                 properties:
                   list:
+                    description: Main Forecast Entries
                     items:
                       properties:
                         dt:
-                          format: datetime
+                          description: Forecasted DateTime (Unix Timestamp)
+                          format: date-time
                           type: string
                         main:
                           properties:
                             temp:
-                              description: " Temperature struct, data is stored as Kelvin"
-                              type: object
+                              description: Temperature (K)
+                              type: number
                             feels_like:
-                              description: " Temperature struct, data is stored as Kelvin"
-                              type: object
+                              description: Feels Like Temperature (K)
+                              type: number
                             temp_min:
-                              description: " Temperature struct, data is stored as Kelvin"
-                              type: object
+                              description: Minimum Temperature (K)
+                              type: number
                             temp_max:
-                              description: " Temperature struct, data is stored as Kelvin"
-                              type: object
+                              description: Maximum Temperature (K)
+                              type: number
                             pressure:
-                              description: " Pressure struct, data is stored as hPa (100 Pa)"
-                              type: object
+                              description: "Atmospheric Pressure (hPa, h=10^2)"
+                              type: number
                             sea_level:
-                              description: " Pressure struct, data is stored as hPa (100 Pa)"
-                              type: object
+                              description: "Pressure at Sea Level (hPa, h=10^2)"
+                              type: number
                             grnd_level:
-                              description: " Pressure struct, data is stored as hPa (100 Pa)"
-                              type: object
+                              description: "Pressure at Ground Level (hPa, h=10^2)"
+                              type: number
                             humidity:
-                              description: " Relative Humidity as Percent"
-                              type: object
+                              description: Humidity %
+                              type: integer
                           type: object
                           required:
                             - temp
@@ -362,17 +398,17 @@ paths:
                         rain:
                           properties:
                             three_hour:
-                              description: " Precipitation in mm"
+                              description: Rain (mm over previous 3 hours)
                               nullable: true
-                              type: object
+                              type: number
                           nullable: true
                           type: object
                         snow:
                           properties:
                             three_hour:
-                              description: " Precipitation in mm"
+                              description: Snow (mm over previous 3 hours)
                               nullable: true
-                              type: object
+                              type: number
                           nullable: true
                           type: object
                       type: object
@@ -381,15 +417,18 @@ paths:
                         - main
                     type: array
                   city:
+                    description: City Information
                     properties:
                       timezone:
-                        description: " Direction in degrees"
-                        type: object
+                        description: Timezone (seconds offset from UTC)
+                        type: integer
                       sunrise:
-                        format: datetime
+                        description: Sunrise (Unix Timestamp)
+                        format: date-time
                         type: string
                       sunset:
-                        format: datetime
+                        description: Sunset (Unix Timestamp)
+                        format: date-time
                         type: string
                     type: object
                     required:
@@ -419,12 +458,16 @@ paths:
                 properties:
                   data_cache_hits:
                     type: integer
+                    minimum: 0
                   data_cache_misses:
                     type: integer
+                    minimum: 0
                   forecast_cache_hits:
                     type: integer
+                    minimum: 0
                   forecast_cache_misses:
                     type: integer
+                    minimum: 0
                 type: object
                 required:
                   - data_cache_hits
@@ -439,3 +482,4 @@ paths:
           description: Method not allowed
         "500":
           description: Internal Server Error
+components: {}
