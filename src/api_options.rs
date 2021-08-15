@@ -24,7 +24,7 @@ pub struct ApiOptions {
 impl ApiOptions {
     pub fn get_weather_api<'a>(&self, api: &'a WeatherApi) -> Result<Cow<'a, WeatherApi>, Error> {
         if let Some(appid) = &self.appid {
-            Ok(Cow::Owned(api.clone().with_key(&appid)))
+            Ok(Cow::Owned(api.clone().with_key(appid)))
         } else {
             Ok(Cow::Borrowed(api))
         }

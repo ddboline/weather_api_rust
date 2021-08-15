@@ -81,7 +81,7 @@ impl From<WeatherData> for WeatherDataWrapper {
             wind: item.wind.into(),
             rain: item.rain.map(Into::into),
             snow: item.snow.map(Into::into),
-            dt: item.dt.into(),
+            dt: item.dt,
             sys: item.sys.into(),
             timezone: item.timezone.into(),
             name: item.name,
@@ -196,9 +196,9 @@ pub struct SysWrapper {
 impl From<Sys> for SysWrapper {
     fn from(item: Sys) -> Self {
         Self {
-            country: item.country.map(Into::into),
-            sunrise: item.sunrise.into(),
-            sunset: item.sunset.into(),
+            country: item.country,
+            sunrise: item.sunrise,
+            sunset: item.sunset,
         }
     }
 }
@@ -235,7 +235,7 @@ pub struct ForecastEntryWrapper {
 impl From<ForecastEntry> for ForecastEntryWrapper {
     fn from(item: ForecastEntry) -> Self {
         Self {
-            dt: item.dt.into(),
+            dt: item.dt,
             main: item.main.into(),
             rain: item.rain.map(Into::into),
             snow: item.snow.map(Into::into),
@@ -259,8 +259,8 @@ impl From<CityEntry> for CityEntryWrapper {
     fn from(item: CityEntry) -> Self {
         Self {
             timezone: item.timezone.into(),
-            sunrise: item.sunrise.into(),
-            sunset: item.sunset.into(),
+            sunrise: item.sunrise,
+            sunset: item.sunset,
         }
     }
 }
