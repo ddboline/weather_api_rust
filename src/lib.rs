@@ -26,7 +26,7 @@ use weather_util_rust::{
     weather_forecast::{CityEntry, ForecastEntry, ForecastMain, WeatherForecast},
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone, Schema)]
+#[derive(Serialize, Deserialize, Debug, Clone, Schema, Copy)]
 pub struct CoordWrapper {
     #[schema(description = "Longitude")]
     pub lon: f64,
@@ -104,7 +104,7 @@ impl From<WeatherCond> for WeatherCondWrapper {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Schema)]
+#[derive(Serialize, Deserialize, Debug, Clone, Schema, Copy)]
 pub struct WeatherMainWrapper {
     #[schema(description = "Temperature (K)")]
     pub temp: f64,
@@ -133,7 +133,7 @@ impl From<WeatherMain> for WeatherMainWrapper {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema)]
+#[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
 pub struct WindWrapper {
     #[schema(description = "Speed (m/s)")]
     pub speed: f64,
@@ -146,12 +146,12 @@ impl From<Wind> for WindWrapper {
     fn from(item: Wind) -> Self {
         Self {
             speed: item.speed.into(),
-            deg: item.deg.map(Into::into),
+            deg: item.deg.map(|d| d.deg()),
         }
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema)]
+#[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
 pub struct RainWrapper {
     #[serde(alias = "3h", skip_serializing_if = "Option::is_none")]
     #[schema(description = "Rain (mm over previous 3 hours)")]
@@ -166,7 +166,7 @@ impl From<Rain> for RainWrapper {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema)]
+#[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
 pub struct SnowWrapper {
     #[serde(alias = "3h", skip_serializing_if = "Option::is_none")]
     #[schema(description = "Snow (mm over previous 3 hours)")]
@@ -220,7 +220,7 @@ impl From<WeatherForecast> for WeatherForecastWrapper {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema)]
+#[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
 pub struct ForecastEntryWrapper {
     #[serde(with = "timestamp")]
     #[schema(description = "Forecasted DateTime (Unix Timestamp)")]
@@ -243,7 +243,7 @@ impl From<ForecastEntry> for ForecastEntryWrapper {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema)]
+#[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
 pub struct CityEntryWrapper {
     #[schema(description = "Timezone (seconds offset from UTC)")]
     pub timezone: i32,
@@ -265,7 +265,7 @@ impl From<CityEntry> for CityEntryWrapper {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema)]
+#[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
 pub struct ForecastMainWrapper {
     #[schema(description = "Temperature (K)")]
     pub temp: f64,
