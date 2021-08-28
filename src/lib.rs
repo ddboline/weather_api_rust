@@ -17,7 +17,11 @@ pub mod routes;
 pub mod timestamp;
 
 use chrono::{DateTime, Utc};
-use rweb::Schema;
+use derive_more::{From, Into};
+use rweb::{
+    openapi::{ComponentDescriptor, ComponentOrInlineSchema, Entity},
+    Schema,
+};
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
 
@@ -26,129 +30,130 @@ use weather_util_rust::{
     weather_forecast::{CityEntry, ForecastEntry, ForecastMain, WeatherForecast},
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone, Schema, Copy)]
-pub struct CoordWrapper {
-    #[schema(description = "Longitude")]
-    pub lon: f64,
-    #[schema(description = "Latitude")]
-    pub lat: f64,
+#[derive(Into, From, Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct CoordWrapper(Coord);
+
+impl Entity for CoordWrapper {
+    fn type_name() -> std::borrow::Cow<'static, str> {
+        _CoordWrapper::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        _CoordWrapper::describe(comp_d)
+    }
 }
 
-impl From<Coord> for CoordWrapper {
-    fn from(item: Coord) -> Self {
-        Self {
-            lon: item.lon.into(),
-            lat: item.lat.into(),
-        }
-    }
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _CoordWrapper {
+    #[schema(description = "Longitude")]
+    lon: f64,
+    #[schema(description = "Latitude")]
+    lat: f64,
 }
 
 // Weather Data
-#[derive(Deserialize, Serialize, Debug, Clone, Schema)]
-pub struct WeatherDataWrapper {
+#[derive(Into, From, Deserialize, Serialize, Debug, Clone)]
+pub struct WeatherDataWrapper(WeatherData);
+
+impl Entity for WeatherDataWrapper {
+    fn type_name() -> std::borrow::Cow<'static, str> {
+        _WeatherDataWrapper::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        _WeatherDataWrapper::describe(comp_d)
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _WeatherDataWrapper {
     #[schema(description = "Coordinates")]
-    pub coord: CoordWrapper,
+    coord: CoordWrapper,
     #[schema(description = "Weather Conditions")]
-    pub weather: Vec<WeatherCondWrapper>,
-    pub base: StackString,
-    pub main: WeatherMainWrapper,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    weather: Vec<WeatherCondWrapper>,
+    base: StackString,
+    main: WeatherMainWrapper,
     #[schema(description = "Visibility (m)")]
-    pub visibility: Option<f64>,
-    pub wind: WindWrapper,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rain: Option<RainWrapper>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub snow: Option<SnowWrapper>,
-    #[serde(with = "timestamp")]
+    visibility: Option<f64>,
+    wind: WindWrapper,
+    rain: Option<RainWrapper>,
+    snow: Option<SnowWrapper>,
     #[schema(description = "Current Datetime (Unix Timestamp)")]
-    pub dt: DateTime<Utc>,
-    pub sys: SysWrapper,
+    dt: DateTime<Utc>,
+    sys: SysWrapper,
     #[schema(description = "Timezone (seconds offset from UTC)")]
-    pub timezone: i32,
+    timezone: i32,
     #[schema(description = "Location Name")]
-    pub name: StackString,
+    name: StackString,
 }
 
-impl From<WeatherData> for WeatherDataWrapper {
-    fn from(item: WeatherData) -> Self {
-        Self {
-            coord: item.coord.into(),
-            weather: item.weather.into_iter().map(Into::into).collect(),
-            base: item.base,
-            main: item.main.into(),
-            visibility: item.visibility.map(Into::into),
-            wind: item.wind.into(),
-            rain: item.rain.map(Into::into),
-            snow: item.snow.map(Into::into),
-            dt: item.dt,
-            sys: item.sys.into(),
-            timezone: item.timezone.into(),
-            name: item.name,
-        }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WeatherCondWrapper(WeatherCond);
+
+impl Entity for WeatherCondWrapper {
+    fn type_name() -> std::borrow::Cow<'static, str> {
+        _WeatherCondWrapper::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        _WeatherCondWrapper::describe(comp_d)
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Schema)]
-pub struct WeatherCondWrapper {
-    pub main: StackString,
-    pub description: StackString,
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _WeatherCondWrapper {
+    main: StackString,
+    description: StackString,
 }
 
-impl From<WeatherCond> for WeatherCondWrapper {
-    fn from(item: WeatherCond) -> Self {
-        Self {
-            main: item.main,
-            description: item.description,
-        }
+#[derive(Into, From, Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct WeatherMainWrapper(WeatherMain);
+
+impl Entity for WeatherMainWrapper {
+    fn type_name() -> std::borrow::Cow<'static, str> {
+        _WeatherMainWrapper::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        _WeatherMainWrapper::describe(comp_d)
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Schema, Copy)]
-pub struct WeatherMainWrapper {
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _WeatherMainWrapper {
     #[schema(description = "Temperature (K)")]
-    pub temp: f64,
+    temp: f64,
     #[schema(description = "Feels Like Temperature (K)")]
-    pub feels_like: f64,
+    feels_like: f64,
     #[schema(description = "Minimum Temperature (K)")]
-    pub temp_min: f64,
+    temp_min: f64,
     #[schema(description = "Maximum Temperature (K)")]
-    pub temp_max: f64,
+    temp_max: f64,
     #[schema(description = "Atmospheric Pressure (hPa, h=10^2)")]
-    pub pressure: f64,
+    pressure: f64,
     #[schema(description = "Humidity %")]
-    pub humidity: i64,
+    humidity: i64,
 }
 
-impl From<WeatherMain> for WeatherMainWrapper {
-    fn from(item: WeatherMain) -> Self {
-        Self {
-            temp: item.temp.into(),
-            feels_like: item.feels_like.into(),
-            temp_min: item.temp_min.into(),
-            temp_max: item.temp_max.into(),
-            pressure: item.pressure.into(),
-            humidity: item.humidity.into(),
-        }
+#[derive(Into, From, Deserialize, Serialize, Debug, Clone, Copy)]
+pub struct WindWrapper(Wind);
+
+impl Entity for WindWrapper {
+    fn type_name() -> std::borrow::Cow<'static, str> {
+        _WindWrapper::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        _WindWrapper::describe(comp_d)
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
-pub struct WindWrapper {
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _WindWrapper {
     #[schema(description = "Speed (m/s)")]
-    pub speed: f64,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    speed: f64,
     #[schema(description = "Direction (degrees)")]
-    pub deg: Option<f64>,
-}
-
-impl From<Wind> for WindWrapper {
-    fn from(item: Wind) -> Self {
-        Self {
-            speed: item.speed.into(),
-            deg: item.deg.map(|d| d.deg()),
-        }
-    }
+    deg: Option<f64>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
@@ -181,121 +186,123 @@ impl From<Snow> for SnowWrapper {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema)]
-pub struct SysWrapper {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub country: Option<StackString>,
-    #[serde(with = "timestamp")]
-    #[schema(description = "Sunrise (Unix Timestamp)")]
-    pub sunrise: DateTime<Utc>,
-    #[serde(with = "timestamp")]
-    #[schema(description = "Sunset (Unix Timestamp)")]
-    pub sunset: DateTime<Utc>,
-}
+#[derive(Into, From, Deserialize, Serialize, Debug, Clone)]
+pub struct SysWrapper(Sys);
 
-impl From<Sys> for SysWrapper {
-    fn from(item: Sys) -> Self {
-        Self {
-            country: item.country,
-            sunrise: item.sunrise,
-            sunset: item.sunset,
-        }
+impl Entity for SysWrapper {
+    fn type_name() -> std::borrow::Cow<'static, str> {
+        _SysWrapper::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        _SysWrapper::describe(comp_d)
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema)]
-pub struct WeatherForecastWrapper {
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _SysWrapper {
+    country: Option<StackString>,
+    #[schema(description = "Sunrise (Unix Timestamp)")]
+    sunrise: DateTime<Utc>,
+    #[schema(description = "Sunset (Unix Timestamp)")]
+    sunset: DateTime<Utc>,
+}
+
+#[derive(Into, From, Deserialize, Serialize, Debug, Clone)]
+pub struct WeatherForecastWrapper(WeatherForecast);
+
+impl Entity for WeatherForecastWrapper {
+    fn type_name() -> std::borrow::Cow<'static, str> {
+        _WeatherForecastWrapper::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        _WeatherForecastWrapper::describe(comp_d)
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _WeatherForecastWrapper {
     #[schema(description = "Main Forecast Entries")]
-    pub list: Vec<ForecastEntryWrapper>,
+    list: Vec<ForecastEntryWrapper>,
     #[schema(description = "City Information")]
-    pub city: CityEntryWrapper,
+    city: CityEntryWrapper,
 }
 
-impl From<WeatherForecast> for WeatherForecastWrapper {
-    fn from(item: WeatherForecast) -> Self {
-        Self {
-            list: item.list.into_iter().map(Into::into).collect(),
-            city: item.city.into(),
-        }
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+pub struct ForecastEntryWrapper(ForecastEntry);
+
+impl Entity for ForecastEntryWrapper {
+    fn type_name() -> std::borrow::Cow<'static, str> {
+        _ForecastEntryWrapper::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        _ForecastEntryWrapper::describe(comp_d)
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
-pub struct ForecastEntryWrapper {
-    #[serde(with = "timestamp")]
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _ForecastEntryWrapper {
     #[schema(description = "Forecasted DateTime (Unix Timestamp)")]
-    pub dt: DateTime<Utc>,
-    pub main: ForecastMainWrapper,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rain: Option<RainWrapper>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub snow: Option<SnowWrapper>,
+    dt: DateTime<Utc>,
+    main: ForecastMainWrapper,
+    rain: Option<RainWrapper>,
+    snow: Option<SnowWrapper>,
 }
 
-impl From<ForecastEntry> for ForecastEntryWrapper {
-    fn from(item: ForecastEntry) -> Self {
-        Self {
-            dt: item.dt,
-            main: item.main.into(),
-            rain: item.rain.map(Into::into),
-            snow: item.snow.map(Into::into),
-        }
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+pub struct CityEntryWrapper(CityEntry);
+
+impl Entity for CityEntryWrapper {
+    fn type_name() -> std::borrow::Cow<'static, str> {
+        _CityEntryWrapper::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        _CityEntryWrapper::describe(comp_d)
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
-pub struct CityEntryWrapper {
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _CityEntryWrapper {
     #[schema(description = "Timezone (seconds offset from UTC)")]
-    pub timezone: i32,
-    #[serde(with = "timestamp")]
+    timezone: i32,
     #[schema(description = "Sunrise (Unix Timestamp)")]
-    pub sunrise: DateTime<Utc>,
-    #[serde(with = "timestamp")]
+    sunrise: DateTime<Utc>,
     #[schema(description = "Sunset (Unix Timestamp)")]
-    pub sunset: DateTime<Utc>,
+    sunset: DateTime<Utc>,
 }
 
-impl From<CityEntry> for CityEntryWrapper {
-    fn from(item: CityEntry) -> Self {
-        Self {
-            timezone: item.timezone.into(),
-            sunrise: item.sunrise,
-            sunset: item.sunset,
-        }
+#[derive(Into, From, Deserialize, Serialize, Debug, Clone, Copy)]
+pub struct ForecastMainWrapper(ForecastMain);
+
+impl Entity for ForecastMainWrapper {
+    fn type_name() -> std::borrow::Cow<'static, str> {
+        _ForecastMainWrapper::type_name()
+    }
+    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
+        _ForecastMainWrapper::describe(comp_d)
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
-pub struct ForecastMainWrapper {
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _ForecastMainWrapper {
     #[schema(description = "Temperature (K)")]
-    pub temp: f64,
+    temp: f64,
     #[schema(description = "Feels Like Temperature (K)")]
-    pub feels_like: f64,
+    feels_like: f64,
     #[schema(description = "Minimum Temperature (K)")]
-    pub temp_min: f64,
+    temp_min: f64,
     #[schema(description = "Maximum Temperature (K)")]
-    pub temp_max: f64,
+    temp_max: f64,
     #[schema(description = "Atmospheric Pressure (hPa, h=10^2)")]
-    pub pressure: f64,
+    pressure: f64,
     #[schema(description = "Pressure at Sea Level (hPa, h=10^2)")]
-    pub sea_level: f64,
+    sea_level: f64,
     #[schema(description = "Pressure at Ground Level (hPa, h=10^2)")]
-    pub grnd_level: f64,
+    grnd_level: f64,
     #[schema(description = "Humidity %")]
-    pub humidity: i64,
-}
-
-impl From<ForecastMain> for ForecastMainWrapper {
-    fn from(item: ForecastMain) -> Self {
-        Self {
-            temp: item.temp.into(),
-            feels_like: item.feels_like.into(),
-            temp_min: item.temp_min.into(),
-            temp_max: item.temp_max.into(),
-            pressure: item.pressure.into(),
-            sea_level: item.sea_level.into(),
-            grnd_level: item.grnd_level.into(),
-            humidity: item.humidity.into(),
-        }
-    }
+    humidity: i64,
 }
