@@ -18,10 +18,8 @@ pub mod timestamp;
 
 use chrono::{DateTime, Utc};
 use derive_more::{From, Into};
-use rweb::{
-    openapi::{ComponentDescriptor, ComponentOrInlineSchema, Entity},
-    Schema,
-};
+use rweb::Schema;
+use rweb_helper::derive_rweb_schema;
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
 
@@ -33,14 +31,7 @@ use weather_util_rust::{
 #[derive(Into, From, Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct CoordWrapper(Coord);
 
-impl Entity for CoordWrapper {
-    fn type_name() -> std::borrow::Cow<'static, str> {
-        _CoordWrapper::type_name()
-    }
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        _CoordWrapper::describe(comp_d)
-    }
-}
+derive_rweb_schema!(CoordWrapper, _CoordWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
@@ -55,14 +46,7 @@ struct _CoordWrapper {
 #[derive(Into, From, Deserialize, Serialize, Debug, Clone)]
 pub struct WeatherDataWrapper(WeatherData);
 
-impl Entity for WeatherDataWrapper {
-    fn type_name() -> std::borrow::Cow<'static, str> {
-        _WeatherDataWrapper::type_name()
-    }
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        _WeatherDataWrapper::describe(comp_d)
-    }
-}
+derive_rweb_schema!(WeatherDataWrapper, _WeatherDataWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
@@ -90,14 +74,7 @@ struct _WeatherDataWrapper {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WeatherCondWrapper(WeatherCond);
 
-impl Entity for WeatherCondWrapper {
-    fn type_name() -> std::borrow::Cow<'static, str> {
-        _WeatherCondWrapper::type_name()
-    }
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        _WeatherCondWrapper::describe(comp_d)
-    }
-}
+derive_rweb_schema!(WeatherCondWrapper, _WeatherCondWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
@@ -109,14 +86,7 @@ struct _WeatherCondWrapper {
 #[derive(Into, From, Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct WeatherMainWrapper(WeatherMain);
 
-impl Entity for WeatherMainWrapper {
-    fn type_name() -> std::borrow::Cow<'static, str> {
-        _WeatherMainWrapper::type_name()
-    }
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        _WeatherMainWrapper::describe(comp_d)
-    }
-}
+derive_rweb_schema!(WeatherMainWrapper, _WeatherMainWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
@@ -138,14 +108,7 @@ struct _WeatherMainWrapper {
 #[derive(Into, From, Deserialize, Serialize, Debug, Clone, Copy)]
 pub struct WindWrapper(Wind);
 
-impl Entity for WindWrapper {
-    fn type_name() -> std::borrow::Cow<'static, str> {
-        _WindWrapper::type_name()
-    }
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        _WindWrapper::describe(comp_d)
-    }
-}
+derive_rweb_schema!(WindWrapper, _WindWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
@@ -189,14 +152,7 @@ impl From<Snow> for SnowWrapper {
 #[derive(Into, From, Deserialize, Serialize, Debug, Clone)]
 pub struct SysWrapper(Sys);
 
-impl Entity for SysWrapper {
-    fn type_name() -> std::borrow::Cow<'static, str> {
-        _SysWrapper::type_name()
-    }
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        _SysWrapper::describe(comp_d)
-    }
-}
+derive_rweb_schema!(SysWrapper, _SysWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
@@ -211,14 +167,7 @@ struct _SysWrapper {
 #[derive(Into, From, Deserialize, Serialize, Debug, Clone)]
 pub struct WeatherForecastWrapper(WeatherForecast);
 
-impl Entity for WeatherForecastWrapper {
-    fn type_name() -> std::borrow::Cow<'static, str> {
-        _WeatherForecastWrapper::type_name()
-    }
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        _WeatherForecastWrapper::describe(comp_d)
-    }
-}
+derive_rweb_schema!(WeatherForecastWrapper, _WeatherForecastWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
@@ -232,14 +181,7 @@ struct _WeatherForecastWrapper {
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub struct ForecastEntryWrapper(ForecastEntry);
 
-impl Entity for ForecastEntryWrapper {
-    fn type_name() -> std::borrow::Cow<'static, str> {
-        _ForecastEntryWrapper::type_name()
-    }
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        _ForecastEntryWrapper::describe(comp_d)
-    }
-}
+derive_rweb_schema!(ForecastEntryWrapper, _ForecastEntryWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
@@ -254,14 +196,7 @@ struct _ForecastEntryWrapper {
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub struct CityEntryWrapper(CityEntry);
 
-impl Entity for CityEntryWrapper {
-    fn type_name() -> std::borrow::Cow<'static, str> {
-        _CityEntryWrapper::type_name()
-    }
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        _CityEntryWrapper::describe(comp_d)
-    }
-}
+derive_rweb_schema!(CityEntryWrapper, _CityEntryWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
@@ -277,14 +212,7 @@ struct _CityEntryWrapper {
 #[derive(Into, From, Deserialize, Serialize, Debug, Clone, Copy)]
 pub struct ForecastMainWrapper(ForecastMain);
 
-impl Entity for ForecastMainWrapper {
-    fn type_name() -> std::borrow::Cow<'static, str> {
-        _ForecastMainWrapper::type_name()
-    }
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        _ForecastMainWrapper::describe(comp_d)
-    }
-}
+derive_rweb_schema!(ForecastMainWrapper, _ForecastMainWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
