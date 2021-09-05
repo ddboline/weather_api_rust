@@ -74,7 +74,7 @@ impl Config {
     /// # set_var("API_ENDPOINT", "api.openweathermap.org");
     /// let config = Config::init_config()?;
     /// assert_eq!(config.api_key, Some("api_key_value".into()));
-    /// assert_eq!(config.api_endpoint, Some("api.openweathermap.org".into()));
+    /// assert_eq!(&config.api_endpoint, "api.openweathermap.org");
     /// # Ok(())
     /// # }
     /// ```

@@ -234,3 +234,30 @@ struct _ForecastMainWrapper {
     #[schema(description = "Humidity %")]
     humidity: i64,
 }
+
+#[cfg(test)]
+mod test {
+    use rweb_helper::derive_rweb_test;
+
+    use crate::{
+        CityEntryWrapper, CoordWrapper, ForecastEntryWrapper, ForecastMainWrapper, SysWrapper,
+        WeatherCondWrapper, WeatherDataWrapper, WeatherForecastWrapper, WeatherMainWrapper,
+        WindWrapper, _CityEntryWrapper, _CoordWrapper, _ForecastEntryWrapper, _ForecastMainWrapper,
+        _SysWrapper, _WeatherCondWrapper, _WeatherDataWrapper, _WeatherForecastWrapper,
+        _WeatherMainWrapper, _WindWrapper,
+    };
+
+    #[test]
+    fn test_types() {
+        derive_rweb_test!(CoordWrapper, _CoordWrapper);
+        derive_rweb_test!(WeatherDataWrapper, _WeatherDataWrapper);
+        derive_rweb_test!(WeatherCondWrapper, _WeatherCondWrapper);
+        derive_rweb_test!(WeatherMainWrapper, _WeatherMainWrapper);
+        derive_rweb_test!(WindWrapper, _WindWrapper);
+        derive_rweb_test!(SysWrapper, _SysWrapper);
+        derive_rweb_test!(WeatherForecastWrapper, _WeatherForecastWrapper);
+        derive_rweb_test!(ForecastEntryWrapper, _ForecastEntryWrapper);
+        derive_rweb_test!(CityEntryWrapper, _CityEntryWrapper);
+        derive_rweb_test!(ForecastMainWrapper, _ForecastMainWrapper);
+    }
+}
