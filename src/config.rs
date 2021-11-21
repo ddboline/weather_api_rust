@@ -27,10 +27,14 @@ pub struct ConfigInner {
     pub lat: Option<Latitude>,
     /// optional default longitude
     pub lon: Option<Longitude>,
+    #[serde(default = "default_host")]
+    pub host: StackString,
     #[serde(default = "default_port")]
     pub port: u32,
 }
-
+fn default_host() -> StackString {
+    "127.0.0.1".into()
+}
 fn default_port() -> u32 {
     3097
 }

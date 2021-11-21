@@ -90,8 +90,8 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         .or(spec_yaml_path)
         .recover(error_response)
         .with(cors);
-
-    let addr: SocketAddr = format!("127.0.0.1:{}", port).parse()?;
+    println!("GOT HERE");
+    let addr: SocketAddr = format!("{}:{}", config.host, port).parse()?;
     rweb::serve(routes).bind(addr).await;
 
     Ok(())
