@@ -33,7 +33,7 @@ pub struct ConfigInner {
     pub port: u32,
 }
 fn default_host() -> StackString {
-    "127.0.0.1".into()
+    "0.0.0.0".into()
 }
 fn default_port() -> u32 {
     3097
