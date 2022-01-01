@@ -5,6 +5,7 @@ use maplit::hashmap;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
+use std::fmt::Write;
 
 use rweb_helper::{
     html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, RwebResponse,
@@ -140,14 +141,15 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         .list
         .iter()
         .map(|entry| {
-            (
-                entry
-                    .dt
-                    .with_timezone(&fo)
-                    .format("%Y-%m-%dT%H:%M:%S")
-                    .to_string(),
-                entry.main.temp.fahrenheit(),
+            let mut date_str = StackString::new();
+            write!(
+                date_str,
+                "{}",
+                entry.dt.with_timezone(&fo).format("%Y-%m-%dT%H:%M:%S")
             )
+            .unwrap();
+            let temp = entry.main.temp.fahrenheit();
+            (date_str, temp)
         })
         .collect();
 
@@ -177,14 +179,14 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
             } else {
                 Precipitation::default()
             };
-            (
-                entry
-                    .dt
-                    .with_timezone(&fo)
-                    .format("%Y-%m-%dT%H:%M:%S")
-                    .to_string(),
-                (rain + snow).inches(),
+            let mut dt_str = StackString::new();
+            write!(
+                dt_str,
+                "{}",
+                entry.dt.with_timezone(&fo).format("%Y-%m-%dT%H:%M:%S")
             )
+            .unwrap();
+            (dt_str, (rain + snow).inches())
         })
         .collect();
 
