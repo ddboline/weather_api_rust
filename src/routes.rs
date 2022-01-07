@@ -141,8 +141,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         .iter()
         .map(|entry| {
             let date_str =
-                StackString::from_display(entry.dt.with_timezone(&fo).format("%Y-%m-%dT%H:%M:%S"))
-                    .unwrap();
+                StackString::from_display(entry.dt.with_timezone(&fo).format("%Y-%m-%dT%H:%M:%S"));
             let temp = entry.main.temp.fahrenheit();
             (date_str, temp)
         })
@@ -175,8 +174,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
                 Precipitation::default()
             };
             let dt_str =
-                StackString::from_display(entry.dt.with_timezone(&fo).format("%Y-%m-%dT%H:%M:%S"))
-                    .unwrap();
+                StackString::from_display(entry.dt.with_timezone(&fo).format("%Y-%m-%dT%H:%M:%S"));
             (dt_str, (rain + snow).inches())
         })
         .collect();
