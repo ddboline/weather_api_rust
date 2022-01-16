@@ -4,7 +4,8 @@ use handlebars::Handlebars;
 use maplit::hashmap;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
-use stack_string::StackString;
+use stack_string::{StackString, format_sstr};
+use std::fmt::Write;
 
 use rweb_helper::{
     html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, RwebResponse,
@@ -36,7 +37,7 @@ pub fn get_templates() -> Result<Handlebars<'static>, Error> {
 #[cached(
     type = "TimedSizedCache<StackString, WeatherData>",
     create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
-    convert = r#"{ format!("{:?}", loc).into() }"#,
+    convert = r#"{ format_sstr!("{:?}", loc) }"#,
     result = true
 )]
 async fn get_weather_data(api: &WeatherApi, loc: &WeatherLocation) -> Result<WeatherData, Error> {
@@ -46,7 +47,7 @@ async fn get_weather_data(api: &WeatherApi, loc: &WeatherLocation) -> Result<Wea
 #[cached(
     type = "TimedSizedCache<StackString, WeatherForecast>",
     create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
-    convert = r#"{ format!("{:?}", loc).into() }"#,
+    convert = r#"{ format_sstr!("{:?}", loc) }"#,
     result = true
 )]
 async fn get_weather_forecast(
@@ -58,7 +59,7 @@ async fn get_weather_forecast(
 
 #[derive(RwebResponse)]
 #[response(description = "Display Current Weather and Forecast", content = "html")]
-struct IndexResponse(HtmlBase<String, Error>);
+struct IndexResponse(HtmlBase<StackString, Error>);
 
 #[get("/weather/index.html")]
 pub async fn frontpage(
@@ -69,7 +70,7 @@ pub async fn frontpage(
     Ok(HtmlBase::new(body).into())
 }
 
-async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
+async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<StackString> {
     let api = query.get_weather_api(&data.api)?;
     let loc = query.get_weather_location(&data.config)?;
 
@@ -82,20 +83,15 @@ async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<String>
     let lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
     let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
     let rows = lines.len() + 5;
-    let body = format!(
-        "<textarea readonly rows={} cols={}>{}</textarea>",
-        rows,
-        cols,
-        lines.join("\n")
+    let body = format_sstr!(
+        "<textarea readonly rows={rows} cols={cols}>{l}</textarea>",
+        l = lines.join("\n")
     );
 
     let cols = weather_forecast.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
-    let body = format!(
-        "{}<textarea readonly rows={} cols={}>{}</textarea>",
-        body,
-        rows,
-        cols,
-        lines.join("\n")
+    let body = format_sstr!(
+        "{body}<textarea readonly rows={rows} cols={cols}>{l}</textarea>",
+        l = lines.join("\n")
     );
     Ok(body)
 }
@@ -128,11 +124,9 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
     let lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
     let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
     let rows = lines.len() + 5;
-    let body = format!(
-        "<textarea readonly rows={} cols={}>{}</textarea>",
-        rows,
-        cols,
-        lines.join("\n")
+    let body = format_sstr!(
+        "<textarea readonly rows={rows} cols={cols}>{l}</textarea>",
+        l = lines.join("\n")
     );
 
     let fo: FixedOffset = weather_forecast.city.timezone.into();
@@ -156,8 +150,8 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         "EXAMPLETITLE" => "Temperature Forecast",
         "NAME" => "temperature_forecast",
     };
-
-    let body = format!("{}<br>{}", body, data.hbr.render("ts", &params)?);
+    let ts = data.hbr.render("ts", &params)?;
+    let body = format_sstr!("{body}<br>{ts}");
 
     let forecast_data: Vec<_> = weather_forecast
         .list
@@ -188,8 +182,8 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         "EXAMPLETITLE"=> "Precipitation Forecast",
         "NAME"=> "precipitation_forecast",
     };
-
-    let body = format!("{}<br>{}", body, data.hbr.render("ts", &params)?);
+    let ts = data.hbr.render("ts", &params)?;
+    let body = format_sstr!("{body}<br>{ts}");
 
     Ok(data
         .hbr
