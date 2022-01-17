@@ -4,7 +4,7 @@ use handlebars::Handlebars;
 use maplit::hashmap;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
-use stack_string::{StackString, format_sstr};
+use stack_string::{format_sstr, StackString};
 use std::fmt::Write;
 
 use rweb_helper::{

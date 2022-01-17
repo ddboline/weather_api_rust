@@ -6,9 +6,8 @@ use rweb::{
     openapi::{self, Info},
     reply, Filter, Reply,
 };
-use std::{net::SocketAddr, sync::Arc};
 use stack_string::format_sstr;
-use std::fmt::Write;
+use std::{fmt::Write, net::SocketAddr, sync::Arc};
 
 use weather_util_rust::weather_api::WeatherApi;
 
@@ -105,9 +104,8 @@ mod test {
     use anyhow::Error;
     use chrono::{offset::FixedOffset, Offset};
     use chrono_tz::US::Central;
-    use std::convert::TryInto;
     use stack_string::format_sstr;
-    use std::fmt::Write;
+    use std::{convert::TryInto, fmt::Write};
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
@@ -124,12 +122,19 @@ mod test {
         tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
         let url = format_sstr!("http://localhost:{test_port}/weather/weather?zip=55427");
-        let weather: WeatherData = reqwest::get(url.as_str()).await?.error_for_status()?.json().await?;
+        let weather: WeatherData = reqwest::get(url.as_str())
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
         assert_eq!(weather.name.as_str(), "Minneapolis");
 
         let url = format_sstr!("http://localhost:{test_port}/weather/forecast?zip=55427");
-        let forecast: WeatherForecast =
-            reqwest::get(url.as_str()).await?.error_for_status()?.json().await?;
+        let forecast: WeatherForecast = reqwest::get(url.as_str())
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
         println!("{:?}", forecast);
         assert_eq!(forecast.list.len(), 40);
         let city_offset: FixedOffset = forecast.city.timezone.into();
@@ -138,34 +143,50 @@ mod test {
         let expected_offset: FixedOffset = local.offset().fix();
         assert_eq!(city_offset, expected_offset);
 
-        let url = format_sstr!(
-            "http://localhost:{test_port}/weather/index.html?zip=55427"
-        );
-        let text = reqwest::get(url.as_str()).await?.error_for_status()?.text().await?;
+        let url = format_sstr!("http://localhost:{test_port}/weather/index.html?zip=55427");
+        let text = reqwest::get(url.as_str())
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
         println!("{}", text);
         assert!(text.len() > 0);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/plot.html?zip=55427");
-        let text = reqwest::get(url.as_str()).await?.error_for_status()?.text().await?;
+        let text = reqwest::get(url.as_str())
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
         println!("{}", text);
         assert!(text.len() > 0);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/statistics");
-        let stats: StatisticsObject = reqwest::get(url.as_str()).await?.error_for_status()?.json().await?;
+        let stats: StatisticsObject = reqwest::get(url.as_str())
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
         println!("{}", serde_json::to_string(&stats)?);
         assert!(stats.data_cache_hits == 2);
         assert!(stats.data_cache_misses == 1);
         assert!(stats.forecast_cache_hits == 2);
         assert!(stats.forecast_cache_misses == 1);
 
-        let url = format_sstr!(
-            "http://localhost:{test_port}/weather/weather?q=Minneapolis"
-        );
-        let weather: WeatherData = reqwest::get(url.as_str()).await?.error_for_status()?.json().await?;
+        let url = format_sstr!("http://localhost:{test_port}/weather/weather?q=Minneapolis");
+        let weather: WeatherData = reqwest::get(url.as_str())
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
         assert_eq!(weather.name.as_str(), "Minneapolis");
 
         let url = format_sstr!("http://localhost:{test_port}/weather/weather?lat=0&lon=0");
-        let weather: WeatherData = reqwest::get(url.as_str()).await?.error_for_status()?.json().await?;
+        let weather: WeatherData = reqwest::get(url.as_str())
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
         assert_eq!(weather.coord.lat, 0.0.try_into()?);
         assert_eq!(weather.coord.lon, 0.0.try_into()?);
 
