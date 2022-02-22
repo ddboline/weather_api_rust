@@ -88,7 +88,8 @@ async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<StackSt
         l = lines.join("\n")
     );
 
-    let cols = weather_forecast.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
+    let lines: Vec<_> = weather_forecast.split('\n').map(str::trim_end).collect();
+    let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
     let body = format_sstr!(
         "{body}<textarea readonly rows={rows} cols={cols}>{l}</textarea>",
         l = lines.join("\n")
