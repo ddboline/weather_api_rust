@@ -1,48 +1,56 @@
-use dioxus::prelude::*;
 use anyhow::{format_err, Error};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
-use stack_string::{StackString, format_sstr};
 use arc_swap::ArcSwap;
-use lazy_static::lazy_static;
-use im::HashMap;
-use std::sync::Arc;
 use chrono::FixedOffset;
-use std::fmt::Write;
+use dioxus::prelude::{
+    dioxus_elements, fc_to_builder, format_args_f, rsx, use_state, Element, LazyNodes, NodeFactory,
+    Props, Scope, VNode,
+};
+use im::HashMap;
+use lazy_static::lazy_static;
+use log::debug;
+use stack_string::{format_sstr, StackString};
+use std::{fmt::Write, sync::Arc};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
-use weather_util_rust::weather_data::WeatherData;
-use weather_util_rust::weather_forecast::WeatherForecast;
-use weather_util_rust::weather_api::WeatherLocation;
-use weather_util_rust::config::Config;
-use weather_util_rust::weather_api::WeatherApi;
+use weather_util_rust::{
+    config::Config,
+    weather_api::{WeatherApi, WeatherLocation},
+    weather_data::WeatherData,
+    weather_forecast::WeatherForecast,
+};
 
 lazy_static! {
-    pub static ref WEATHER_CACHE: ArcSwap<HashMap<StackString, (Option<WeatherData>, Option<WeatherForecast>)>> = ArcSwap::new(Arc::new(HashMap::new()));
+    pub static ref WEATHER_CACHE: WeatherCache = ArcSwap::new(Arc::new(HashMap::new()));
 }
 
 static DEFAULT_STR: &'static str = "11106";
 
+type WeatherCache = ArcSwap<HashMap<StackString, (Option<WeatherData>, Option<WeatherForecast>)>>;
+
 fn main() -> Result<(), Error> {
+    env_logger::init();
     let (send, mut recv) = unbounded_channel::<StackString>();
     let config = Config::init_config()?;
-    let api_key = config.api_key.as_ref().ok_or_else(|| format_err!("No api key given"))?;
+    let api_key = config
+        .api_key
+        .as_ref()
+        .ok_or_else(|| format_err!("No api key given"))?;
     let api = WeatherApi::new(api_key.as_str(), &config.api_endpoint, &config.api_path);
 
     let handle: std::thread::JoinHandle<Result<(), Error>> = std::thread::spawn(move || {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?
-            .block_on(
-                async move {
-                    while let Some(msg) = recv.recv().await {
-                        println!("grab {msg} weather");
-                        let loc = get_parameters(&msg);
-                        let weather = api.get_weather_data(&loc).await.ok();
-                        let forecast = api.get_weather_forecast(&loc).await.ok();
-                        let new_cache = Arc::new(WEATHER_CACHE.load().update(msg, (weather, forecast)));
-                        WEATHER_CACHE.store(new_cache);
-                    }
+            .block_on(async move {
+                while let Some(msg) = recv.recv().await {
+                    debug!("grab {msg} weather");
+                    let loc = get_parameters(&msg);
+                    let weather = api.get_weather_data(&loc).await.ok();
+                    let forecast = api.get_weather_forecast(&loc).await.ok();
+                    let new_cache = Arc::new(WEATHER_CACHE.load().update(msg, (weather, forecast)));
+                    WEATHER_CACHE.store(new_cache);
                 }
-            );
+            });
         Ok(())
     });
 
@@ -54,13 +62,7 @@ fn main() -> Result<(), Error> {
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
 
-    dioxus::desktop::launch_with_props(
-        app,
-        AppProps {
-                send,
-            },
-            |c| c,
-    );
+    dioxus::desktop::launch_with_props(app, AppProps { send }, |c| c);
     handle.join().unwrap()?;
     Ok(())
 }
@@ -74,7 +76,10 @@ fn app(cx: Scope<AppProps>) -> Element {
     let (weather_default, forecast_default) = {
         let weather_cache = WEATHER_CACHE.load().clone();
         let (weather, forecast) = weather_cache.get(DEFAULT_STR).unwrap();
-        (weather.as_ref().unwrap().clone(), forecast.as_ref().unwrap().clone())
+        (
+            weather.as_ref().unwrap().clone(),
+            forecast.as_ref().unwrap().clone(),
+        )
     };
     let (weather, set_weather) = use_state(&cx, || weather_default);
     let (forecast, set_forecast) = use_state(&cx, || forecast_default);
@@ -84,7 +89,7 @@ fn app(cx: Scope<AppProps>) -> Element {
         link { rel: "stylesheet", href: "https://unpkg.com/tailwindcss@^2.0/dist/tailwind.min.css" },
         div { class: "mx-auto p-4 bg-gray-100 h-screen flex justify-center",
             div { class: "flex items-center justify-center flex-col",
-                div { 
+                div {
                     div { class: "inline-flex flex-col justify-center relative text-gray-500",
                         div { class: "relative",
                             input { class: "p-2 pl-8 rounded border border-gray-200 bg-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-transparent",
@@ -135,7 +140,7 @@ fn app(cx: Scope<AppProps>) -> Element {
                                 fill: "none",
                                 stroke: "currentColor",
                                 xmlns: "http://www.w3.org/2000/svg",
-                                path { 
+                                path {
                                     d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
                                     "stroke-linejoin": "round",
                                     "stroke-linecap": "round",
@@ -227,7 +232,7 @@ fn country_info<'a>(cx: Scope<'a, WeatherForecastProp<'a>>) -> Element {
                 small {
                     img { class: "block w-8 h-8",
                         src: "http://openweathermap.org/img/wn/{icon}@2x.png",
-                    }        
+                    }
                 }
             }
             div { class: "text-right",
@@ -270,7 +275,7 @@ fn week_weather<'a>(cx: Scope<'a, WeatherForecastProp<'a>>) -> Element {
                     if let Some(i) = i.iter().next() {
                         icon.push_str(i);
                     }
-        
+
                     rsx!(div {
                             class: "text-center mb-0 flex items-center justify-center flex-col",
                             span { class: "block my-1",
