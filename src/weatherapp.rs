@@ -23,7 +23,7 @@ lazy_static! {
     pub static ref WEATHER_CACHE: WeatherCache = ArcSwap::new(Arc::new(HashMap::new()));
 }
 
-static DEFAULT_STR: &'static str = "11106";
+static DEFAULT_STR: &str = "11106";
 
 type WeatherCache = ArcSwap<HashMap<StackString, (Option<WeatherData>, Option<WeatherForecast>)>>;
 
@@ -72,7 +72,7 @@ struct AppProps {
 }
 
 fn app(cx: Scope<AppProps>) -> Element {
-    let (search_str, set_search_str) = use_state(&cx, || StackString::new());
+    let (search_str, set_search_str) = use_state(&cx, StackString::new);
     let (weather_default, forecast_default) = {
         let weather_cache = WEATHER_CACHE.load().clone();
         let (weather, forecast) = weather_cache.get(DEFAULT_STR).unwrap();
@@ -153,10 +153,10 @@ fn app(cx: Scope<AppProps>) -> Element {
                 div { class: "flex flex-wrap w-full px-2",
                     div { class: "bg-gray-900 text-white relative min-w-0 break-words rounded-lg overflow-hidden shadow-sm mb-4 w-full bg-white dark:bg-gray-600",
                         div { class: "px-6 py-6 relative",
-                            country_info( weather: &weather, forecast: &forecast )
-                            country_data( weather: &weather, forecast: &forecast )
+                            country_info( weather: weather, forecast: forecast )
+                            country_data( weather: weather, forecast: forecast )
                         }
-                        week_weather( weather: &weather, forecast: &forecast )
+                        week_weather( weather: weather, forecast: forecast )
                     }
                 }
             }
