@@ -14,7 +14,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install deps
-      run: rustup update
+      run: |
+        rustup update
+        apt-get update && apt-get install -y libpango1.0-dev
 
     - name: Clippy
       run: cargo clippy
