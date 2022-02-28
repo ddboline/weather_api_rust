@@ -191,6 +191,7 @@ struct _ForecastEntryWrapper {
     #[schema(description = "Forecasted DateTime (Unix Timestamp)")]
     dt: DateTime<Utc>,
     main: ForecastMainWrapper,
+    weather: Vec<WeatherCondWrapper>,
     rain: Option<RainWrapper>,
     snow: Option<SnowWrapper>,
 }
