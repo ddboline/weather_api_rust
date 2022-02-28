@@ -37,13 +37,22 @@ isocountry = "0.3"
 derive_more = "0.99"
 indexmap = "1.8"
 rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.3"}
+dioxus = { version = "0.1", features = ["desktop"] }
+arc-swap = "1.5"
+im = "15.0"
+log = "0.4"
+env_logger = "0.9"
 
 [dev-dependencies]
 reqwest = {version = "0.11", features=["cookies", "rustls-tls", "gzip", "json"], default-features=false}
 chrono-tz = "0.6"
-env_logger = "0.9"
 
 [[bin]]
 name = "weather-api-rust"
 path = "src/main.rs"
+doc = false
+
+[[bin]]
+name = "weather-app-rust"
+path = "src/weatherapp.rs"
 doc = false
