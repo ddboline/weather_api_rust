@@ -180,7 +180,7 @@ struct _WeatherForecastWrapper {
     city: CityEntryWrapper,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ForecastEntryWrapper(ForecastEntry);
 
 derive_rweb_schema!(ForecastEntryWrapper, _ForecastEntryWrapper);
