@@ -79,8 +79,10 @@ derive_rweb_schema!(WeatherCondWrapper, _WeatherCondWrapper);
 #[allow(dead_code)]
 #[derive(Schema)]
 struct _WeatherCondWrapper {
+    id: usize,
     main: StackString,
     description: StackString,
+    icon: StackString,
 }
 
 #[derive(Into, From, Serialize, Deserialize, Debug, Clone, Copy)]

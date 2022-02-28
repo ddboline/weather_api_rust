@@ -1,11 +1,13 @@
 use cached::{proc_macro::cached, Cached, TimedSizedCache};
 use chrono::FixedOffset;
 use handlebars::Handlebars;
+use lazy_static::lazy_static;
 use maplit::hashmap;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::{format_sstr, StackString};
-use std::fmt::Write;
+use std::{collections::HashMap, fmt::Write};
+use tokio::sync::RwLock;
 
 use rweb_helper::{
     html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, RwebResponse,
@@ -24,6 +26,34 @@ use crate::{
 
 pub type WarpResult<T> = Result<T, Rejection>;
 pub type HttpResult<T> = Result<T, Error>;
+
+lazy_static! {
+    static ref WEATHER_STRING_LENGTH: StringLengthMap = StringLengthMap::new();
+}
+
+struct StringLengthMap(RwLock<HashMap<StackString, usize>>);
+
+impl StringLengthMap {
+    fn new() -> Self {
+        Self(RwLock::new(HashMap::new()))
+    }
+
+    async fn insert_lenth(&self, key: &str, length: usize) {
+        let current_max = self.0.read().await.get(key).map_or(0, |x| *x);
+        if length > current_max {
+            self.0.write().await.insert(key.into(), length);
+        }
+    }
+
+    async fn get_map(&self) -> HashMap<String, usize> {
+        self.0
+            .read()
+            .await
+            .iter()
+            .map(|(k, v)| (k.into(), *v))
+            .collect()
+    }
+}
 
 pub fn get_templates() -> Result<Handlebars<'static>, Error> {
     let mut handlebars = Handlebars::new();
@@ -67,6 +97,9 @@ pub async fn frontpage(
     query: Query<ApiOptions>,
 ) -> WarpResult<IndexResponse> {
     let body = frontpage_body(data, query.into_inner()).await?;
+    WEATHER_STRING_LENGTH
+        .insert_lenth("/weather/index.html", body.len())
+        .await;
     Ok(HtmlBase::new(body).into())
 }
 
@@ -110,6 +143,9 @@ pub async fn forecast_plot(
     query: Query<ApiOptions>,
 ) -> WarpResult<WeatherPlotResponse> {
     let body = forecast_plot_body(data, query.into_inner()).await?;
+    WEATHER_STRING_LENGTH
+        .insert_lenth("/weather/plot.html", body.len())
+        .await;
     Ok(HtmlBase::new(body).into())
 }
 
@@ -191,12 +227,13 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         .render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?)
 }
 
-#[derive(Serialize, Deserialize, Schema, Clone, Copy)]
+#[derive(Serialize, Deserialize, Schema, Clone)]
 pub struct StatisticsObject {
     pub data_cache_hits: u64,
     pub data_cache_misses: u64,
     pub forecast_cache_hits: u64,
     pub forecast_cache_misses: u64,
+    pub weather_string_length_map: HashMap<String, usize>,
 }
 
 #[derive(RwebResponse)]
@@ -207,12 +244,14 @@ struct StatisticsResponse(JsonBase<StatisticsObject, Error>);
 pub async fn statistics() -> WarpResult<StatisticsResponse> {
     let data_cache = GET_WEATHER_DATA.lock().await;
     let forecast_cache = GET_WEATHER_FORECAST.lock().await;
+    let weather_string_length_map = WEATHER_STRING_LENGTH.get_map().await;
 
     let stat = StatisticsObject {
         data_cache_hits: data_cache.cache_hits().unwrap_or(0),
         data_cache_misses: data_cache.cache_misses().unwrap_or(0),
         forecast_cache_hits: forecast_cache.cache_hits().unwrap_or(0),
         forecast_cache_misses: forecast_cache.cache_misses().unwrap_or(0),
+        weather_string_length_map,
     };
 
     Ok(JsonBase::new(stat).into())

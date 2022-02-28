@@ -1,6 +1,6 @@
 use rweb::Schema;
 use serde::{Deserialize, Serialize};
-use stack_string::StackString;
+use stack_string::{SmallString, StackString};
 use std::borrow::Cow;
 
 use weather_util_rust::weather_api::{WeatherApi, WeatherLocation};
@@ -18,7 +18,7 @@ pub struct ApiOptions {
     pub lat: Option<LatitudeWrapper>,
     pub lon: Option<LongitudeWrapper>,
     #[serde(rename = "APPID")]
-    pub appid: Option<StackString>,
+    pub appid: Option<SmallString<32>>,
 }
 
 impl ApiOptions {

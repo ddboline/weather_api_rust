@@ -1,7 +1,7 @@
 use anyhow::{format_err, Error};
 use isocountry::CountryCode;
 use serde::Deserialize;
-use stack_string::StackString;
+use stack_string::{SmallString, StackString};
 use std::{ops::Deref, path::Path, sync::Arc};
 
 use weather_util_rust::{latitude::Latitude, longitude::Longitude};
@@ -10,7 +10,7 @@ use weather_util_rust::{latitude::Latitude, longitude::Longitude};
 #[derive(Default, Debug, Deserialize, PartialEq)]
 pub struct ConfigInner {
     /// openweathermap.org api key
-    pub api_key: StackString,
+    pub api_key: SmallString<32>,
     /// openweathermap.org api endpoint
     #[serde(default = "default_api_endpoint")]
     pub api_endpoint: StackString,
