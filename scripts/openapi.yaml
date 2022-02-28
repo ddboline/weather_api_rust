@@ -3,7 +3,7 @@ openapi: 3.0.1
 info:
   title: Weather App
   description: Web App to disply weather from openweatherapi
-  version: 0.5.20
+  version: 0.5.22
 paths:
   /weather/index.html:
     get:
@@ -185,14 +185,21 @@ paths:
                     description: Weather Conditions
                     items:
                       properties:
+                        id:
+                          type: integer
+                          minimum: 0
                         main:
                           type: string
                         description:
                           type: string
+                        icon:
+                          type: string
                       type: object
                       required:
+                        - id
                         - main
                         - description
+                        - icon
                     type: array
                   base:
                     type: string
@@ -395,6 +402,25 @@ paths:
                             - sea_level
                             - grnd_level
                             - humidity
+                        weather:
+                          items:
+                            properties:
+                              id:
+                                type: integer
+                                minimum: 0
+                              main:
+                                type: string
+                              description:
+                                type: string
+                              icon:
+                                type: string
+                            type: object
+                            required:
+                              - id
+                              - main
+                              - description
+                              - icon
+                          type: array
                         rain:
                           properties:
                             three_hour:
@@ -415,6 +441,7 @@ paths:
                       required:
                         - dt
                         - main
+                        - weather
                     type: array
                   city:
                     description: City Information
@@ -468,12 +495,18 @@ paths:
                   forecast_cache_misses:
                     type: integer
                     minimum: 0
+                  weather_string_length_map:
+                    additionalProperties:
+                      type: integer
+                      minimum: 0
+                    type: object
                 type: object
                 required:
                   - data_cache_hits
                   - data_cache_misses
                   - forecast_cache_hits
                   - forecast_cache_misses
+                  - weather_string_length_map
         "400":
           description: Bad Request
         "404":
