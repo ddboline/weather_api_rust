@@ -25,7 +25,13 @@ lazy_static! {
 
 static DEFAULT_STR: &str = "11106";
 
-struct WeatherCache(ArcSwap<HashMap<StackString, (Option<WeatherData>, Option<WeatherForecast>)>>);
+#[derive(Clone)]
+struct WeatherEntry {
+    weather: Option<WeatherData>,
+    forecast: Option<WeatherForecast>,
+}
+
+struct WeatherCache(ArcSwap<HashMap<StackString, WeatherEntry>>);
 
 impl WeatherCache {
     fn new() -> Self {
@@ -33,7 +39,11 @@ impl WeatherCache {
     }
 
     fn update(&self, msg: &str, weather: Option<WeatherData>, forecast: Option<WeatherForecast>) {
-        let new_cache = Arc::new(self.0.load().update(msg.into(), (weather, forecast)));
+        let new_cache = Arc::new(
+            self.0
+                .load()
+                .update(msg.into(), WeatherEntry { weather, forecast }),
+        );
         self.0.store(new_cache);
     }
 
@@ -41,7 +51,7 @@ impl WeatherCache {
         self.0.load().contains_key(key)
     }
 
-    fn get_map(&self) -> Arc<HashMap<StackString, (Option<WeatherData>, Option<WeatherForecast>)>> {
+    fn get_map(&self) -> Arc<HashMap<StackString, WeatherEntry>> {
         self.0.load().clone()
     }
 }
@@ -93,7 +103,7 @@ fn app(cx: Scope<AppProps>) -> Element {
     let (search_str, set_search_str) = use_state(&cx, StackString::new);
     let (weather_default, forecast_default) = {
         let weather_cache = WEATHER_CACHE.get_map();
-        let (weather, forecast) = weather_cache.get(DEFAULT_STR).unwrap();
+        let WeatherEntry { weather, forecast } = weather_cache.get(DEFAULT_STR).unwrap();
         (
             weather.as_ref().unwrap().clone(),
             forecast.as_ref().unwrap().clone(),
@@ -118,7 +128,7 @@ fn app(cx: Scope<AppProps>) -> Element {
                                     let msg = evt.value.as_str();
                                     let weather_cache = WEATHER_CACHE.get_map();
                                     set_draft(evt.value.as_str().into());
-                                    if let Some((weather, forecast)) = weather_cache.get(msg) {
+                                    if let Some(WeatherEntry{weather, forecast}) = weather_cache.get(msg) {
                                         if let Some(weather) = weather {
                                             set_weather(weather.clone());
                                         }
@@ -129,7 +139,7 @@ fn app(cx: Scope<AppProps>) -> Element {
                                 },
                                 onkeydown: move |evt| {
                                     let weather_cache = WEATHER_CACHE.get_map();
-                                    if let Some((weather, forecast)) = weather_cache.get(draft) {
+                                    if let Some(WeatherEntry{weather, forecast}) = weather_cache.get(draft) {
                                         if let Some(weather) = weather {
                                             set_weather(weather.clone());
                                         }
@@ -141,7 +151,7 @@ fn app(cx: Scope<AppProps>) -> Element {
                                         set_search_str(draft.clone());
                                         cx.props.send.send(draft.clone()).unwrap();
                                         loop {
-                                            if let Some((weather, forecast)) = weather_cache.get(draft) {
+                                            if let Some(WeatherEntry{weather, forecast}) = weather_cache.get(draft) {
                                                 if let Some(weather) = weather {
                                                     set_weather(weather.clone());
                                                 }
