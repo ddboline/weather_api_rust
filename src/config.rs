@@ -50,6 +50,7 @@ fn default_api_path() -> StackString {
 pub struct Config(Arc<ConfigInner>);
 
 impl Config {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
