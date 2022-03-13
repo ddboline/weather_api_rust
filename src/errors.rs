@@ -47,6 +47,7 @@ struct ErrorMessage {
 
 // impl ResponseError trait allows to convert our errors into http responses
 // with appropriate data
+#[allow(clippy::unused_async)]
 pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
     let code;
     let message;
@@ -55,15 +56,12 @@ pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
         code = StatusCode::NOT_FOUND;
         message = "NOT FOUND";
     } else if let Some(service_err) = err.find::<ServiceError>() {
-        match service_err {
-            ServiceError::BadRequest(msg) => {
-                code = StatusCode::BAD_REQUEST;
-                message = msg.as_str();
-            }
-            _ => {
-                code = StatusCode::INTERNAL_SERVER_ERROR;
-                message = "Internal Server Error, Please try again later";
-            }
+        if let ServiceError::BadRequest(msg) = service_err {
+            code = StatusCode::BAD_REQUEST;
+            message = msg.as_str();
+        } else {
+            code = StatusCode::INTERNAL_SERVER_ERROR;
+            message = "Internal Server Error, Please try again later";
         }
     } else if err.find::<rweb::reject::MethodNotAllowed>().is_some() {
         code = StatusCode::METHOD_NOT_ALLOWED;
