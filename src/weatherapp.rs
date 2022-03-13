@@ -100,7 +100,7 @@ struct AppProps {
 }
 
 fn app(cx: Scope<AppProps>) -> Element {
-    let (search_str, set_search_str) = use_state(&cx, StackString::new);
+    let (search_str, set_search_str) = use_state(&cx, StackString::new).split();
     let (weather_default, forecast_default) = {
         let weather_cache = WEATHER_CACHE.get_map();
         let WeatherEntry { weather, forecast } = weather_cache.get(DEFAULT_STR).unwrap();
@@ -109,9 +109,9 @@ fn app(cx: Scope<AppProps>) -> Element {
             forecast.as_ref().unwrap().clone(),
         )
     };
-    let (weather, set_weather) = use_state(&cx, || weather_default);
-    let (forecast, set_forecast) = use_state(&cx, || forecast_default);
-    let (draft, set_draft) = use_state(&cx, || search_str.to_owned());
+    let (weather, set_weather) = use_state(&cx, || weather_default).split();
+    let (forecast, set_forecast) = use_state(&cx, || forecast_default).split();
+    let (draft, set_draft) = use_state(&cx, || search_str.clone()).split();
 
     cx.render(rsx!(
         link { rel: "stylesheet", href: "https://unpkg.com/tailwindcss@^2.0/dist/tailwind.min.css" },
@@ -127,13 +127,13 @@ fn app(cx: Scope<AppProps>) -> Element {
                                 oninput: move |evt| {
                                     let msg = evt.value.as_str();
                                     let weather_cache = WEATHER_CACHE.get_map();
-                                    set_draft(evt.value.as_str().into());
+                                    set_draft.modify(|_| evt.value.as_str().into());
                                     if let Some(WeatherEntry{weather, forecast}) = weather_cache.get(msg) {
                                         if let Some(weather) = weather {
-                                            set_weather(weather.clone());
+                                            set_weather.modify(|_| weather.clone());
                                         }
                                         if let Some(forecast) = forecast {
-                                            set_forecast(forecast.clone());
+                                            set_forecast.modify(|_| forecast.clone());
                                         }
                                     }
                                 },
@@ -141,22 +141,22 @@ fn app(cx: Scope<AppProps>) -> Element {
                                     let weather_cache = WEATHER_CACHE.get_map();
                                     if let Some(WeatherEntry{weather, forecast}) = weather_cache.get(draft) {
                                         if let Some(weather) = weather {
-                                            set_weather(weather.clone());
+                                            set_weather.modify(|_| weather.clone());
                                         }
                                         if let Some(forecast) = forecast {
-                                            set_forecast(forecast.clone());
+                                            set_forecast.modify(|_| forecast.clone());
                                         }
                                     }
                                     if evt.key == "Enter" {
-                                        set_search_str(draft.clone());
+                                        set_search_str.modify(|_| draft.clone());
                                         cx.props.send.send(draft.clone()).unwrap();
                                         loop {
                                             if let Some(WeatherEntry{weather, forecast}) = weather_cache.get(draft) {
                                                 if let Some(weather) = weather {
-                                                    set_weather(weather.clone());
+                                                    set_weather.modify(|_| weather.clone());
                                                 }
                                                 if let Some(forecast) = forecast {
-                                                    set_forecast(forecast.clone());
+                                                    set_forecast.modify(|_| forecast.clone());
                                                 }
                                                 break;
                                             }
@@ -194,6 +194,7 @@ fn app(cx: Scope<AppProps>) -> Element {
     ))
 }
 
+#[allow(clippy::used_underscore_binding)]
 #[derive(Props)]
 struct WeatherForecastProp<'a> {
     weather: &'a WeatherData,
