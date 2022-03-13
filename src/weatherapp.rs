@@ -25,7 +25,7 @@ lazy_static! {
 
 static DEFAULT_STR: &str = "11106";
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct WeatherEntry {
     weather: Option<WeatherData>,
     forecast: Option<WeatherForecast>,
@@ -128,12 +128,15 @@ fn app(cx: Scope<AppProps>) -> Element {
                                     let msg = evt.value.as_str();
                                     let weather_cache = WEATHER_CACHE.get_map();
                                     set_draft.modify(|_| evt.value.as_str().into());
+                                    set_draft.needs_update();
                                     if let Some(WeatherEntry{weather, forecast}) = weather_cache.get(msg) {
                                         if let Some(weather) = weather {
                                             set_weather.modify(|_| weather.clone());
+                                            set_weather.needs_update();
                                         }
                                         if let Some(forecast) = forecast {
                                             set_forecast.modify(|_| forecast.clone());
+                                            set_forecast.needs_update();
                                         }
                                     }
                                 },
@@ -142,21 +145,27 @@ fn app(cx: Scope<AppProps>) -> Element {
                                     if let Some(WeatherEntry{weather, forecast}) = weather_cache.get(draft) {
                                         if let Some(weather) = weather {
                                             set_weather.modify(|_| weather.clone());
+                                            set_weather.needs_update();
                                         }
                                         if let Some(forecast) = forecast {
                                             set_forecast.modify(|_| forecast.clone());
+                                            set_forecast.needs_update();
                                         }
                                     }
                                     if evt.key == "Enter" {
                                         set_search_str.modify(|_| draft.clone());
+                                        set_search_str.needs_update();
                                         cx.props.send.send(draft.clone()).unwrap();
                                         loop {
+                                            let weather_cache = WEATHER_CACHE.get_map();
                                             if let Some(WeatherEntry{weather, forecast}) = weather_cache.get(draft) {
                                                 if let Some(weather) = weather {
                                                     set_weather.modify(|_| weather.clone());
+                                                    set_weather.needs_update();
                                                 }
                                                 if let Some(forecast) = forecast {
                                                     set_forecast.modify(|_| forecast.clone());
+                                                    set_forecast.needs_update();
                                                 }
                                                 break;
                                             }
@@ -308,6 +317,7 @@ fn week_weather<'a>(cx: Scope<'a, WeatherForecastProp<'a>>) -> Element {
                     }
 
                     rsx!(div {
+                            key: "weather-forecast-key-{d}",
                             class: "text-center mb-0 flex items-center justify-center flex-col",
                             span { class: "block my-1",
                                 "{weekday}"
