@@ -22,14 +22,17 @@ pub struct ApiOptions {
 }
 
 impl ApiOptions {
-    pub fn get_weather_api<'a>(&self, api: &'a WeatherApi) -> Result<Cow<'a, WeatherApi>, Error> {
+    #[must_use]
+    pub fn get_weather_api<'a>(&self, api: &'a WeatherApi) -> Cow<'a, WeatherApi> {
         if let Some(appid) = &self.appid {
-            Ok(Cow::Owned(api.clone().with_key(appid)))
+            Cow::Owned(api.clone().with_key(appid))
         } else {
-            Ok(Cow::Borrowed(api))
+            Cow::Borrowed(api)
         }
     }
 
+    /// # Errors
+    /// Returns error if unable to determine location
     pub fn get_weather_location(&self, config: &Config) -> Result<WeatherLocation, Error> {
         let loc = if let Some(zipcode) = self.zip {
             if let Some(country_code) = &self.country_code {

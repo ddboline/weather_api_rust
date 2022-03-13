@@ -24,6 +24,8 @@ pub struct AppState {
     pub hbr: Arc<Handlebars<'static>>,
 }
 
+/// # Errors
+/// Returns error if Config init fails, or if `run_app` fails
 pub async fn start_app() -> Result<(), Error> {
     let config = Config::init_config()?;
 

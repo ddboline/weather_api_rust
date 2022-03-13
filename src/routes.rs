@@ -55,6 +55,8 @@ impl StringLengthMap {
     }
 }
 
+/// # Errors
+/// Returns error if there is a syntax or parsing error
 pub fn get_templates() -> Result<Handlebars<'static>, Error> {
     let mut handlebars = Handlebars::new();
     handlebars
@@ -104,14 +106,14 @@ pub async fn frontpage(
 }
 
 async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<StackString> {
-    let api = query.get_weather_api(&data.api)?;
+    let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
     let weather_data = get_weather_data(&api, &loc).await?;
     let weather_forecast = get_weather_forecast(&api, &loc).await?;
 
-    let weather_data = weather_data.get_current_conditions()?;
-    let weather_forecast = weather_forecast.get_forecast()?;
+    let weather_data = weather_data.get_current_conditions();
+    let weather_forecast = weather_forecast.get_forecast();
 
     let lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
     let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
@@ -150,13 +152,13 @@ pub async fn forecast_plot(
 }
 
 async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
-    let api = query.get_weather_api(&data.api)?;
+    let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
     let weather_data = get_weather_data(&api, &loc).await?;
     let weather_forecast = get_weather_forecast(&api, &loc).await?;
 
-    let weather_data = weather_data.get_current_conditions()?;
+    let weather_data = weather_data.get_current_conditions();
 
     let lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
     let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
@@ -271,7 +273,7 @@ pub async fn weather(
 }
 
 async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherData> {
-    let api = query.get_weather_api(&data.api)?;
+    let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
     let weather_data = get_weather_data(&api, &loc).await?;
     Ok(weather_data)
@@ -291,7 +293,7 @@ pub async fn forecast(
 }
 
 async fn forecast_body(data: AppState, query: ApiOptions) -> HttpResult<WeatherForecast> {
-    let api = query.get_weather_api(&data.api)?;
+    let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
     let weather_forecast = get_weather_forecast(&api, &loc).await?;
     Ok(weather_forecast)

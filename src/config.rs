@@ -1,4 +1,4 @@
-use anyhow::{format_err, Error};
+use anyhow::Error;
 use isocountry::CountryCode;
 use serde::Deserialize;
 use stack_string::{SmallString, StackString};
@@ -83,9 +83,11 @@ impl Config {
     /// # Ok(())
     /// # }
     /// ```
+    /// # Errors
+    /// Return error if deserializing environment variables fails
     pub fn init_config() -> Result<Self, Error> {
         let fname = Path::new("config.env");
-        let config_dir = dirs::config_dir().ok_or_else(|| format_err!("No CONFIG directory"))?;
+        let config_dir = dirs::config_dir().unwrap_or_else(|| "./".into());
         let default_fname = config_dir.join("weather_api_rust").join("config.env");
 
         let env_file = if fname.exists() {

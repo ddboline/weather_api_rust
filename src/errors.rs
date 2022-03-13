@@ -45,8 +45,10 @@ struct ErrorMessage {
     message: StackString,
 }
 
-// impl ResponseError trait allows to convert our errors into http responses
-// with appropriate data
+/// impl `ResponseError` trait allows to convert our errors into http responses
+/// with appropriate data
+/// # Errors
+/// Will never return an error
 #[allow(clippy::unused_async)]
 pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
     let code;
