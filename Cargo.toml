@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.5.25"
+version = "0.5.26"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -17,7 +17,7 @@ Weather API."""
 [dependencies]
 weather_util_rust = "0.10"
 anyhow = "1.0"
-cached = "0.33"
+cached = "0.34"
 thiserror = "1.0"
 http = "0.2"
 tokio = {version="1.17", features=["full"]}
@@ -37,7 +37,7 @@ isocountry = "0.3"
 derive_more = "0.99"
 indexmap = "1.8"
 rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.3"}
-dioxus = { version = "0.1", features = ["desktop"] }
+dioxus = { version = "0.2", features = ["desktop"] }
 arc-swap = "1.5"
 im = "15.0"
 log = "0.4"
