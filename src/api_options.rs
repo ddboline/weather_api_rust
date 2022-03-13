@@ -39,6 +39,16 @@ impl ApiOptions {
             }
         } else if let Some(city_name) = &self.q {
             WeatherLocation::from_city_name(city_name)
+        } else if self.lat.is_some() && self.lon.is_some() {
+            if let Some(lat) = self.lat {
+                if let Some(lon) = self.lon {
+                    WeatherLocation::from_lat_lon(lat.into(), lon.into())
+                } else {
+                    unreachable!()
+                }
+            } else {
+                unreachable!()
+            }
         } else if let Some(zipcode) = config.zipcode {
             if let Some(country_code) = &config.country_code {
                 WeatherLocation::from_zipcode_country_code(zipcode, *country_code)
@@ -47,17 +57,17 @@ impl ApiOptions {
             }
         } else if let Some(city_name) = &config.city_name {
             WeatherLocation::from_city_name(city_name)
-        } else {
-            if let Some(lat) = self.lat {
-                if let Some(lon) = self.lon {
-                    return Ok(WeatherLocation::from_lat_lon(lat.into(), lon.into()));
-                }
-            }
+        } else if config.lat.is_some() && config.lon.is_some() {
             if let Some(lat) = config.lat {
                 if let Some(lon) = config.lon {
-                    return Ok(WeatherLocation::from_lat_lon(lat, lon));
+                    WeatherLocation::from_lat_lon(lat, lon)
+                } else {
+                    unreachable!()
                 }
+            } else {
+                unreachable!()
             }
+        } else {
             return Err(Error::BadRequest(
                 "\n\nERROR: You must specify at least one option".into(),
             ));
