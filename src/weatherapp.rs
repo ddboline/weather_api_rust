@@ -1,3 +1,5 @@
+#![allow(clippy::used_underscore_binding)]
+
 use anyhow::{format_err, Error};
 use arc_swap::ArcSwap;
 use chrono::FixedOffset;
@@ -9,7 +11,7 @@ use im::HashMap;
 use lazy_static::lazy_static;
 use log::debug;
 use stack_string::{format_sstr, StackString};
-use std::{fmt::Write, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 use weather_util_rust::{

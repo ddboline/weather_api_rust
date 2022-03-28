@@ -6,7 +6,7 @@ use maplit::hashmap;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::{format_sstr, StackString};
-use std::{collections::HashMap, fmt::Write};
+use std::collections::HashMap;
 use tokio::sync::RwLock;
 
 use rweb_helper::{

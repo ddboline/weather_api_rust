@@ -7,7 +7,7 @@ use rweb::{
     reply, Filter, Reply,
 };
 use stack_string::format_sstr;
-use std::{fmt::Write, net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 
 use weather_util_rust::weather_api::WeatherApi;
 
@@ -106,7 +106,7 @@ mod test {
     use chrono::{offset::FixedOffset, Offset};
     use chrono_tz::US::Central;
     use stack_string::format_sstr;
-    use std::{convert::TryInto, fmt::Write};
+    use std::convert::TryInto;
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
