@@ -1,4 +1,5 @@
 #![allow(clippy::used_underscore_binding)]
+#![allow(clippy::too_many_lines)]
 
 use anyhow::{format_err, Error};
 use arc_swap::ArcSwap;

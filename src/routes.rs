@@ -172,9 +172,13 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         .list
         .iter()
         .map(|entry| {
-            let date_str: StackString = entry.dt.to_offset(fo).format(
-                format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]"),
-            )?.into();
+            let date_str: StackString = entry
+                .dt
+                .to_offset(fo)
+                .format(format_description!(
+                    "[year]-[month]-[day]T[hour]:[minute]:[second]"
+                ))?
+                .into();
             let temp = entry.main.temp.fahrenheit();
             Ok((date_str, temp))
         })
@@ -207,9 +211,13 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
             } else {
                 Precipitation::default()
             };
-            let dt_str: StackString = entry.dt.to_offset(fo).format(
-                format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]"),
-            )?.into();
+            let dt_str: StackString = entry
+                .dt
+                .to_offset(fo)
+                .format(format_description!(
+                    "[year]-[month]-[day]T[hour]:[minute]:[second]"
+                ))?
+                .into();
             Ok((dt_str, (rain + snow).inches()))
         })
         .collect();
