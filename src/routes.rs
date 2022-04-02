@@ -168,7 +168,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         l = lines.join("\n")
     );
     let fo: UtcOffset = weather_forecast.city.timezone.into();
-    let forecast_data: Result<Vec<_>, Error> = weather_forecast
+    let forecast_data = weather_forecast
         .list
         .iter()
         .map(|entry| {
@@ -182,8 +182,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
             let temp = entry.main.temp.fahrenheit();
             Ok((date_str, temp))
         })
-        .collect();
-    let forecast_data = forecast_data?;
+        .collect::<Result<Vec<_>, Error>>()?;
 
     let js_str = serde_json::to_string(&forecast_data).unwrap_or_else(|_| "".to_string());
 
@@ -197,7 +196,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
     let ts = data.hbr.render("ts", &params)?;
     let body = format_sstr!("{body}<br>{ts}");
 
-    let forecast_data: Result<Vec<_>, Error> = weather_forecast
+    let forecast_data = weather_forecast
         .list
         .iter()
         .map(|entry| {
@@ -220,8 +219,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
                 .into();
             Ok((dt_str, (rain + snow).inches()))
         })
-        .collect();
-    let forecast_data = forecast_data?;
+        .collect::<Result<Vec<_>, Error>>()?;
 
     let js_str = serde_json::to_string(&forecast_data).unwrap_or_else(|_| "".to_string());
 
