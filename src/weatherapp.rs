@@ -342,7 +342,7 @@ fn week_weather<'a>(cx: Scope<'a, WeatherForecastProp<'a>>) -> Element {
             div { class: "text-center justify-between items-center flex",
                 style: "flex-flow: initial;",
                 high_low.iter().map(|(d, (h, l, r, s, i))| {
-                    let weekday = StackString::from_display(d.weekday());
+                    let weekday = d.weekday();
                     let low = l.fahrenheit();
                     let high = h.fahrenheit();
                     let mut rain = StackString::new();
