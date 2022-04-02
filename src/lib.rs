@@ -15,10 +15,9 @@ pub mod longitude_wrapper;
 pub mod routes;
 pub mod timestamp;
 
-use chrono::{DateTime, Utc};
 use derive_more::{From, Into};
 use rweb::Schema;
-use rweb_helper::derive_rweb_schema;
+use rweb_helper::{derive_rweb_schema, DateTimeType};
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
 
@@ -62,7 +61,7 @@ struct _WeatherDataWrapper {
     rain: Option<RainWrapper>,
     snow: Option<SnowWrapper>,
     #[schema(description = "Current Datetime (Unix Timestamp)")]
-    dt: DateTime<Utc>,
+    dt: DateTimeType,
     sys: SysWrapper,
     #[schema(description = "Timezone (seconds offset from UTC)")]
     timezone: i32,
@@ -160,9 +159,9 @@ derive_rweb_schema!(SysWrapper, _SysWrapper);
 struct _SysWrapper {
     country: Option<StackString>,
     #[schema(description = "Sunrise (Unix Timestamp)")]
-    sunrise: DateTime<Utc>,
+    sunrise: DateTimeType,
     #[schema(description = "Sunset (Unix Timestamp)")]
-    sunset: DateTime<Utc>,
+    sunset: DateTimeType,
 }
 
 #[derive(Into, From, Deserialize, Serialize, Debug, Clone)]
@@ -188,7 +187,7 @@ derive_rweb_schema!(ForecastEntryWrapper, _ForecastEntryWrapper);
 #[derive(Schema)]
 struct _ForecastEntryWrapper {
     #[schema(description = "Forecasted DateTime (Unix Timestamp)")]
-    dt: DateTime<Utc>,
+    dt: DateTimeType,
     main: ForecastMainWrapper,
     weather: Vec<WeatherCondWrapper>,
     rain: Option<RainWrapper>,
@@ -206,9 +205,9 @@ struct _CityEntryWrapper {
     #[schema(description = "Timezone (seconds offset from UTC)")]
     timezone: i32,
     #[schema(description = "Sunrise (Unix Timestamp)")]
-    sunrise: DateTime<Utc>,
+    sunrise: DateTimeType,
     #[schema(description = "Sunset (Unix Timestamp)")]
-    sunset: DateTime<Utc>,
+    sunset: DateTimeType,
 }
 
 #[derive(Into, From, Deserialize, Serialize, Debug, Clone, Copy)]

@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.5.28"
+version = "0.6.0"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -15,7 +15,8 @@ Weather API."""
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-weather_util_rust = "0.11"
+weather_util_rust = "0.12"
+time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"
 cached = "0.34"
 thiserror = "1.0"
@@ -28,15 +29,14 @@ serde_yaml = "0.8"
 maplit = "1.0"
 dotenv = "0.15"
 dirs = "4.0"
-chrono = "0.4"
 envy = "0.4"
 handlebars = "4.2"
-rweb = {version="0.15", features=["openapi", "chrono"]}
+rweb = {version="0.15", features=["openapi"]}
 stack-string = {version="0.7", features=["rweb-openapi"]}
 isocountry = "0.3"
 derive_more = "0.99"
 indexmap = "1.8"
-rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.3"}
+rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.4", features=["time"]}
 dioxus = { version = "0.2", features = ["desktop"] }
 arc-swap = "1.5"
 im = "15.0"
@@ -45,7 +45,7 @@ env_logger = "0.9"
 
 [dev-dependencies]
 reqwest = {version = "0.11", features=["cookies", "rustls-tls", "gzip", "json"], default-features=false}
-chrono-tz = "0.6"
+time-tz = "0.5"
 
 [[bin]]
 name = "weather-api-rust"

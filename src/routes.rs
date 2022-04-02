@@ -1,5 +1,4 @@
 use cached::{proc_macro::cached, Cached, TimedSizedCache};
-use chrono::FixedOffset;
 use handlebars::Handlebars;
 use lazy_static::lazy_static;
 use maplit::hashmap;
@@ -7,6 +6,7 @@ use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::{format_sstr, StackString};
 use std::collections::HashMap;
+use time::{macros::format_description, UtcOffset};
 use tokio::sync::RwLock;
 
 use rweb_helper::{
@@ -167,18 +167,22 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         "<textarea readonly rows={rows} cols={cols}>{l}</textarea>",
         l = lines.join("\n")
     );
-
-    let fo: FixedOffset = weather_forecast.city.timezone.into();
-    let forecast_data: Vec<_> = weather_forecast
+    let fo: UtcOffset = weather_forecast.city.timezone.into();
+    let forecast_data: Result<Vec<_>, Error> = weather_forecast
         .list
         .iter()
         .map(|entry| {
-            let date_str =
-                StackString::from_display(entry.dt.with_timezone(&fo).format("%Y-%m-%dT%H:%M:%S"));
+            let mut buf = Vec::new();
+            entry.dt.to_offset(fo).format_into(
+                &mut buf,
+                format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]"),
+            )?;
+            let date_str = StackString::from_utf8_vec(buf)?;
             let temp = entry.main.temp.fahrenheit();
-            (date_str, temp)
+            Ok((date_str, temp))
         })
         .collect();
+    let forecast_data = forecast_data?;
 
     let js_str = serde_json::to_string(&forecast_data).unwrap_or_else(|_| "".to_string());
 
@@ -192,7 +196,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
     let ts = data.hbr.render("ts", &params)?;
     let body = format_sstr!("{body}<br>{ts}");
 
-    let forecast_data: Vec<_> = weather_forecast
+    let forecast_data: Result<Vec<_>, Error> = weather_forecast
         .list
         .iter()
         .map(|entry| {
@@ -206,11 +210,16 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
             } else {
                 Precipitation::default()
             };
-            let dt_str =
-                StackString::from_display(entry.dt.with_timezone(&fo).format("%Y-%m-%dT%H:%M:%S"));
-            (dt_str, (rain + snow).inches())
+            let mut buf = Vec::new();
+            entry.dt.to_offset(fo).format_into(
+                &mut buf,
+                format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]"),
+            )?;
+            let dt_str = StackString::from_utf8_vec(buf)?;
+            Ok((dt_str, (rain + snow).inches()))
         })
         .collect();
+    let forecast_data = forecast_data?;
 
     let js_str = serde_json::to_string(&forecast_data).unwrap_or_else(|_| "".to_string());
 

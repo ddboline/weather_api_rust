@@ -103,10 +103,10 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
 #[cfg(test)]
 mod test {
     use anyhow::Error;
-    use chrono::{offset::FixedOffset, Offset};
-    use chrono_tz::US::Central;
     use stack_string::format_sstr;
     use std::convert::TryInto;
+    use time::UtcOffset;
+    use time_tz::{timezones::db::us::CENTRAL, Offset, TimeZone};
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
@@ -138,10 +138,11 @@ mod test {
             .await?;
         println!("{:?}", forecast);
         assert_eq!(forecast.list.len(), 40);
-        let city_offset: FixedOffset = forecast.city.timezone.into();
-
-        let local = weather.dt.with_timezone(&Central);
-        let expected_offset: FixedOffset = local.offset().fix();
+        let city_offset: UtcOffset = forecast.city.timezone.into();
+        let local = weather
+            .dt
+            .to_offset(CENTRAL.get_offset_utc(&weather.dt).to_utc());
+        let expected_offset = local.offset();
         assert_eq!(city_offset, expected_offset);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/index.html?zip=55427");
