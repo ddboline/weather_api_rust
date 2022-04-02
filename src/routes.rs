@@ -172,12 +172,9 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         .list
         .iter()
         .map(|entry| {
-            let mut buf = Vec::new();
-            entry.dt.to_offset(fo).format_into(
-                &mut buf,
+            let date_str: StackString = entry.dt.to_offset(fo).format(
                 format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]"),
-            )?;
-            let date_str = StackString::from_utf8_vec(buf)?;
+            )?.into();
             let temp = entry.main.temp.fahrenheit();
             Ok((date_str, temp))
         })
@@ -210,12 +207,9 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
             } else {
                 Precipitation::default()
             };
-            let mut buf = Vec::new();
-            entry.dt.to_offset(fo).format_into(
-                &mut buf,
+            let dt_str: StackString = entry.dt.to_offset(fo).format(
                 format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]"),
-            )?;
-            let dt_str = StackString::from_utf8_vec(buf)?;
+            )?.into();
             Ok((dt_str, (rain + snow).inches()))
         })
         .collect();
