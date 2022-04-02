@@ -1,8 +1,8 @@
 #![allow(clippy::used_underscore_binding)]
+#![allow(clippy::too_many_lines)]
 
 use anyhow::{format_err, Error};
 use arc_swap::ArcSwap;
-use chrono::FixedOffset;
 use dioxus::prelude::{
     dioxus_elements, fc_to_builder, format_args_f, rsx, use_state, Element, LazyNodes, NodeFactory,
     Props, Scope, VNode,
@@ -12,6 +12,7 @@ use lazy_static::lazy_static;
 use log::debug;
 use stack_string::{format_sstr, StackString};
 use std::sync::Arc;
+use time::{format_description::well_known::Rfc3339, UtcOffset};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 use weather_util_rust::{
@@ -114,6 +115,12 @@ fn app(cx: Scope<AppProps>) -> Element {
     let (weather, set_weather) = use_state(&cx, || weather_default).split();
     let (forecast, set_forecast) = use_state(&cx, || forecast_default).split();
     let (draft, set_draft) = use_state(&cx, || search_str.clone()).split();
+    let (search_history, set_search_history) = use_state(&cx, || {
+        let mut v: Vec<StackString> = Vec::with_capacity(3);
+        v.push(DEFAULT_STR.into());
+        v
+    })
+    .split();
 
     cx.render(rsx!(
         link { rel: "stylesheet", href: "https://unpkg.com/tailwindcss@^2.0/dist/tailwind.min.css" },
@@ -158,6 +165,8 @@ fn app(cx: Scope<AppProps>) -> Element {
                                         set_search_str.modify(|_| draft.clone());
                                         set_search_str.needs_update();
                                         cx.props.send.send(draft.clone()).unwrap();
+                                        set_draft.modify(|_| "".into());
+                                        set_draft.needs_update();
                                         loop {
                                             let weather_cache = WEATHER_CACHE.get_map();
                                             if let Some(WeatherEntry{weather, forecast}) = weather_cache.get(draft) {
@@ -169,6 +178,13 @@ fn app(cx: Scope<AppProps>) -> Element {
                                                     set_forecast.modify(|_| forecast.clone());
                                                     set_forecast.needs_update();
                                                 }
+                                                set_search_history.modify(|sh| {
+                                                    let mut v = Vec::with_capacity(3);
+                                                    v.push(draft.clone());
+                                                    v.extend(sh.iter().take(2).cloned());
+                                                    v
+                                                });
+                                                set_search_history.needs_update();
                                                 break;
                                             }
                                             std::thread::sleep(std::time::Duration::from_millis(10));
@@ -189,6 +205,30 @@ fn app(cx: Scope<AppProps>) -> Element {
                                 }
                             }
                         }
+                    }
+                    ul { class: "bg-white border border-gray-100 w-full mt-2",
+                        {search_history.iter().enumerate().map(|(i, s)| rsx! {
+                            li { class: "pl-8 pr-2 py-1 border-b-2 border-gray-100 relative cursor-pointer hover:bg-yellow-50 hover:text-gray-900",
+                                key: "{i}",
+                                button {
+                                    onclick: move |_| {
+                                        set_draft.modify(|_| "".into());
+                                        set_draft.needs_update();
+                                        if let Some(WeatherEntry{weather, forecast}) = WEATHER_CACHE.get_map().get(s) {
+                                            if let Some(weather) = weather {
+                                                set_weather.modify(|_| weather.clone());
+                                                set_weather.needs_update();
+                                            }
+                                            if let Some(forecast) = forecast {
+                                                set_forecast.modify(|_| forecast.clone());
+                                                set_forecast.needs_update();
+                                            }
+                                        }
+                                    },
+                                    "{s}"
+                                }
+                            }
+                        })}
                     }
                 }
                 div { class: "flex flex-wrap w-full px-2",
@@ -262,8 +302,8 @@ fn country_info<'a>(cx: Scope<'a, WeatherForecastProp<'a>>) -> Element {
         icon.push_str(&weather.icon);
     }
     let temp = weather.main.temp.fahrenheit();
-    let fo: FixedOffset = weather.timezone.into();
-    let date = weather.dt.with_timezone(&fo);
+    let fo: UtcOffset = weather.timezone.into();
+    let date = weather.dt.to_offset(fo).format(&Rfc3339).unwrap();
 
     cx.render(rsx!(
         div { class: "flex mb-4 justify-between items-center",
@@ -302,7 +342,7 @@ fn week_weather<'a>(cx: Scope<'a, WeatherForecastProp<'a>>) -> Element {
             div { class: "text-center justify-between items-center flex",
                 style: "flex-flow: initial;",
                 high_low.iter().map(|(d, (h, l, r, s, i))| {
-                    let weekday = StackString::from_display(d.format("%a"));
+                    let weekday = d.weekday();
                     let low = l.fahrenheit();
                     let high = h.fahrenheit();
                     let mut rain = StackString::new();

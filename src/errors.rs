@@ -14,6 +14,7 @@ use serde_json::Error as SerdeJsonError;
 use stack_string::StackString;
 use std::{borrow::Cow, convert::Infallible, fmt::Debug, string::FromUtf8Error};
 use thiserror::Error;
+use time::error::Format as FormatError;
 
 #[derive(Error, Debug)]
 pub enum ServiceError {
@@ -35,6 +36,8 @@ pub enum ServiceError {
     HTTPError(#[from] HTTPError),
     #[error("SerdeJsonError {0}")]
     SerdeJsonError(#[from] SerdeJsonError),
+    #[error("TimeFormatError {0}")]
+    TimeFormatError(#[from] FormatError),
 }
 
 impl Reject for ServiceError {}
