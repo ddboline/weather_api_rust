@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -45,7 +45,7 @@ env_logger = "0.9"
 
 [dev-dependencies]
 reqwest = {version = "0.11", features=["cookies", "rustls-tls", "gzip", "json"], default-features=false}
-time-tz = "0.5"
+time-tz = "1.0"
 
 [[bin]]
 name = "weather-api-rust"

@@ -115,12 +115,8 @@ fn app(cx: Scope<AppProps>) -> Element {
     let (weather, set_weather) = use_state(&cx, || weather_default).split();
     let (forecast, set_forecast) = use_state(&cx, || forecast_default).split();
     let (draft, set_draft) = use_state(&cx, || search_str.clone()).split();
-    let (search_history, set_search_history) = use_state(&cx, || {
-        let mut v: Vec<StackString> = Vec::with_capacity(3);
-        v.push(DEFAULT_STR.into());
-        v
-    })
-    .split();
+    let (search_history, set_search_history) =
+        use_state(&cx, || vec![StackString::from(DEFAULT_STR)]).split();
 
     cx.render(rsx!(
         link { rel: "stylesheet", href: "https://unpkg.com/tailwindcss@^2.0/dist/tailwind.min.css" },
@@ -173,15 +169,18 @@ fn app(cx: Scope<AppProps>) -> Element {
                                                 if let Some(weather) = weather {
                                                     set_weather.modify(|_| weather.clone());
                                                     set_weather.needs_update();
+                                                } else {
+                                                    break;
                                                 }
                                                 if let Some(forecast) = forecast {
                                                     set_forecast.modify(|_| forecast.clone());
                                                     set_forecast.needs_update();
+                                                } else {
+                                                    break;
                                                 }
                                                 set_search_history.modify(|sh| {
-                                                    let mut v = Vec::with_capacity(3);
+                                                    let mut v: Vec<_> = sh.iter().filter(|s| *s != draft).cloned().collect();
                                                     v.push(draft.clone());
-                                                    v.extend(sh.iter().take(2).cloned());
                                                     v
                                                 });
                                                 set_search_history.needs_update();
@@ -206,27 +205,32 @@ fn app(cx: Scope<AppProps>) -> Element {
                             }
                         }
                     }
-                    ul { class: "bg-white border border-gray-100 w-full mt-2",
-                        {search_history.iter().enumerate().map(|(i, s)| rsx! {
-                            li { class: "pl-8 pr-2 py-1 border-b-2 border-gray-100 relative cursor-pointer hover:bg-yellow-50 hover:text-gray-900",
-                                key: "{i}",
-                                button {
-                                    onclick: move |_| {
-                                        set_draft.modify(|_| "".into());
-                                        set_draft.needs_update();
-                                        if let Some(WeatherEntry{weather, forecast}) = WEATHER_CACHE.get_map().get(s) {
-                                            if let Some(weather) = weather {
-                                                set_weather.modify(|_| weather.clone());
-                                                set_weather.needs_update();
-                                            }
-                                            if let Some(forecast) = forecast {
-                                                set_forecast.modify(|_| forecast.clone());
-                                                set_forecast.needs_update();
-                                            }
-                                        }
-                                    },
-                                    "{s}"
+                    select { class: "bg-white border border-gray-100 w-full mt-2",
+                        id: "history-selector",
+                        onchange: move |x| {
+                            let s = x.data.value.as_str();
+                            if let Some(WeatherEntry{weather, forecast}) = WEATHER_CACHE.get_map().get(s) {
+                                if let Some(weather) = weather {
+                                    set_weather.modify(|_| weather.clone());
+                                    set_weather.needs_update();
                                 }
+                                if let Some(forecast) = forecast {
+                                    set_forecast.modify(|_| forecast.clone());
+                                    set_forecast.needs_update();
+                                }
+                            }
+                            set_search_history.modify(|sh| {
+                                let mut v: Vec<_> = sh.iter().filter(|x| x.as_str() != s).cloned().collect();
+                                v.push(s.into());
+                                v
+                            });
+                            set_search_history.needs_update();
+                        },
+                        {search_history.iter().rev().map(|s| rsx! {
+                            option { class: "pl-8 pr-2 py-1 border-b-2 border-gray-100 relative cursor-pointer hover:bg-yellow-50 hover:text-gray-900",
+                                key: "search-history-key-{s}",
+                                value: "{s}",
+                                "{s}"
                             }
                         })}
                     }
