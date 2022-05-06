@@ -1,4 +1,3 @@
-use anyhow::Error as AnyhowError;
 use handlebars::{RenderError, TemplateError};
 use http::{Error as HTTPError, StatusCode};
 use indexmap::IndexMap;
@@ -15,6 +14,7 @@ use stack_string::StackString;
 use std::{borrow::Cow, convert::Infallible, fmt::Debug, string::FromUtf8Error};
 use thiserror::Error;
 use time::error::Format as FormatError;
+use weather_util_rust::Error as WeatherUtilError;
 
 #[derive(Error, Debug)]
 pub enum ServiceError {
@@ -22,8 +22,8 @@ pub enum ServiceError {
     InternalServerError,
     #[error("BadRequest: {}", _0)]
     BadRequest(StackString),
-    #[error("Anyhow error {0}")]
-    AnyhowError(#[from] AnyhowError),
+    #[error("Weather-util error {0}")]
+    WeatherUtilError(#[from] WeatherUtilError),
     #[error("io Error {0}")]
     IoError(#[from] std::io::Error),
     #[error("invalid utf8")]
