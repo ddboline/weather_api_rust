@@ -78,3 +78,29 @@ impl ApiOptions {
         Ok(loc)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use anyhow::Error;
+    use weather_util_rust::weather_api::{WeatherApi, WeatherLocation};
+
+    use crate::{api_options::ApiOptions, config::Config};
+
+    #[test]
+    fn test_api_options() -> Result<(), Error> {
+        let api = WeatherApi::default();
+        let opt: ApiOptions = serde_json::from_str(r#"{"zip":55427}"#)?;
+        let api2 = opt.get_weather_api(&api);
+        assert_eq!(api, *api2);
+
+        let config = Config::default();
+
+        let loc = opt.get_weather_location(&config)?;
+        if let WeatherLocation::ZipCode { zipcode, .. } = loc {
+            assert_eq!(zipcode, 55427);
+        } else {
+            assert!(false);
+        }
+        Ok(())
+    }
+}
