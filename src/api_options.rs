@@ -82,6 +82,10 @@ impl ApiOptions {
 #[cfg(test)]
 mod test {
     use anyhow::Error;
+    use std::{
+        env::{remove_var, set_var},
+        path::Path,
+    };
     use weather_util_rust::weather_api::{WeatherApi, WeatherLocation};
 
     use crate::{api_options::ApiOptions, config::Config};
@@ -101,6 +105,36 @@ mod test {
         } else {
             assert!(false);
         }
+
+        let opt: ApiOptions = serde_json::from_str(r#"{"APPID":"TEST"}"#)?;
+
+        set_var("ZIPCODE", "49934");
+
+        let config = Config::init_config(None)?;
+
+        let loc = opt.get_weather_location(&config)?;
+        if let WeatherLocation::ZipCode { zipcode, .. } = loc {
+            assert_eq!(zipcode, 49934);
+        } else {
+            assert!(false);
+        }
+
+        remove_var("ZIPCODE");
+        set_var("CITY_NAME", "TEST CITY");
+
+        let opt: ApiOptions = serde_json::from_str(r#"{"APPID":"TEST"}"#)?;
+
+        let conf_path = Path::new("tests/config.env");
+        let config = Config::init_config(Some(conf_path))?;
+
+        let loc = opt.get_weather_location(&config)?;
+        println!("{loc:?}");
+        if let WeatherLocation::CityName(name) = loc {
+            assert_eq!(&name, "TEST CITY");
+        } else {
+            assert!(false);
+        }
+
         Ok(())
     }
 }

@@ -77,7 +77,7 @@ impl Config {
     /// # fn main() -> Result<(), Error> {
     /// # set_var("API_KEY", "api_key_value");
     /// # set_var("API_ENDPOINT", "api.openweathermap.org");
-    /// let config = Config::init_config()?;
+    /// let config = Config::init_config(None)?;
     /// assert_eq!(config.api_key, Some("api_key_value".into()));
     /// assert_eq!(&config.api_endpoint, "api.openweathermap.org");
     /// # Ok(())
@@ -85,8 +85,8 @@ impl Config {
     /// ```
     /// # Errors
     /// Return error if deserializing environment variables fails
-    pub fn init_config() -> Result<Self, Error> {
-        let fname = Path::new("config.env");
+    pub fn init_config(config_path: Option<&Path>) -> Result<Self, Error> {
+        let fname = config_path.unwrap_or_else(|| Path::new("config.env"));
         let config_dir = dirs::config_dir().unwrap_or_else(|| "./".into());
         let default_fname = config_dir.join("weather_api_rust").join("config.env");
 
@@ -127,7 +127,7 @@ mod test {
         let config = Config::default();
         assert_eq!(&config.api_endpoint, "");
 
-        let config = Config::init_config()?;
+        let config = Config::init_config(None)?;
         if let Some(api_key) = std::env::var_os("API_KEY") {
             assert_eq!(api_key.to_string_lossy().as_ref(), config.api_key.as_str());
         }

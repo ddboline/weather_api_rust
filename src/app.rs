@@ -27,7 +27,7 @@ pub struct AppState {
 /// # Errors
 /// Returns error if Config init fails, or if `run_app` fails
 pub async fn start_app() -> Result<(), Error> {
-    let config = Config::init_config()?;
+    let config = Config::init_config(None)?;
 
     let port = config.port;
     run_app(&config, port).await
@@ -114,7 +114,7 @@ mod test {
 
     #[tokio::test]
     async fn test_run_app() -> Result<(), Error> {
-        let config = Config::init_config()?;
+        let config = Config::init_config(None)?;
         let test_port = 12345;
         tokio::task::spawn(async move {
             env_logger::init();

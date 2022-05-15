@@ -62,7 +62,7 @@ impl WeatherCache {
 fn main() -> Result<(), Error> {
     env_logger::init();
     let (send, mut recv) = unbounded_channel::<StackString>();
-    let config = Config::init_config()?;
+    let config = Config::init_config(None)?;
     let api_key = config
         .api_key
         .as_ref()
