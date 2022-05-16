@@ -87,6 +87,8 @@ mod test {
         path::Path,
     };
     use weather_util_rust::weather_api::{WeatherApi, WeatherLocation};
+    use weather_util_rust::{latitude::Latitude, longitude::Longitude};
+    use std::convert::TryInto;
 
     use crate::{api_options::ApiOptions, config::Config};
 
@@ -131,6 +133,27 @@ mod test {
         println!("{loc:?}");
         if let WeatherLocation::CityName(name) = loc {
             assert_eq!(&name, "TEST CITY");
+        } else {
+            assert!(false);
+        }
+
+        remove_var("CITY_NAME");
+        set_var("LAT", "40.7518359");
+        set_var("LON", "-74.0529922");
+
+        let opt: ApiOptions = serde_json::from_str(r#"{"APPID":"TEST"}"#)?;
+
+        let conf_path = Path::new("tests/config.env");
+        let config = Config::init_config(Some(conf_path))?;
+
+        let loc = opt.get_weather_location(&config)?;
+        println!("{loc:?}");
+        if let WeatherLocation::LatLon{latitude, longitude} = loc {
+            let lat: Latitude = 40.7518359f64.try_into()?;
+            let lon: Longitude = (-74.0529922f64).try_into()?;
+            println!("lat {lat} lon {lon}");
+            assert_eq!(latitude, lat);
+            assert_eq!(longitude, lon);
         } else {
             assert!(false);
         }

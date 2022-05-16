@@ -15,13 +15,13 @@ Weather API."""
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-weather_util_rust = "0.13"
+weather_util_rust = "0.14"
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"
 cached = "0.34"
 thiserror = "1.0"
 http = "0.2"
-tokio = {version="1.17", features=["full"]}
+tokio = {version="1.18", features=["full"]}
 lazy_static = "1.4"
 serde = {version="1.0", features=["derive"]}
 serde_json = "1.0"
