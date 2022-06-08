@@ -83,12 +83,15 @@ impl ApiOptions {
 mod test {
     use anyhow::Error;
     use std::{
+        convert::TryInto,
         env::{remove_var, set_var},
         path::Path,
     };
-    use weather_util_rust::weather_api::{WeatherApi, WeatherLocation};
-    use weather_util_rust::{latitude::Latitude, longitude::Longitude};
-    use std::convert::TryInto;
+    use weather_util_rust::{
+        latitude::Latitude,
+        longitude::Longitude,
+        weather_api::{WeatherApi, WeatherLocation},
+    };
 
     use crate::{api_options::ApiOptions, config::Config};
 
@@ -148,7 +151,11 @@ mod test {
 
         let loc = opt.get_weather_location(&config)?;
         println!("{loc:?}");
-        if let WeatherLocation::LatLon{latitude, longitude} = loc {
+        if let WeatherLocation::LatLon {
+            latitude,
+            longitude,
+        } = loc
+        {
             let lat: Latitude = 40.7518359f64.try_into()?;
             let lon: Longitude = (-74.0529922f64).try_into()?;
             println!("lat {lat} lon {lon}");
