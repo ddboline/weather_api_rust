@@ -87,6 +87,7 @@ mod test {
         env::{remove_var, set_var},
         path::Path,
     };
+    use log::info;
     use weather_util_rust::{
         latitude::Latitude,
         longitude::Longitude,
@@ -133,7 +134,7 @@ mod test {
         let config = Config::init_config(Some(conf_path))?;
 
         let loc = opt.get_weather_location(&config)?;
-        println!("{loc:?}");
+        info!("{loc:?}");
         if let WeatherLocation::CityName(name) = loc {
             assert_eq!(&name, "TEST CITY");
         } else {
@@ -150,7 +151,7 @@ mod test {
         let config = Config::init_config(Some(conf_path))?;
 
         let loc = opt.get_weather_location(&config)?;
-        println!("{loc:?}");
+        info!("{loc:?}");
         if let WeatherLocation::LatLon {
             latitude,
             longitude,
@@ -158,7 +159,7 @@ mod test {
         {
             let lat: Latitude = 40.7518359f64.try_into()?;
             let lon: Longitude = (-74.0529922f64).try_into()?;
-            println!("lat {lat} lon {lon}");
+            info!("lat {lat} lon {lon}");
             assert_eq!(latitude, lat);
             assert_eq!(longitude, lon);
         } else {

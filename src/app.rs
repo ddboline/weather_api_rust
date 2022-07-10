@@ -107,6 +107,7 @@ mod test {
     use std::convert::TryInto;
     use time::UtcOffset;
     use time_tz::{timezones::db::us::CENTRAL, Offset, TimeZone};
+    use log::info;
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
@@ -136,7 +137,7 @@ mod test {
             .error_for_status()?
             .json()
             .await?;
-        println!("{:?}", forecast);
+        info!("{:?}", forecast);
         assert_eq!(forecast.list.len(), 40);
         let city_offset: UtcOffset = forecast.city.timezone.into();
         let local = weather
@@ -151,7 +152,7 @@ mod test {
             .error_for_status()?
             .text()
             .await?;
-        println!("{}", text);
+        info!("{}", text);
         assert!(text.len() > 0);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/plot.html?zip=55427");
@@ -160,7 +161,7 @@ mod test {
             .error_for_status()?
             .text()
             .await?;
-        println!("{}", text);
+        info!("{}", text);
         assert!(text.len() > 0);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/statistics");
@@ -169,7 +170,7 @@ mod test {
             .error_for_status()?
             .json()
             .await?;
-        println!("{}", serde_json::to_string(&stats)?);
+        info!("{}", serde_json::to_string(&stats)?);
         assert!(stats.data_cache_hits == 2);
         assert!(stats.data_cache_misses == 1);
         assert!(stats.forecast_cache_hits == 2);

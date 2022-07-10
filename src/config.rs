@@ -55,7 +55,7 @@ impl Config {
         Self::default()
     }
 
-    /// Pull in configuration data using `[dotenv](https://crates.io/dotenv)`.
+    /// Pull in configuration data using `[dotenvy](https://crates.io/dotenvy)`.
     ///
     /// If a .env file exists in the current directory, pull in any ENV
     /// variables in it.
@@ -96,10 +96,10 @@ impl Config {
             &default_fname
         };
 
-        dotenv::dotenv().ok();
+        dotenvy::dotenv().ok();
 
         if env_file.exists() {
-            dotenv::from_path(env_file).ok();
+            dotenvy::from_path(env_file).ok();
         }
 
         let conf: ConfigInner = envy::from_env()?;
