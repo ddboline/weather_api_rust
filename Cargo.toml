@@ -18,7 +18,7 @@ Weather API."""
 weather_util_rust = "0.14"
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"
-cached = "0.36"
+cached = "0.37"
 thiserror = "1.0"
 http = "0.2"
 tokio = {version="1.18", features=["full"]}
