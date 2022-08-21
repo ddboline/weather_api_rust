@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use weather_util_rust::longitude::Longitude;
 
 #[derive(
-    Serialize, Debug, FromStr, PartialEq, Clone, Copy, Deref, Into, From, Deserialize, Hash, Display,
+    Serialize, Debug, FromStr, PartialEq, Clone, Copy, Deref, Into, From, Deserialize, Hash, Display, Eq,
 )]
 pub struct LongitudeWrapper(Longitude);
 

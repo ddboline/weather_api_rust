@@ -7,7 +7,7 @@ use std::{ops::Deref, path::Path, sync::Arc};
 use weather_util_rust::{latitude::Latitude, longitude::Longitude};
 
 /// Configuration data
-#[derive(Default, Debug, Deserialize, PartialEq)]
+#[derive(Default, Debug, Deserialize, PartialEq, Eq)]
 pub struct ConfigInner {
     /// openweathermap.org api key
     pub api_key: SmallString<32>,
@@ -46,7 +46,7 @@ fn default_api_path() -> StackString {
 }
 
 /// Configuration struct
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Config(Arc<ConfigInner>);
 
 impl Config {
