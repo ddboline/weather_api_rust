@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.6.5"
+version = "0.6.6"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -18,10 +18,10 @@ Weather API."""
 weather_util_rust = "0.14"
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"
-cached = "0.38"
+cached = "0.39"
 thiserror = "1.0"
 http = "0.2"
-tokio = {version="1.18", features=["full"]}
+tokio = {version="1.21", features=["full"]}
 lazy_static = "1.4"
 serde = {version="1.0", features=["derive"]}
 serde_json = "1.0"
@@ -30,7 +30,7 @@ maplit = "1.0"
 dotenvy = "0.15"
 dirs = "4.0"
 envy = "0.4"
-handlebars = "4.2"
+handlebars = "4.3"
 rweb = {version="0.15", features=["openapi"]}
 stack-string = {version="0.7", features=["rweb-openapi"]}
 isocountry = "0.3"
@@ -39,7 +39,7 @@ indexmap = "1.8"
 rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.13", features=["time"]}
 dioxus = { version = "0.2", features = ["desktop"] }
 arc-swap = "1.5"
-im = "15.0"
+im = "15.1"
 log = "0.4"
 env_logger = "0.9"
 

@@ -5,7 +5,19 @@ use serde::{Deserialize, Serialize};
 use weather_util_rust::latitude::Latitude;
 
 #[derive(
-    Serialize, Debug, FromStr, PartialEq, Clone, Copy, Deref, Into, From, Deserialize, Hash, Display, Eq,
+    Serialize,
+    Debug,
+    FromStr,
+    PartialEq,
+    Clone,
+    Copy,
+    Deref,
+    Into,
+    From,
+    Deserialize,
+    Hash,
+    Display,
+    Eq,
 )]
 pub struct LatitudeWrapper(Latitude);
 

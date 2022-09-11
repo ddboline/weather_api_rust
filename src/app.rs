@@ -103,11 +103,11 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
 #[cfg(test)]
 mod test {
     use anyhow::Error;
+    use log::info;
     use stack_string::format_sstr;
     use std::convert::TryInto;
     use time::UtcOffset;
     use time_tz::{timezones::db::us::CENTRAL, Offset, TimeZone};
-    use log::info;
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 

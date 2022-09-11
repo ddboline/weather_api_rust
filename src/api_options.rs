@@ -82,12 +82,12 @@ impl ApiOptions {
 #[cfg(test)]
 mod test {
     use anyhow::Error;
+    use log::info;
     use std::{
         convert::TryInto,
         env::{remove_var, set_var},
         path::Path,
     };
-    use log::info;
     use weather_util_rust::{
         latitude::Latitude,
         longitude::Longitude,
