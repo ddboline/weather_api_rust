@@ -184,7 +184,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let js_str = serde_json::to_string(&forecast_data).unwrap_or_else(|_| "".to_string());
+    let js_str = serde_json::to_string(&forecast_data)?;
 
     let params = hashmap! {
         "DATA" => js_str.as_str(),
@@ -221,7 +221,7 @@ async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<Str
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let js_str = serde_json::to_string(&forecast_data).unwrap_or_else(|_| "".to_string());
+    let js_str = serde_json::to_string(&forecast_data)?;
 
     let params = hashmap! {
         "DATA"=> js_str.as_str(),
