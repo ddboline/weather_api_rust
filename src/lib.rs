@@ -4,6 +4,8 @@
 #![allow(clippy::cast_sign_loss)]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::used_underscore_binding)]
+#![allow(clippy::similar_names)]
+#![allow(clippy::result_large_err)]
 
 pub mod api_options;
 pub mod app;
@@ -14,6 +16,7 @@ pub mod latitude_wrapper;
 pub mod longitude_wrapper;
 pub mod routes;
 pub mod timestamp;
+pub mod weather_element;
 
 use derive_more::{From, Into};
 use rweb::Schema;

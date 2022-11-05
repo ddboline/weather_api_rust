@@ -1,19 +1,19 @@
 use cached::{proc_macro::cached, Cached, TimedSizedCache};
+use dioxus::prelude::{
+    VirtualDom,
+};
 use handlebars::Handlebars;
 use lazy_static::lazy_static;
-use maplit::hashmap;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::{format_sstr, StackString};
 use std::collections::HashMap;
-use time::{macros::format_description, UtcOffset};
 use tokio::sync::RwLock;
 
 use rweb_helper::{
     html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, RwebResponse,
 };
 use weather_util_rust::{
-    precipitation::Precipitation,
     weather_api::{WeatherApi, WeatherLocation},
     weather_data::WeatherData,
     weather_forecast::WeatherForecast,
@@ -21,7 +21,7 @@ use weather_util_rust::{
 
 use crate::{
     api_options::ApiOptions, app::AppState, errors::ServiceError as Error, WeatherDataWrapper,
-    WeatherForecastWrapper,
+    WeatherForecastWrapper, weather_element::{AppProps, weather_element, get_forecast_plots},
 };
 
 pub type WarpResult<T> = Result<T, Rejection>;
@@ -61,8 +61,6 @@ pub fn get_templates() -> Result<Handlebars<'static>, Error> {
     let mut handlebars = Handlebars::new();
     handlebars
         .register_template_string("ts", include_str!("../templates/TIMESERIESTEMPLATE.js.hbr"))?;
-    handlebars
-        .register_template_string("ht", include_str!("../templates/PLOT_TEMPLATE.html.hbr"))?;
     Ok(handlebars)
 }
 
@@ -98,38 +96,25 @@ pub async fn frontpage(
     #[data] data: AppState,
     query: Query<ApiOptions>,
 ) -> WarpResult<IndexResponse> {
-    let body = frontpage_body(data, query.into_inner()).await?;
-    WEATHER_STRING_LENGTH
-        .insert_lenth("/weather/index.html", body.len())
-        .await;
-    Ok(HtmlBase::new(body).into())
-}
-
-async fn frontpage_body(data: AppState, query: ApiOptions) -> HttpResult<StackString> {
+    let query = query.into_inner();
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
-    let weather_data = get_weather_data(&api, &loc).await?;
-    let weather_forecast = get_weather_forecast(&api, &loc).await?;
+    let weather = get_weather_data(&api, &loc).await?;
+    let forecast = get_weather_forecast(&api, &loc).await?;
 
-    let weather_data = weather_data.get_current_conditions();
-    let weather_forecast = weather_forecast.get_forecast();
-
-    let lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
-    let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
-    let rows = lines.len() + 5;
-    let body = format_sstr!(
-        "<textarea readonly rows={rows} cols={cols}>{l}</textarea>",
-        l = lines.join("\n")
-    );
-
-    let lines: Vec<_> = weather_forecast.iter().map(|s| s.trim_end()).collect();
-    let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
-    let body = format_sstr!(
-        "{body}<textarea readonly rows={rows} cols={cols}>{l}</textarea>",
-        l = lines.join("\n")
-    );
-    Ok(body)
+    let body = {
+        let mut app = VirtualDom::new_with_props(
+            weather_element,
+            AppProps::new(weather, forecast),
+        );
+        app.rebuild();
+        dioxus::ssr::render_vdom(&app)
+    };
+    WEATHER_STRING_LENGTH
+        .insert_lenth("/weather/index.html", body.len())
+        .await;
+    Ok(HtmlBase::new(body.into()).into())
 }
 
 #[derive(RwebResponse)]
@@ -144,98 +129,28 @@ pub async fn forecast_plot(
     #[data] data: AppState,
     query: Query<ApiOptions>,
 ) -> WarpResult<WeatherPlotResponse> {
-    let body = forecast_plot_body(data, query.into_inner()).await?;
+    let query = query.into_inner();
+    let api = query.get_weather_api(&data.api);
+    let loc = query.get_weather_location(&data.config)?;
+
+    let weather = get_weather_data(&api, &loc).await?;
+    let forecast = get_weather_forecast(&api, &loc).await?;
+
+    let plots = get_forecast_plots(&forecast, &data)?;
+
+    let body = {
+        let mut app = VirtualDom::new_with_props(
+            weather_element,
+            AppProps::new_plot(weather, plots),
+        );
+        app.rebuild();
+        dioxus::ssr::render_vdom(&app)
+    };
+
     WEATHER_STRING_LENGTH
         .insert_lenth("/weather/plot.html", body.len())
         .await;
     Ok(HtmlBase::new(body).into())
-}
-
-async fn forecast_plot_body(data: AppState, query: ApiOptions) -> HttpResult<String> {
-    let api = query.get_weather_api(&data.api);
-    let loc = query.get_weather_location(&data.config)?;
-
-    let weather_data = get_weather_data(&api, &loc).await?;
-    let weather_forecast = get_weather_forecast(&api, &loc).await?;
-
-    let weather_data = weather_data.get_current_conditions();
-
-    let lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
-    let cols = lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
-    let rows = lines.len() + 5;
-    let body = format_sstr!(
-        "<textarea readonly rows={rows} cols={cols}>{l}</textarea>",
-        l = lines.join("\n")
-    );
-    let fo: UtcOffset = weather_forecast.city.timezone.into();
-    let forecast_data = weather_forecast
-        .list
-        .iter()
-        .map(|entry| {
-            let date_str: StackString = entry
-                .dt
-                .to_offset(fo)
-                .format(format_description!(
-                    "[year]-[month]-[day]T[hour]:[minute]:[second]"
-                ))?
-                .into();
-            let temp = entry.main.temp.fahrenheit();
-            Ok((date_str, temp))
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    let js_str = serde_json::to_string(&forecast_data)?;
-
-    let params = hashmap! {
-        "DATA" => js_str.as_str(),
-        "YAXIS" => "F",
-        "XAXIS" => "",
-        "EXAMPLETITLE" => "Temperature Forecast",
-        "NAME" => "temperature_forecast",
-    };
-    let ts = data.hbr.render("ts", &params)?;
-    let body = format_sstr!("{body}<br>{ts}");
-
-    let forecast_data = weather_forecast
-        .list
-        .iter()
-        .map(|entry| {
-            let rain = if let Some(rain) = &entry.rain {
-                rain.three_hour.unwrap_or_default()
-            } else {
-                Precipitation::default()
-            };
-            let snow = if let Some(snow) = &entry.snow {
-                snow.three_hour.unwrap_or_default()
-            } else {
-                Precipitation::default()
-            };
-            let dt_str: StackString = entry
-                .dt
-                .to_offset(fo)
-                .format(format_description!(
-                    "[year]-[month]-[day]T[hour]:[minute]:[second]"
-                ))?
-                .into();
-            Ok((dt_str, (rain + snow).inches()))
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    let js_str = serde_json::to_string(&forecast_data)?;
-
-    let params = hashmap! {
-        "DATA"=> js_str.as_str(),
-        "YAXIS"=> "in",
-        "XAXIS"=> "",
-        "EXAMPLETITLE"=> "Precipitation Forecast",
-        "NAME"=> "precipitation_forecast",
-    };
-    let ts = data.hbr.render("ts", &params)?;
-    let body = format_sstr!("{body}<br>{ts}");
-
-    Ok(data
-        .hbr
-        .render("ht", &hashmap! {"INSERTOTHERIMAGESHERE" => &body})?)
 }
 
 #[derive(Serialize, Deserialize, Schema, Clone)]
