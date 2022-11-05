@@ -4,6 +4,7 @@
 #![allow(clippy::cast_sign_loss)]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::used_underscore_binding)]
+#![allow(clippy::similar_names)]
 
 pub mod api_options;
 pub mod app;
