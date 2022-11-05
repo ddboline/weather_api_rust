@@ -1,22 +1,19 @@
 use cached::{proc_macro::cached, Cached, TimedSizedCache};
 use dioxus::prelude::{
-    dioxus_elements, format_args_f, rsx, Element, LazyNodes, NodeFactory, Scope, VNode, VirtualDom,
+    VirtualDom,
 };
 use handlebars::Handlebars;
 use lazy_static::lazy_static;
-use maplit::hashmap;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::{format_sstr, StackString};
 use std::collections::HashMap;
-use time::{macros::format_description, UtcOffset};
 use tokio::sync::RwLock;
 
 use rweb_helper::{
     html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, RwebResponse,
 };
 use weather_util_rust::{
-    precipitation::Precipitation,
     weather_api::{WeatherApi, WeatherLocation},
     weather_data::WeatherData,
     weather_forecast::WeatherForecast,
@@ -24,7 +21,7 @@ use weather_util_rust::{
 
 use crate::{
     api_options::ApiOptions, app::AppState, errors::ServiceError as Error, WeatherDataWrapper,
-    WeatherForecastWrapper,
+    WeatherForecastWrapper, weather_element::{AppProps, weather_element, get_forecast_plots},
 };
 
 pub type WarpResult<T> = Result<T, Rejection>;
@@ -109,11 +106,7 @@ pub async fn frontpage(
     let body = {
         let mut app = VirtualDom::new_with_props(
             weather_element,
-            AppProps {
-                weather,
-                forecast: Some(forecast),
-                plot: None,
-            },
+            AppProps::new(weather, forecast),
         );
         app.rebuild();
         dioxus::ssr::render_vdom(&app)
@@ -148,11 +141,7 @@ pub async fn forecast_plot(
     let body = {
         let mut app = VirtualDom::new_with_props(
             weather_element,
-            AppProps {
-                weather,
-                forecast: None,
-                plot: Some(plots),
-            },
+            AppProps::new_plot(weather, plots),
         );
         app.rebuild();
         dioxus::ssr::render_vdom(&app)
@@ -232,152 +221,4 @@ async fn forecast_body(data: AppState, query: ApiOptions) -> HttpResult<WeatherF
     let loc = query.get_weather_location(&data.config)?;
     let weather_forecast = get_weather_forecast(&api, &loc).await?;
     Ok(weather_forecast)
-}
-
-struct AppProps {
-    weather: WeatherData,
-    forecast: Option<WeatherForecast>,
-    plot: Option<Vec<String>>,
-}
-
-fn weather_element(cx: Scope<AppProps>) -> Element {
-    let weather_data = cx.props.weather.get_current_conditions();
-    let weather_lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
-    let weather_cols = weather_lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
-    let weather_rows = weather_lines.len() + 5;
-    let weather_lines = weather_lines.join("\n");
-
-    let forecast_lines = cx.props.forecast.as_ref().map(|forecast| {
-        let weather_forecast = forecast.get_forecast();
-        let forecast_lines: Vec<_> = weather_forecast.iter().map(|s| s.trim_end()).collect();
-        let forecast_cols = forecast_lines.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
-        (forecast_cols, forecast_lines.join("\n"))
-    });
-
-    cx.render(rsx!(
-        head {
-            title: "Scale Measurement Plots",
-            style {
-                [include_str!("../templates/style.css")],
-            }
-        },
-        body {
-            cx.props.plot.as_ref().map(|_| {
-                rsx! {
-                    script {
-                        src: "https://d3js.org/d3.v4.min.js",
-                    }
-                }
-            })
-            div {
-                textarea {
-                    readonly: "true",
-                    rows: "{weather_rows}",
-                    cols: "{weather_cols}",
-                    "{weather_lines}"
-                },
-                {
-                    forecast_lines.map(|(forecast_cols, forecast_lines)| rsx! {
-                        textarea {
-                            readonly: "true",
-                            rows: "{weather_rows}",
-                            cols: "{forecast_cols}",
-                            "{forecast_lines}"
-                        }
-                    })
-                }
-            }
-            cx.props.plot.as_ref().map(|plots| {
-                rsx! {
-                    br {},
-                    plots.iter().enumerate().map(|(idx, ts)| {
-                        rsx! {
-                            script {
-                                key: "forecast-plot-key-{idx}",
-                                "{ts}"
-                            }
-                        }
-                    })
-                }
-            })
-        }
-    ))
-}
-
-fn get_forecast_plots(forecast: &WeatherForecast, data: &AppState) -> Result<Vec<String>, Error> {
-    let mut plots = Vec::new();
-
-    let fo: UtcOffset = forecast.city.timezone.into();
-    let forecast_data = forecast
-        .list
-        .iter()
-        .map(|entry| {
-            let date_str: StackString = entry
-                .dt
-                .to_offset(fo)
-                .format(format_description!(
-                    "[year]-[month]-[day]T[hour]:[minute]:[second]"
-                ))?
-                .into();
-            let temp = entry.main.temp.fahrenheit();
-            Ok((date_str, temp))
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    let js_str = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
-
-    let params = hashmap! {
-        "DATA" => js_str.as_str(),
-        "YAXIS" => "F",
-        "XAXIS" => "",
-        "EXAMPLETITLE" => "Temperature Forecast",
-        "NAME" => "temperature_forecast",
-    };
-    let ts = data
-        .hbr
-        .render("ts", &params)
-        .map_err(Into::<Error>::into)?;
-    plots.push(ts);
-
-    let forecast_data = forecast
-        .list
-        .iter()
-        .map(|entry| {
-            let rain = if let Some(rain) = &entry.rain {
-                rain.three_hour.unwrap_or_default()
-            } else {
-                Precipitation::default()
-            };
-            let snow = if let Some(snow) = &entry.snow {
-                snow.three_hour.unwrap_or_default()
-            } else {
-                Precipitation::default()
-            };
-            let dt_str: StackString = entry
-                .dt
-                .to_offset(fo)
-                .format(format_description!(
-                    "[year]-[month]-[day]T[hour]:[minute]:[second]"
-                ))?
-                .into();
-            Ok((dt_str, (rain + snow).inches()))
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    let js_str = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
-
-    let params = hashmap! {
-        "DATA"=> js_str.as_str(),
-        "YAXIS"=> "in",
-        "XAXIS"=> "",
-        "EXAMPLETITLE"=> "Precipitation Forecast",
-        "NAME"=> "precipitation_forecast",
-    };
-    let ts = data
-        .hbr
-        .render("ts", &params)
-        .map_err(Into::<Error>::into)?;
-    plots.push(ts);
-
-    Ok(plots)
 }

@@ -16,6 +16,7 @@ pub mod latitude_wrapper;
 pub mod longitude_wrapper;
 pub mod routes;
 pub mod timestamp;
+pub mod weather_element;
 
 use derive_more::{From, Into};
 use rweb::Schema;
