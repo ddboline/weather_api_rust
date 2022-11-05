@@ -1,4 +1,3 @@
-<script>
 // Set the dimensions of the canvas / graph
 let margin_{{NAME}} = {top: 30, right: 20, bottom: 30, left: 50};
 let width_{{NAME}} = 600 - margin_{{NAME}}.left - margin_{{NAME}}.right;
@@ -141,4 +140,3 @@ function handleMouseOverData_{{NAME}}() {
         .attr("y", function() {return y_{{NAME}}(ymax_{{NAME}}) + 30;})
         .text(function() {return heartrate;});
 }
-</script>
