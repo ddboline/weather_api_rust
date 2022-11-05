@@ -38,8 +38,6 @@ derive_more = "0.99"
 indexmap = "1.8"
 rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.13", features=["time"]}
 dioxus = { version = "0.2", features = ["desktop", "ssr"] }
-arc-swap = "1.5"
-im = "15.1"
 log = "0.4"
 env_logger = "0.9"
 parking_lot = "0.12"

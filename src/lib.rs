@@ -5,6 +5,7 @@
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::used_underscore_binding)]
 #![allow(clippy::similar_names)]
+#![allow(clippy::result_large_err)]
 
 pub mod api_options;
 pub mod app;
