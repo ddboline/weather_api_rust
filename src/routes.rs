@@ -1,7 +1,5 @@
 use cached::{proc_macro::cached, Cached, TimedSizedCache};
-use dioxus::prelude::{
-    VirtualDom,
-};
+use dioxus::prelude::VirtualDom;
 use handlebars::Handlebars;
 use lazy_static::lazy_static;
 use rweb::{get, Query, Rejection, Schema};
@@ -20,8 +18,11 @@ use weather_util_rust::{
 };
 
 use crate::{
-    api_options::ApiOptions, app::AppState, errors::ServiceError as Error, WeatherDataWrapper,
-    WeatherForecastWrapper, weather_element::{AppProps, weather_element, get_forecast_plots},
+    api_options::ApiOptions,
+    app::AppState,
+    errors::ServiceError as Error,
+    weather_element::{get_forecast_plots, weather_element, AppProps},
+    WeatherDataWrapper, WeatherForecastWrapper,
 };
 
 pub type WarpResult<T> = Result<T, Rejection>;
@@ -91,7 +92,7 @@ async fn get_weather_forecast(
 #[response(description = "Display Current Weather and Forecast", content = "html")]
 struct IndexResponse(HtmlBase<StackString, Error>);
 
-#[get("/weather/index.html")]
+#[get("/weather/weather.html")]
 pub async fn frontpage(
     #[data] data: AppState,
     query: Query<ApiOptions>,
@@ -104,10 +105,7 @@ pub async fn frontpage(
     let forecast = get_weather_forecast(&api, &loc).await?;
 
     let body = {
-        let mut app = VirtualDom::new_with_props(
-            weather_element,
-            AppProps::new(weather, forecast),
-        );
+        let mut app = VirtualDom::new_with_props(weather_element, AppProps::new(weather, forecast));
         app.rebuild();
         dioxus::ssr::render_vdom(&app)
     };
@@ -139,10 +137,8 @@ pub async fn forecast_plot(
     let plots = get_forecast_plots(&forecast, &data)?;
 
     let body = {
-        let mut app = VirtualDom::new_with_props(
-            weather_element,
-            AppProps::new_plot(weather, plots),
-        );
+        let mut app =
+            VirtualDom::new_with_props(weather_element, AppProps::new_plot(weather, plots));
         app.rebuild();
         dioxus::ssr::render_vdom(&app)
     };
