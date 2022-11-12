@@ -1,17 +1,15 @@
 use dioxus::prelude::{
     dioxus_elements, format_args_f, rsx, Element, LazyNodes, NodeFactory, Scope, VNode,
+    inline_props, Props, use_state,
 };
 use maplit::hashmap;
-use weather_util_rust::{
-    precipitation::Precipitation,
-    weather_data::WeatherData,
-    weather_forecast::WeatherForecast,
-};
+use stack_string::{StackString, format_sstr};
 use time::{macros::format_description, UtcOffset};
-use stack_string::StackString;
+use weather_util_rust::{
+    precipitation::Precipitation, weather_data::WeatherData, weather_forecast::WeatherForecast,
+};
 
 use crate::{app::AppState, errors::ServiceError as Error};
-
 
 pub struct AppProps {
     weather: WeatherData,
@@ -106,7 +104,10 @@ pub fn weather_element(cx: Scope<AppProps>) -> Element {
 
 /// # Errors
 /// Returns error if there is a syntax or parsing error
-pub fn get_forecast_plots(forecast: &WeatherForecast, data: &AppState) -> Result<Vec<String>, Error> {
+pub fn get_forecast_plots(
+    forecast: &WeatherForecast,
+    data: &AppState,
+) -> Result<Vec<String>, Error> {
     let mut plots = Vec::new();
 
     let fo: UtcOffset = forecast.city.timezone.into();
