@@ -37,7 +37,7 @@ isocountry = "0.3"
 derive_more = "0.99"
 indexmap = "1.8"
 rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.13", features=["time"]}
-dioxus = { version = "0.2", features = ["desktop", "ssr"] }
+dioxus = { version = "0.2", features = ["ssr"] }
 log = "0.4"
 env_logger = "0.9"
 parking_lot = "0.12"
@@ -49,9 +49,4 @@ time-tz = "1.0"
 [[bin]]
 name = "weather-api-rust"
 path = "src/main.rs"
-doc = false
-
-[[bin]]
-name = "weather-app-rust"
-path = "src/weatherapp.rs"
 doc = false
