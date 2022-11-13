@@ -215,11 +215,15 @@ fn app(cx: Scope<AppProps>) -> Element {
                             });
                             set_search_history.needs_update();
                         },
-                        {search_history.iter().rev().map(|s| rsx! {
-                            option { class: "pl-8 pr-2 py-1 border-b-2 border-gray-100 relative cursor-pointer hover:bg-yellow-50 hover:text-gray-900",
-                                key: "search-history-key-{s}",
-                                value: "{s}",
-                                "{s}"
+                        {search_history.iter().rev().map(|s| {
+                            let selected = WEATHER_CACHE.contains_key(s);
+                            rsx! {
+                                option { class: "pl-8 pr-2 py-1 border-b-2 border-gray-100 relative cursor-pointer hover:bg-yellow-50 hover:text-gray-900",
+                                    key: "search-history-key-{s}",
+                                    value: "{s}",
+                                    selected: "{selected}",
+                                    "{s}"
+                                }
                             }
                         })}
                     }
