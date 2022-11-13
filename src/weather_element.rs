@@ -1,9 +1,8 @@
 use dioxus::prelude::{
     dioxus_elements, format_args_f, rsx, Element, LazyNodes, NodeFactory, Scope, VNode,
-    inline_props, Props, use_state,
 };
 use maplit::hashmap;
-use stack_string::{StackString, format_sstr};
+use stack_string::StackString;
 use time::{macros::format_description, UtcOffset};
 use weather_util_rust::{
     precipitation::Precipitation, weather_data::WeatherData, weather_forecast::WeatherForecast,
