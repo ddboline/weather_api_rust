@@ -92,7 +92,7 @@ async fn get_weather_forecast(
 #[response(description = "Display Current Weather and Forecast", content = "html")]
 struct IndexResponse(HtmlBase<StackString, Error>);
 
-#[get("/weather/weather.html")]
+#[get("/weather/index.html")]
 pub async fn frontpage(
     #[data] data: AppState,
     query: Query<ApiOptions>,
