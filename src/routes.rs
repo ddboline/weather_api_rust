@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::{format_sstr, StackString};
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::Infallible};
 use tokio::sync::RwLock;
 
 use rweb_helper::{
@@ -116,6 +116,15 @@ pub async fn frontpage(
 }
 
 #[derive(RwebResponse)]
+#[response(description = "TimeseriesScript", content = "js")]
+struct TimeseriesJsResponse(HtmlBase<&'static str, Infallible>);
+
+#[get("/weather/timeseries.js")]
+pub async fn timeseries_js() -> WarpResult<TimeseriesJsResponse> {
+    Ok(HtmlBase::new(include_str!("../templates/timeseries.js")).into())
+}
+
+#[derive(RwebResponse)]
 #[response(
     description = "Show Plot of Current Weather and Forecast",
     content = "html"
@@ -134,7 +143,7 @@ pub async fn forecast_plot(
     let weather = get_weather_data(&api, &loc).await?;
     let forecast = get_weather_forecast(&api, &loc).await?;
 
-    let plots = get_forecast_plots(&forecast, &data)?;
+    let plots = get_forecast_plots(&forecast)?;
 
     let body = {
         let mut app =

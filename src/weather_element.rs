@@ -1,19 +1,25 @@
 use dioxus::prelude::{
     dioxus_elements, format_args_f, rsx, Element, LazyNodes, NodeFactory, Scope, VNode,
 };
-use maplit::hashmap;
 use stack_string::StackString;
 use time::{macros::format_description, UtcOffset};
 use weather_util_rust::{
     precipitation::Precipitation, weather_data::WeatherData, weather_forecast::WeatherForecast,
 };
 
-use crate::{app::AppState, errors::ServiceError as Error};
+use crate::errors::ServiceError as Error;
+
+pub struct PlotData {
+    forecast_data: StackString,
+    title: StackString,
+    xaxis: StackString,
+    yaxis: StackString,
+}
 
 pub struct AppProps {
     weather: WeatherData,
     forecast: Option<WeatherForecast>,
-    plot: Option<Vec<String>>,
+    plot: Option<Vec<PlotData>>,
 }
 
 impl AppProps {
@@ -27,7 +33,7 @@ impl AppProps {
     }
 
     #[must_use]
-    pub fn new_plot(weather: WeatherData, plot: Vec<String>) -> Self {
+    pub fn new_plot(weather: WeatherData, plot: Vec<PlotData>) -> Self {
         Self {
             weather,
             forecast: None,
@@ -55,7 +61,7 @@ pub fn weather_element(cx: Scope<AppProps>) -> Element {
         head {
             title: "Scale Measurement Plots",
             style {
-                [include_str!("../templates/style.css")],
+                [include_str!("../templates/style.css")]
             }
         },
         body {
@@ -84,29 +90,38 @@ pub fn weather_element(cx: Scope<AppProps>) -> Element {
                     })
                 }
             }
+            script {
+                "src": "/weather/timeseries.js",
+            }
             cx.props.plot.as_ref().map(|plots| {
                 rsx! {
                     br {},
-                    plots.iter().enumerate().map(|(idx, ts)| {
+                    plots.iter().enumerate().map(|(idx, pd)| {
+                        let forecast_data = &pd.forecast_data;
+                        let title = &pd.title;
+                        let xaxis = &pd.xaxis;
+                        let yaxis = &pd.yaxis;
+                        let script_body = format!(r#"
+                            !function(){{
+                                let forecast_data = {forecast_data};
+                                create_plot(forecast_data, '{title}', '{xaxis}', '{yaxis}');
+                            }}();"#);
                         rsx! {
                             script {
                                 key: "forecast-plot-key-{idx}",
-                                "{ts}"
+                                "{script_body}",
                             }
                         }
                     })
                 }
-            })
+            }),
         }
     ))
 }
 
 /// # Errors
 /// Returns error if there is a syntax or parsing error
-pub fn get_forecast_plots(
-    forecast: &WeatherForecast,
-    data: &AppState,
-) -> Result<Vec<String>, Error> {
+pub fn get_forecast_plots(forecast: &WeatherForecast) -> Result<Vec<PlotData>, Error> {
     let mut plots = Vec::new();
 
     let fo: UtcOffset = forecast.city.timezone.into();
@@ -126,20 +141,16 @@ pub fn get_forecast_plots(
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let js_str = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
+    let forecast_data = serde_json::to_string(&forecast_data)
+        .map_err(Into::<Error>::into)?
+        .into();
 
-    let params = hashmap! {
-        "DATA" => js_str.as_str(),
-        "YAXIS" => "F",
-        "XAXIS" => "",
-        "EXAMPLETITLE" => "Temperature Forecast",
-        "NAME" => "temperature_forecast",
-    };
-    let ts = data
-        .hbr
-        .render("ts", &params)
-        .map_err(Into::<Error>::into)?;
-    plots.push(ts);
+    plots.push(PlotData {
+        forecast_data,
+        title: "Temperature Forecast".into(),
+        xaxis: "".into(),
+        yaxis: "F".into(),
+    });
 
     let forecast_data = forecast
         .list
@@ -166,20 +177,16 @@ pub fn get_forecast_plots(
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let js_str = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
+    let forecast_data = serde_json::to_string(&forecast_data)
+        .map_err(Into::<Error>::into)?
+        .into();
 
-    let params = hashmap! {
-        "DATA"=> js_str.as_str(),
-        "YAXIS"=> "in",
-        "XAXIS"=> "",
-        "EXAMPLETITLE"=> "Precipitation Forecast",
-        "NAME"=> "precipitation_forecast",
-    };
-    let ts = data
-        .hbr
-        .render("ts", &params)
-        .map_err(Into::<Error>::into)?;
-    plots.push(ts);
+    plots.push(PlotData {
+        forecast_data,
+        title: "Precipitation Forecast".into(),
+        xaxis: "".into(),
+        yaxis: "in".into(),
+    });
 
     Ok(plots)
 }

@@ -6,6 +6,7 @@
 #![allow(clippy::used_underscore_binding)]
 #![allow(clippy::similar_names)]
 #![allow(clippy::result_large_err)]
+#![allow(clippy::unused_async)]
 
 pub mod api_options;
 pub mod app;

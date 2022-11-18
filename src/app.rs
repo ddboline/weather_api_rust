@@ -14,7 +14,9 @@ use weather_util_rust::weather_api::WeatherApi;
 use super::{
     config::Config,
     errors::error_response,
-    routes::{forecast, forecast_plot, frontpage, get_templates, statistics, weather},
+    routes::{
+        forecast, forecast_plot, frontpage, get_templates, statistics, timeseries_js, weather,
+    },
 };
 
 #[derive(Clone)]
@@ -36,6 +38,7 @@ pub async fn start_app() -> Result<(), Error> {
 fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
     let frontpage_path = frontpage(app.clone());
     let forecast_plot_path = forecast_plot(app.clone());
+    let timeseries_js_path = timeseries_js();
     let weather_path = weather(app.clone());
     let forecast_path = forecast(app.clone());
     let statistics_path = statistics();
@@ -45,6 +48,7 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
         .or(weather_path)
         .or(forecast_path)
         .or(statistics_path)
+        .or(timeseries_js_path)
         .boxed()
 }
 
