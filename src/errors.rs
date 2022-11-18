@@ -1,4 +1,3 @@
-use handlebars::{RenderError, TemplateError};
 use http::{Error as HTTPError, StatusCode};
 use indexmap::IndexMap;
 use rweb::{
@@ -28,10 +27,6 @@ pub enum ServiceError {
     IoError(#[from] std::io::Error),
     #[error("invalid utf8")]
     Utf8Error(#[from] FromUtf8Error),
-    #[error("render error")]
-    RenderError(#[from] RenderError),
-    #[error("template error")]
-    TemplateError(#[from] TemplateError),
     #[error("HTTP error {0}")]
     HTTPError(#[from] HTTPError),
     #[error("SerdeJsonError {0}")]

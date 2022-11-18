@@ -1,5 +1,4 @@
 use anyhow::Error;
-use handlebars::Handlebars;
 use rweb::{
     filters::BoxedFilter,
     http::header::CONTENT_TYPE,
@@ -15,7 +14,7 @@ use super::{
     config::Config,
     errors::error_response,
     routes::{
-        forecast, forecast_plot, frontpage, get_templates, statistics, timeseries_js, weather,
+        forecast, forecast_plot, frontpage, statistics, timeseries_js, weather,
     },
 };
 
@@ -23,7 +22,6 @@ use super::{
 pub struct AppState {
     pub api: Arc<WeatherApi>,
     pub config: Config,
-    pub hbr: Arc<Handlebars<'static>>,
 }
 
 /// # Errors
@@ -60,7 +58,6 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
             &config.api_path,
         )),
         config: config.clone(),
-        hbr: Arc::new(get_templates()?),
     };
 
     let (spec, api_path) = openapi::spec()

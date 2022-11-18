@@ -6,6 +6,7 @@ use time::{macros::format_description, UtcOffset};
 use weather_util_rust::{
     precipitation::Precipitation, weather_data::WeatherData, weather_forecast::WeatherForecast,
 };
+use std::fmt::Write;
 
 use crate::errors::ServiceError as Error;
 
@@ -101,11 +102,12 @@ pub fn weather_element(cx: Scope<AppProps>) -> Element {
                         let title = &pd.title;
                         let xaxis = &pd.xaxis;
                         let yaxis = &pd.yaxis;
-                        let script_body = format!(r#"
-                            !function(){{
-                                let forecast_data = {forecast_data};
-                                create_plot(forecast_data, '{title}', '{xaxis}', '{yaxis}');
-                            }}();"#);
+                        let mut script_body = String::new();
+                        script_body.push_str("\n!function(){\n");
+                        writeln!(&mut script_body, "\tlet forecast_data = {forecast_data};").unwrap();
+                        writeln!(&mut script_body, "\tcreate_plot(forecast_data, '{title}', '{xaxis}', '{yaxis}');").unwrap();
+                        script_body.push_str("}();\n");
+
                         rsx! {
                             script {
                                 key: "forecast-plot-key-{idx}",

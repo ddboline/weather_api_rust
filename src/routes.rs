@@ -1,6 +1,5 @@
 use cached::{proc_macro::cached, Cached, TimedSizedCache};
 use dioxus::prelude::VirtualDom;
-use handlebars::Handlebars;
 use lazy_static::lazy_static;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
@@ -54,15 +53,6 @@ impl StringLengthMap {
             .map(|(k, v)| (k.into(), *v))
             .collect()
     }
-}
-
-/// # Errors
-/// Returns error if there is a syntax or parsing error
-pub fn get_templates() -> Result<Handlebars<'static>, Error> {
-    let mut handlebars = Handlebars::new();
-    handlebars
-        .register_template_string("ts", include_str!("../templates/TIMESERIESTEMPLATE.js.hbr"))?;
-    Ok(handlebars)
 }
 
 #[cached(
