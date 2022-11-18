@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.6.9"
+version = "0.6.10"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -34,7 +34,7 @@ stack-string = {version="0.7", features=["rweb-openapi"]}
 isocountry = "0.3"
 derive_more = "0.99"
 indexmap = "1.8"
-rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.13", features=["time"]}
+rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.16", features=["time"]}
 dioxus = { version = "0.2", features = ["ssr"] }
 log = "0.4"
 env_logger = "0.9"
