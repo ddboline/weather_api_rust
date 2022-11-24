@@ -60,7 +60,7 @@ pub fn weather_element(cx: Scope<AppProps>) -> Element {
 
     cx.render(rsx!(
         head {
-            title: "Scale Measurement Plots",
+            title: "Weather Plots",
             style {
                 [include_str!("../templates/style.css")]
             }
