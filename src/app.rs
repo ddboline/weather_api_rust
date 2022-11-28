@@ -13,9 +13,7 @@ use weather_util_rust::weather_api::WeatherApi;
 use super::{
     config::Config,
     errors::error_response,
-    routes::{
-        forecast, forecast_plot, frontpage, statistics, timeseries_js, weather,
-    },
+    routes::{forecast, forecast_plot, frontpage, statistics, timeseries_js, weather},
 };
 
 #[derive(Clone)]

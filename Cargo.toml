@@ -17,12 +17,15 @@ Weather API."""
 [workspace]
 members = [
     "weather_api_common",
-    "weather_api_wasm",
     "weather_app_desktop",
+]
+exclude = [
     "weather_app_wasm",
+    "weather_api_wasm"
 ]
 
 [dependencies]
+weather_api_common = {path = "weather_api_common/"}
 weather_util_rust = {version="0.14", features=["stack-string"]}
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"

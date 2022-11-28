@@ -1,3 +1,4 @@
+use anyhow::Error as AnyhowError;
 use http::{Error as HTTPError, StatusCode};
 use indexmap::IndexMap;
 use rweb::{
@@ -33,6 +34,8 @@ pub enum ServiceError {
     SerdeJsonError(#[from] SerdeJsonError),
     #[error("TimeFormatError {0}")]
     TimeFormatError(#[from] FormatError),
+    #[error("AnyhowError {0}")]
+    AnyhowError(#[from] AnyhowError),
 }
 
 impl Reject for ServiceError {}

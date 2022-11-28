@@ -1,16 +1,18 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::too_many_arguments)]
+
 pub mod weather_element;
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+#[cfg(target_arch = "wasm32")]
+pub mod wasm_utils;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod non_wasm_utils;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
+
+#[derive(Clone, Debug)]
+pub struct WeatherEntry {
+    pub weather: Option<WeatherData>,
+    pub forecast: Option<WeatherForecast>,
 }

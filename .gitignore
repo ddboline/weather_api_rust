@@ -2,3 +2,9 @@
 **/*.rs.bk
 Cargo.lock
 .vscode
+
+weather_app_wasm/dist/
+weather_app_wasm/target/
+
+weather_api_wasm/dist/
+weather_api_wasm/target/

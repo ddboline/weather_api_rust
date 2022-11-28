@@ -1,8 +1,23 @@
 [package]
 name = "weather_app_desktop"
-version = "0.1.0"
+version = "0.6.10"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+weather_api_common = {path = "../weather_api_common/"}
+anyhow = "1.0"
+log = "0.4"
+env_logger = "0.10"
+futures-channel = "0.3"
+weather_util_rust = {version="0.14", features=["stack-string"]}
+tokio = {version="1.21", features=["full"]}
+futures-util = "0.3"
+dioxus = { version = "0.2", features = ["desktop"] }
+parking_lot = "0.12"
+
+[[bin]]
+name = "weather-app-rust"
+path = "src/main.rs"
+doc = false
