@@ -25,3 +25,4 @@ weather_util_rust = {version="0.14", default-features=false}
 wasm-bindgen-futures = "0.4"
 serde-wasm-bindgen = "0.4"
 isocountry = "0.3"
+time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
