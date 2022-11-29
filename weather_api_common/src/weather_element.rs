@@ -680,6 +680,8 @@ fn week_weather(forecast: &WeatherForecast) -> LazyNodes {
 }
 
 pub fn index_element<'a>(
+    height: u64,
+    width: u64,
     origin: String,
     url_path: &'a str,
     set_url_path: &'a UseState<&'static str>,
@@ -708,13 +710,100 @@ pub fn index_element<'a>(
     }
 
     rsx! {
-        input {
-            "type": "button",
-            name: "update_location",
-            value: "Update Location",
-            onclick: move |_| {
-                if location != ip_location {
-                    let s = format!("{ip_location}");
+        div {
+            input {
+                "type": "button",
+                name: "update_location",
+                value: "Update Location",
+                onclick: move |_| {
+                    if location != ip_location {
+                        let s = format!("{ip_location}");
+                        if !search_history.contains(&s) {
+                            set_search_history.modify(|sh| {
+                                let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != s).cloned().collect();
+                                v.push(s);
+
+                                #[cfg(target_arch = "wasm32")]
+                                set_history(&v).expect("Failed to set history");
+
+                                v
+                            });
+                            set_search_history.needs_update();
+                        }
+                        set_location(ip_location.clone());
+                        location_future.restart();
+                    }
+                },
+            },
+            input {
+                "type": "button",
+                name: "text",
+                value: "Text",
+                onclick: move |_| {
+                    set_url_path.modify(|_| "weather/index.html");
+                },
+            },
+            input {
+                "type": "button",
+                name: "plot",
+                value: "Plot",
+                onclick: move |_| {
+                    set_url_path.modify(|_| "weather/plot.html");
+                },
+            },
+            input {
+                "type": "button",
+                name: "wasm",
+                value: "Wasm",
+                onclick: move |_| {
+                    set_url_path.modify(|_| "wasm_weather/index.html");
+                },
+            },
+            form {
+                input {
+                    "type": "text",
+                    name: "location",
+                    value: "{draft}",
+                    id: "locationForm",
+                    oninput: move |evt| {
+                        let msg = evt.value.as_str();
+                        set_draft.modify(|_| {msg.into()});
+                        set_draft.needs_update();
+                    },
+                },
+                input {
+                    "type": "button",
+                    name: "submitLocation",
+                    value: "Location",
+                    onclick: move |_| {
+                        if !draft.is_empty() {
+                            let loc = get_parameters(draft);
+                            if !search_history.contains(&draft.to_string()) {
+                                set_search_history.modify(|sh| {
+                                    let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != draft).cloned().collect();
+                                    v.push(draft.into());
+
+                                    #[cfg(target_arch = "wasm32")]
+                                    set_history(&v).expect("Failed to set history");
+
+                                    v
+                                });
+                                set_search_history.needs_update();
+                            }
+                            set_location(loc);
+                            set_current_loc.set(Some(draft.to_string()));
+                            set_current_loc.needs_update();
+                            set_draft.set(String::new());
+                            set_draft.needs_update();
+                        }
+                    },
+                },
+            },
+            select {
+                id: "history-selector",
+                onchange: move |x| {
+                    let s = x.data.value.as_str().to_string();
+                    let loc = get_parameters(&s);
                     if !search_history.contains(&s) {
                         set_search_history.modify(|sh| {
                             let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != s).cloned().collect();
@@ -727,123 +816,38 @@ pub fn index_element<'a>(
                         });
                         set_search_history.needs_update();
                     }
-                    set_location(ip_location.clone());
-                    location_future.restart();
-                }
-            },
-        },
-        input {
-            "type": "button",
-            name: "text",
-            value: "Text",
-            onclick: move |_| {
-                set_url_path.modify(|_| "weather/index.html");
-            },
-        },
-        input {
-            "type": "button",
-            name: "plot",
-            value: "Plot",
-            onclick: move |_| {
-                set_url_path.modify(|_| "weather/plot.html");
-            },
-        },
-        input {
-            "type": "button",
-            name: "wasm",
-            value: "Wasm",
-            onclick: move |_| {
-                set_url_path.modify(|_| "wasm_weather/index.html");
-            },
-        },
-        form {
-            input {
-                "type": "text",
-                name: "location",
-                value: "{draft}",
-                id: "locationForm",
-                oninput: move |evt| {
-                    let msg = evt.value.as_str();
-                    set_draft.modify(|_| {msg.into()});
-                    set_draft.needs_update();
+                    set_location(loc);
                 },
+                search_history.iter().rev().enumerate().map(|(idx, s)| {
+                    rsx! {
+                        option {
+                            key: "search-history-key-{idx}",
+                            value: "{s}",
+                            "{s}"
+                        }
+                    }
+                })
             },
             input {
                 "type": "button",
-                name: "submitLocation",
-                value: "Location",
+                name: "clear",
+                value: "Clear",
                 onclick: move |_| {
-                    if !draft.is_empty() {
-                        let loc = get_parameters(draft);
-                        if !search_history.contains(&draft.to_string()) {
-                            set_search_history.modify(|sh| {
-                                let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != draft).cloned().collect();
-                                v.push(draft.into());
+                    let history = vec![String::from("10001")];
 
-                                #[cfg(target_arch = "wasm32")]
-                                set_history(&v).expect("Failed to set history");
+                    #[cfg(target_arch = "wasm32")]
+                    set_history(&history).unwrap();
 
-                                v
-                            });
-                            set_search_history.needs_update();
-                        }
-                        set_location(loc);
-                        set_current_loc.set(Some(draft.to_string()));
-                        set_current_loc.needs_update();
-                        set_draft.set(String::new());
-                        set_draft.needs_update();
-                    }
-                },
-            },
-        },
-        select {
-            id: "history-selector",
-            onchange: move |x| {
-                let s = x.data.value.as_str().to_string();
-                let loc = get_parameters(&s);
-                if !search_history.contains(&s) {
-                    set_search_history.modify(|sh| {
-                        let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != s).cloned().collect();
-                        v.push(s);
-
-                        #[cfg(target_arch = "wasm32")]
-                        set_history(&v).expect("Failed to set history");
-
-                        v
-                    });
+                    set_search_history.set(history);
                     set_search_history.needs_update();
                 }
-                set_location(loc);
             },
-            search_history.iter().rev().enumerate().map(|(idx, s)| {
-                rsx! {
-                    option {
-                        key: "search-history-key-{idx}",
-                        value: "{s}",
-                        "{s}"
-                    }
-                }
-            })
-        },
-        input {
-            "type": "button",
-            name: "clear",
-            value: "Clear",
-            onclick: move |_| {
-                let history = vec![String::from("10001")];
-
-                #[cfg(target_arch = "wasm32")]
-                set_history(&history).unwrap();
-
-                set_search_history.set(history);
-                set_search_history.needs_update();
-            }
         },
         iframe {
             src: "{url}",
             id: "weather-frame",
-            height: "100",
-            width: "100",
+            height: "{height}",
+            width: "{width}",
             align: "center",
         },
     }
