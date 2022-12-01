@@ -24,4 +24,3 @@ wasm-bindgen-futures = "0.4"
 http = "0.2"
 futures-channel = "0.3"
 futures-util = "0.3"
-getrandom = {version="0.2", features=["js"]}

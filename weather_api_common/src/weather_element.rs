@@ -154,8 +154,7 @@ pub fn get_forecast_plots(forecast: &WeatherForecast) -> Result<Vec<PlotData>, E
         .collect::<Result<Vec<_>, Error>>()?;
 
     let forecast_data = serde_json::to_string(&forecast_data)
-        .map_err(Into::<Error>::into)?
-        .into();
+        .map_err(Into::<Error>::into)?;
 
     plots.push(PlotData {
         forecast_data,
@@ -186,8 +185,7 @@ pub fn get_forecast_plots(forecast: &WeatherForecast) -> Result<Vec<PlotData>, E
         .collect::<Result<Vec<_>, Error>>()?;
 
     let forecast_data = serde_json::to_string(&forecast_data)
-        .map_err(Into::<Error>::into)?
-        .into();
+        .map_err(Into::<Error>::into)?;
 
     plots.push(PlotData {
         forecast_data,
@@ -691,7 +689,7 @@ pub fn index_element<'a>(
     set_location: &'a dyn std::ops::Fn(WeatherLocation),
     ip_location: &'a WeatherLocation,
     set_ip_location: &'a UseState<WeatherLocation>,
-    search_history: &'a Vec<String>,
+    search_history: &'a [String],
     set_search_history: &'a UseState<Vec<String>>,
     location_future: &'a UseFuture<Option<WeatherLocation>>,
     set_current_loc: &'a UseState<Option<String>>,
