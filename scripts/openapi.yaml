@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: Weather App
   description: Web App to disply weather from openweatherapi
-  version: 0.6.9
+  version: 0.6.10
 paths:
   /weather/index.html:
     get:
@@ -118,6 +118,15 @@ paths:
           description: Method not allowed
         '500':
           description: Internal Server Error
+  /weather/timeseries.js:
+    get:
+      responses:
+        '200':
+          description: TimeseriesScript
+          content:
+            text/javascript:
+              schema:
+                type: string
   /weather/weather:
     get:
       parameters:

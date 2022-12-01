@@ -17,17 +17,16 @@ pub mod latitude_wrapper;
 pub mod longitude_wrapper;
 pub mod routes;
 pub mod timestamp;
-pub mod weather_element;
 
 use derive_more::{From, Into};
 use rweb::Schema;
 use rweb_helper::{derive_rweb_schema, DateTimeType};
 use serde::{Deserialize, Serialize};
-use stack_string::StackString;
 
 use weather_util_rust::{
     weather_data::{Coord, Rain, Snow, Sys, WeatherCond, WeatherData, WeatherMain, Wind},
     weather_forecast::{CityEntry, ForecastEntry, ForecastMain, WeatherForecast},
+    StringType,
 };
 
 #[derive(Into, From, Serialize, Deserialize, Debug, Clone, Copy)]
@@ -57,7 +56,7 @@ struct _WeatherDataWrapper {
     coord: CoordWrapper,
     #[schema(description = "Weather Conditions")]
     weather: Vec<WeatherCondWrapper>,
-    base: StackString,
+    base: StringType,
     main: WeatherMainWrapper,
     #[schema(description = "Visibility (m)")]
     visibility: Option<f64>,
@@ -70,7 +69,7 @@ struct _WeatherDataWrapper {
     #[schema(description = "Timezone (seconds offset from UTC)")]
     timezone: i32,
     #[schema(description = "Location Name")]
-    name: StackString,
+    name: StringType,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -82,9 +81,9 @@ derive_rweb_schema!(WeatherCondWrapper, _WeatherCondWrapper);
 #[derive(Schema)]
 struct _WeatherCondWrapper {
     id: usize,
-    main: StackString,
-    description: StackString,
-    icon: StackString,
+    main: StringType,
+    description: StringType,
+    icon: StringType,
 }
 
 #[derive(Into, From, Serialize, Deserialize, Debug, Clone, Copy)]
@@ -161,7 +160,7 @@ derive_rweb_schema!(SysWrapper, _SysWrapper);
 #[allow(dead_code)]
 #[derive(Schema)]
 struct _SysWrapper {
-    country: Option<StackString>,
+    country: Option<StringType>,
     #[schema(description = "Sunrise (Unix Timestamp)")]
     sunrise: DateTimeType,
     #[schema(description = "Sunset (Unix Timestamp)")]

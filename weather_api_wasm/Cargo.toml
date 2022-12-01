@@ -1,0 +1,28 @@
+[package]
+name = "weather_api_wasm"
+version = "0.6.11"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+weather_api_common = {path = "../weather_api_common/"}
+dioxus = { version = "0.2", features = ["web"] }
+# golde = {git = "https://github.com/ddboline/golde.git", branch="main"}
+fermi = "0.2"
+log = "0.4"
+# doson = "0.1"
+wasm-logger = "0.2"
+console_error_panic_hook = "0.1"
+wasm-bindgen = "0.2"
+# maplit = "1.0"
+http = "0.2"
+url = "2.3"
+serde = "1.0"
+serde_json = "1.0"
+web-sys = {version="0.3", features=["Storage", "Window", "Request", "RequestInit", "Response"]}
+weather_util_rust = {version="0.14", default-features=false}
+wasm-bindgen-futures = "0.4"
+serde-wasm-bindgen = "0.4"
+isocountry = "0.3"
+time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}

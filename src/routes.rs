@@ -10,6 +10,9 @@ use tokio::sync::RwLock;
 use rweb_helper::{
     html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, RwebResponse,
 };
+use weather_api_common::weather_element::{
+    get_forecast_plots, weather_component, weather_componentProps,
+};
 use weather_util_rust::{
     weather_api::{WeatherApi, WeatherLocation},
     weather_data::WeatherData,
@@ -17,11 +20,8 @@ use weather_util_rust::{
 };
 
 use crate::{
-    api_options::ApiOptions,
-    app::AppState,
-    errors::ServiceError as Error,
-    weather_element::{get_forecast_plots, weather_element, AppProps},
-    WeatherDataWrapper, WeatherForecastWrapper,
+    api_options::ApiOptions, app::AppState, errors::ServiceError as Error, WeatherDataWrapper,
+    WeatherForecastWrapper,
 };
 
 pub type WarpResult<T> = Result<T, Rejection>;
@@ -95,7 +95,14 @@ pub async fn frontpage(
     let forecast = get_weather_forecast(&api, &loc).await?;
 
     let body = {
-        let mut app = VirtualDom::new_with_props(weather_element, AppProps::new(weather, forecast));
+        let mut app = VirtualDom::new_with_props(
+            weather_component,
+            weather_componentProps {
+                weather,
+                forecast: Some(forecast),
+                plot: None,
+            },
+        );
         app.rebuild();
         dioxus::ssr::render_vdom(&app)
     };
@@ -133,11 +140,17 @@ pub async fn forecast_plot(
     let weather = get_weather_data(&api, &loc).await?;
     let forecast = get_weather_forecast(&api, &loc).await?;
 
-    let plots = get_forecast_plots(&forecast)?;
+    let plots = get_forecast_plots(&forecast).map_err(Into::<Error>::into)?;
 
     let body = {
-        let mut app =
-            VirtualDom::new_with_props(weather_element, AppProps::new_plot(weather, plots));
+        let mut app = VirtualDom::new_with_props(
+            weather_component,
+            weather_componentProps {
+                weather,
+                forecast: Some(forecast),
+                plot: Some(plots),
+            },
+        );
         app.rebuild();
         dioxus::ssr::render_vdom(&app)
     };

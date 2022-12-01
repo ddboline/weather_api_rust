@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.6.10"
+version = "0.6.11"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -14,8 +14,19 @@ Weather API."""
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+members = [
+    "weather_api_common",
+    "weather_app_desktop",
+]
+exclude = [
+    "weather_app_wasm",
+    "weather_api_wasm"
+]
+
 [dependencies]
-weather_util_rust = {version="0.14", features=["stack-string"]}
+weather_api_common = {path = "weather_api_common/"}
+weather_util_rust = {version="0.14", default-features=false, features=["cli"]}
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"
 cached = "0.40"
@@ -37,7 +48,7 @@ indexmap = "1.8"
 rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.16", features=["time"]}
 dioxus = { version = "0.2", features = ["ssr"] }
 log = "0.4"
-env_logger = "0.9"
+env_logger = "0.10"
 parking_lot = "0.12"
 
 [dev-dependencies]
