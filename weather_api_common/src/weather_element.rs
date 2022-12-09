@@ -153,8 +153,7 @@ pub fn get_forecast_plots(forecast: &WeatherForecast) -> Result<Vec<PlotData>, E
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let forecast_data = serde_json::to_string(&forecast_data)
-        .map_err(Into::<Error>::into)?;
+    let forecast_data = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
 
     plots.push(PlotData {
         forecast_data,
@@ -184,8 +183,7 @@ pub fn get_forecast_plots(forecast: &WeatherForecast) -> Result<Vec<PlotData>, E
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let forecast_data = serde_json::to_string(&forecast_data)
-        .map_err(Into::<Error>::into)?;
+    let forecast_data = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
 
     plots.push(PlotData {
         forecast_data,
