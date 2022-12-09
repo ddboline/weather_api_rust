@@ -1,12 +1,12 @@
 [package]
 name = "weather_api_common"
-version = "0.6.11"
+version = "0.7.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-weather_util_rust = {version="0.14", default-features=false}
+weather_util_rust = {version="0.15", default-features=false}
 dioxus = "0.2"
 fermi = "0.2"
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}

@@ -1,6 +1,6 @@
 [package]
 name = "weather_app_wasm"
-version = "0.6.11"
+version = "0.7.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 weather_api_common = {path = "../weather_api_common/"}
 dioxus = { version = "0.2", features = ["web"] }
-weather_util_rust = {version="0.14", default-features=false}
+weather_util_rust = {version="0.15", default-features=false}
 anyhow = "1.0"
 lazy_static = "1.4"
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
