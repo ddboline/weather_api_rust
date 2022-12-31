@@ -138,7 +138,10 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
 
 /// # Errors
 /// Returns error if there is a syntax or parsing error
-pub fn get_forecast_plots(weather: &WeatherData, forecast: &WeatherForecast) -> Result<Vec<PlotData>, Error> {
+pub fn get_forecast_plots(
+    weather: &WeatherData,
+    forecast: &WeatherForecast,
+) -> Result<Vec<PlotData>, Error> {
     let mut plots = Vec::new();
 
     let fo: UtcOffset = forecast.city.timezone.into();
@@ -158,7 +161,11 @@ pub fn get_forecast_plots(weather: &WeatherData, forecast: &WeatherForecast) -> 
 
     plots.push(PlotData {
         forecast_data,
-        title: format!("Temperature Forecast {:0.1} F / {:0.1} C", weather.main.temp.fahrenheit(), weather.main.temp.celcius()),
+        title: format!(
+            "Temperature Forecast {:0.1} F / {:0.1} C",
+            weather.main.temp.fahrenheit(),
+            weather.main.temp.celcius()
+        ),
         xaxis: "".into(),
         yaxis: "F".into(),
     });
