@@ -63,15 +63,16 @@ pub fn weather_element<'a>(
 ) -> LazyNodes<'a, 'a> {
     let weather_data = weather.get_current_conditions();
     let weather_lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
-    let weather_cols = weather_lines.iter().map(|x| x.len()).max().unwrap_or(0) + 5;
-    let weather_rows = weather_lines.len() + 5;
+    let weather_cols = weather_lines.iter().map(|x| x.len()).max().unwrap_or(0) + 2;
+    let weather_rows = weather_lines.len() + 2;
     let weather_lines = weather_lines.join("\n");
 
     let forecast_lines = forecast.as_ref().map(|forecast| {
         let weather_forecast = forecast.get_forecast();
         let forecast_lines: Vec<_> = weather_forecast.iter().map(|s| s.trim_end()).collect();
-        let forecast_cols = forecast_lines.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
-        (forecast_cols, forecast_lines.join("\n"))
+        let forecast_cols = forecast_lines.iter().map(|x| x.len()).max().unwrap_or(0) + 2;
+        let forecast_rows = forecast_lines.len() + 2;
+        (forecast_rows, forecast_cols, forecast_lines.join("\n"))
     });
 
     rsx! {
@@ -90,10 +91,10 @@ pub fn weather_element<'a>(
                     "{weather_lines}"
                 },
                 {
-                    forecast_lines.map(|(forecast_cols, forecast_lines)| rsx! {
+                    forecast_lines.map(|(forecast_rows, forecast_cols, forecast_lines)| rsx! {
                         textarea {
                             readonly: "true",
-                            rows: "{weather_rows}",
+                            rows: "{forecast_rows}",
                             cols: "{forecast_cols}",
                             "{forecast_lines}"
                         }
@@ -137,7 +138,7 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
 
 /// # Errors
 /// Returns error if there is a syntax or parsing error
-pub fn get_forecast_plots(forecast: &WeatherForecast) -> Result<Vec<PlotData>, Error> {
+pub fn get_forecast_plots(weather: &WeatherData, forecast: &WeatherForecast) -> Result<Vec<PlotData>, Error> {
     let mut plots = Vec::new();
 
     let fo: UtcOffset = forecast.city.timezone.into();
@@ -157,7 +158,7 @@ pub fn get_forecast_plots(forecast: &WeatherForecast) -> Result<Vec<PlotData>, E
 
     plots.push(PlotData {
         forecast_data,
-        title: "Temperature Forecast".into(),
+        title: format!("Temperature Forecast {:0.1} F / {:0.1} C", weather.main.temp.fahrenheit(), weather.main.temp.celcius()),
         xaxis: "".into(),
         yaxis: "F".into(),
     });
@@ -795,6 +796,12 @@ pub fn index_element<'a>(
                     },
                 },
             },
+            button {
+                id: "current-value",
+                name: "{location}",
+                value: "{location}",
+                "{location}",
+            }
             select {
                 id: "history-selector",
                 onchange: move |x| {
