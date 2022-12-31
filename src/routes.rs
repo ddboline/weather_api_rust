@@ -140,14 +140,14 @@ pub async fn forecast_plot(
     let weather = get_weather_data(&api, &loc).await?;
     let forecast = get_weather_forecast(&api, &loc).await?;
 
-    let plots = get_forecast_plots(&forecast).map_err(Into::<Error>::into)?;
+    let plots = get_forecast_plots(&weather, &forecast).map_err(Into::<Error>::into)?;
 
     let body = {
         let mut app = VirtualDom::new_with_props(
             weather_component,
             weather_componentProps {
                 weather,
-                forecast: Some(forecast),
+                forecast: None,
                 plot: Some(plots),
             },
         );
