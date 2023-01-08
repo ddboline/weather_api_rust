@@ -1,8 +1,9 @@
 use anyhow::Error;
 use dioxus::prelude::{
-    dioxus_elements, format_args_f, inline_props, rsx, use_future, use_state, Element, LazyNodes,
-    NodeFactory, Props, Scope, UseFuture, UseState, VNode,
+    dioxus_elements, inline_props, rsx, use_future, use_state, Element, LazyNodes,
+    Props, Scope, UseFuture, UseState, GlobalAttributes, SvgAttributes,
 };
+use keyboard_types::Key;
 use fermi::{use_read, use_set, Atom};
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use futures_util::lock::Mutex;
@@ -67,6 +68,19 @@ pub fn weather_element<'a>(
     let weather_rows = weather_lines.len() + 2;
     let weather_lines = weather_lines.join("\n");
 
+    let weather_element = if plot.is_none() {
+        Some(rsx! {
+            textarea {
+                readonly: "true",
+                rows: "{weather_rows}",
+                cols: "{weather_cols}",
+                "{weather_lines}"
+            },
+        })
+    } else {
+        None
+    };
+
     let forecast_lines = forecast.as_ref().map(|forecast| {
         let weather_forecast = forecast.get_forecast();
         let forecast_lines: Vec<_> = weather_forecast.iter().map(|s| s.trim_end()).collect();
@@ -79,17 +93,12 @@ pub fn weather_element<'a>(
         head {
             title: "Weather Plots",
             style {
-                [include_str!("../../templates/style.css")]
+                include_str!("../../templates/style.css")
             }
         },
         body {
             div {
-                textarea {
-                    readonly: "true",
-                    rows: "{weather_rows}",
-                    cols: "{weather_cols}",
-                    "{weather_lines}"
-                },
+                weather_element,
                 {
                     forecast_lines.map(|(forecast_rows, forecast_cols, forecast_lines)| rsx! {
                         textarea {
@@ -289,7 +298,7 @@ fn weather_app_element<'a>(
                                             set_forecast.needs_update();
                                         }
                                     }
-                                    if evt.key == "Enter" {
+                                    if evt.key() == Key::Enter {
                                         set_draft.modify(|_| String::new());
                                         set_draft.needs_update();
                                         set_search_history.modify(|sh| {

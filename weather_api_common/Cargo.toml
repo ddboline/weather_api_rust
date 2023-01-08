@@ -1,14 +1,14 @@
 [package]
 name = "weather_api_common"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 weather_util_rust = {version="0.15", default-features=false}
-dioxus = "0.2"
-fermi = "0.2"
+dioxus = "0.3"
+fermi = "0.3"
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"
 serde = {version="1.0", features=["derive"]}
@@ -19,6 +19,7 @@ url = "2.3"
 log = "0.4"
 http = "0.2"
 parking_lot = "0.12"
+keyboard-types = "0.6"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"

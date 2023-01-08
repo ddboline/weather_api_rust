@@ -22,7 +22,7 @@ fn main() {
     wasm_logger::init(wasm_logger::Config::default());
     console_error_panic_hook::set_once();
 
-    dioxus::web::launch(index_component);
+    dioxus_web::launch(index_component);
 }
 
 pub fn index_component(cx: Scope) -> Element {

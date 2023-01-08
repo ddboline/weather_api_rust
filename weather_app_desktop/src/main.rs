@@ -42,13 +42,13 @@ fn main() -> Result<(), Error> {
         Ok(())
     });
 
-    dioxus::desktop::launch_with_props(
+    dioxus_desktop::launch_with_props(
         weather_app_component,
         AppProps {
             send: Arc::new(Mutex::new(send_loc)),
             recv: Arc::new(Mutex::new(recv_result)),
         },
-        |c| c,
+        dioxus_desktop::Config::default(),
     );
     handle.join().unwrap()?;
     Ok(())

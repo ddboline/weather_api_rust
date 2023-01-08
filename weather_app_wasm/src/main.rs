@@ -13,12 +13,12 @@ fn main() {
     let (_, recv_result) = unbounded::<(WeatherLocation, WeatherEntry)>();
 
     wasm_logger::init(wasm_logger::Config::default());
-    dioxus::web::launch_with_props(
+    dioxus_web::launch_with_props(
         weather_app_component,
         AppProps {
             send: Arc::new(Mutex::new(send_loc)),
             recv: Arc::new(Mutex::new(recv_result)),
         },
-        |c| c
+        dioxus_web::Config::default()
     );
 }

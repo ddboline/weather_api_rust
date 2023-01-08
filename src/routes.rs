@@ -95,7 +95,7 @@ pub async fn frontpage(
     let forecast = get_weather_forecast(&api, &loc).await?;
 
     let body = {
-        let mut app = VirtualDom::new_with_props(
+        let app = VirtualDom::new_with_props(
             weather_component,
             weather_componentProps {
                 weather,
@@ -103,8 +103,7 @@ pub async fn frontpage(
                 plot: None,
             },
         );
-        app.rebuild();
-        dioxus::ssr::render_vdom(&app)
+        dioxus_ssr::render(&app)
     };
     WEATHER_STRING_LENGTH
         .insert_lenth("/weather/index.html", body.len())
@@ -143,7 +142,7 @@ pub async fn forecast_plot(
     let plots = get_forecast_plots(&weather, &forecast).map_err(Into::<Error>::into)?;
 
     let body = {
-        let mut app = VirtualDom::new_with_props(
+        let app = VirtualDom::new_with_props(
             weather_component,
             weather_componentProps {
                 weather,
@@ -151,8 +150,7 @@ pub async fn forecast_plot(
                 plot: Some(plots),
             },
         );
-        app.rebuild();
-        dioxus::ssr::render_vdom(&app)
+        dioxus_ssr::render(&app)
     };
 
     WEATHER_STRING_LENGTH
