@@ -3,13 +3,12 @@
 #![allow(clippy::cast_sign_loss)]
 
 use dioxus::prelude::{use_future, use_state, Element, Scope};
-use fermi::{use_read, use_set};
 use log::debug;
 use url::Url;
 use web_sys::window;
 
 use weather_api_common::weather_element::{
-    get_parameters, index_element, DEFAULT_LOCATION, DEFAULT_URL, LOCATION,
+    get_parameters, index_element, DEFAULT_LOCATION, DEFAULT_URL,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -41,9 +40,7 @@ pub fn index_component(cx: Scope) -> Element {
     .split();
     let (ip_location, set_ip_location) =
         use_state(&cx, || get_parameters(DEFAULT_LOCATION)).split();
-
-    let location = use_read(&cx, LOCATION);
-    let set_location = use_set(&cx, LOCATION);
+    let (location, set_location) = use_state(&cx, || get_parameters(DEFAULT_LOCATION)).split();
 
     let mut origin = DEFAULT_URL.to_string();
     let mut url: Option<Url> = None;
@@ -88,7 +85,8 @@ pub fn index_component(cx: Scope) -> Element {
                     v
                 });
                 set_search_history.needs_update();
-                set_location(loc);
+                set_location.modify(|_| loc);
+                set_location.needs_update();
             }
         }
     }
@@ -97,9 +95,9 @@ pub fn index_component(cx: Scope) -> Element {
         #[cfg(target_arch = "wasm32")]
         if let Ok(ip) = get_ip_address().await {
             debug!("ip {ip}");
-            if let Ok(location) = get_location_from_ip(ip).await {
-                debug!("get location {location:?}");
-                return Some(location);
+            if let Ok(loc) = get_location_from_ip(ip).await {
+                debug!("get location {loc:?}");
+                return Some(loc);
             }
         }
         None
@@ -114,7 +112,7 @@ pub fn index_component(cx: Scope) -> Element {
         draft,
         set_draft,
         location,
-        set_location.as_ref(),
+        set_location,
         ip_location,
         set_ip_location,
         search_history,
