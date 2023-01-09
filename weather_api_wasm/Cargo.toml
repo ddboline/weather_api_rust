@@ -10,7 +10,6 @@ weather_api_common = {path = "../weather_api_common/"}
 dioxus = "0.3"
 dioxus-web = "0.3"
 # golde = {git = "https://github.com/ddboline/golde.git", branch="main"}
-fermi = "0.3"
 log = "0.4"
 # doson = "0.1"
 wasm-logger = "0.2"
