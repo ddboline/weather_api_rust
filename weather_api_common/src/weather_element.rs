@@ -1,12 +1,11 @@
 use anyhow::Error;
 use dioxus::prelude::{
-    dioxus_elements, inline_props, rsx, use_future, use_state, Element, LazyNodes,
-    Props, Scope, UseFuture, UseState, GlobalAttributes, SvgAttributes,
+    dioxus_elements, inline_props, rsx, use_future, use_state, Element, GlobalAttributes,
+    LazyNodes, Props, Scope, SvgAttributes, UseFuture, UseState,
 };
-use keyboard_types::Key;
-use fermi::{use_read, use_set, Atom};
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use futures_util::lock::Mutex;
+use keyboard_types::Key;
 use log::debug;
 use std::{collections::HashMap, fmt::Write, sync::Arc};
 use time::{macros::format_description, UtcOffset};
@@ -31,7 +30,6 @@ pub static DEFAULT_STR: &str = "11106";
 pub static DEFAULT_URL: &str = "https://www.ddboline.net";
 
 pub static DEFAULT_LOCATION: &str = "10001";
-pub static LOCATION: Atom<WeatherLocation> = |_| get_parameters(DEFAULT_LOCATION);
 
 #[cfg(debug_assertions)]
 static BASE_URL: Option<&str> = Some(DEFAULT_URL);
@@ -220,7 +218,7 @@ fn weather_app_element<'a>(
     cache: &'a HashMap<WeatherLocation, WeatherEntry>,
     set_cache: &'a UseState<HashMap<WeatherLocation, WeatherEntry>>,
     location: &'a WeatherLocation,
-    set_location: &'a dyn std::ops::Fn(WeatherLocation),
+    set_location: &'a UseState<WeatherLocation>,
     weather: &'a WeatherData,
     set_weather: &'a UseState<WeatherData>,
     forecast: &'a WeatherForecast,
@@ -270,7 +268,8 @@ fn weather_app_element<'a>(
                                             set_forecast.modify(|_| forecast.clone());
                                             set_forecast.needs_update();
                                         }
-                                        set_location(new_location);
+                                        set_location.modify(|_| new_location);
+                                        set_location.needs_update();
                                     }
                                 },
                                 onkeydown: move |evt| {
@@ -306,7 +305,8 @@ fn weather_app_element<'a>(
                                             v.push(draft.into());
                                             v
                                         });
-                                        set_location(new_location);
+                                        set_location.modify(|_| new_location);
+                                        set_location.needs_update();
                                         set_cache.needs_update();
                                     }
                                 },
@@ -359,7 +359,8 @@ fn weather_app_element<'a>(
                                     set_forecast.needs_update();
                                 }
                             }
-                            set_location(new_location);
+                            set_location.modify(|_| new_location);
+                            set_location.needs_update();
                         },
                         {
                             search_history.iter().rev().map(|s| {
@@ -400,19 +401,18 @@ pub fn weather_app_component(cx: Scope<AppProps>) -> Element {
     let mut default_location_cache: HashMap<String, WeatherLocation> = HashMap::new();
     default_location_cache.insert(DEFAULT_STR.into(), get_parameters(DEFAULT_STR));
 
-    let (cache, set_cache) = use_state(&cx, || default_cache).split();
-    let (location_cache, set_location_cache) = use_state(&cx, || default_location_cache).split();
-    let (weather, set_weather) = use_state(&cx, WeatherData::default).split();
-    let (forecast, set_forecast) = use_state(&cx, WeatherForecast::default).split();
-    let (draft, set_draft) = use_state(&cx, String::new).split();
+    let (cache, set_cache) = use_state(cx, || default_cache).split();
+    let (location_cache, set_location_cache) = use_state(cx, || default_location_cache).split();
+    let (weather, set_weather) = use_state(cx, WeatherData::default).split();
+    let (forecast, set_forecast) = use_state(cx, WeatherForecast::default).split();
+    let (draft, set_draft) = use_state(cx, String::new).split();
     let (search_history, set_search_history) =
-        use_state(&cx, || vec![String::from(DEFAULT_STR)]).split();
+        use_state(cx, || vec![String::from(DEFAULT_STR)]).split();
 
-    let location = use_read(&cx, LOCATION);
-    let set_location = use_set(&cx, LOCATION);
+    let (location, set_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
 
     #[cfg(not(target_arch = "wasm32"))]
-    let recv_future = use_future(&cx, (), |_| {
+    let recv_future = use_future(cx, (), |_| {
         let recv = cx.props.recv.clone();
         async move {
             let mut recv = recv.lock().await;
@@ -422,7 +422,7 @@ pub fn weather_app_component(cx: Scope<AppProps>) -> Element {
     });
 
     #[cfg(not(target_arch = "wasm32"))]
-    let _send_future = use_future(&cx, location, |l| {
+    let _send_future = use_future(cx, location, |l| {
         let contains_key = cache.contains_key(&l);
         let send = cx.props.send.clone();
         async move {
@@ -435,7 +435,7 @@ pub fn weather_app_component(cx: Scope<AppProps>) -> Element {
     });
 
     #[cfg(target_arch = "wasm32")]
-    let location_future = use_future(&cx, (), |_| async move {
+    let location_future = use_future(cx, (), |_| async move {
         if let Ok(ip) = get_ip_address().await {
             debug!("ip {ip}");
             if let Ok(location) = get_location_from_ip(ip).await {
@@ -447,7 +447,7 @@ pub fn weather_app_component(cx: Scope<AppProps>) -> Element {
     });
 
     #[cfg(target_arch = "wasm32")]
-    let weather_future = use_future(&cx, location, |l| {
+    let weather_future = use_future(cx, location, |l| {
         let entry_opt = cache.get(&l).cloned();
         async move {
             if let Some(entry) = entry_opt {
@@ -468,7 +468,8 @@ pub fn weather_app_component(cx: Scope<AppProps>) -> Element {
                     entry.weather.is_none(),
                     entry.forecast.is_none()
                 );
-                set_location(loc.clone());
+                set_location.modify(|_| loc.clone());
+                set_location.needs_update();
                 set_cache.modify(|c| {
                     let mut new_cache = c.clone();
                     new_cache.insert(location.clone(), entry.clone());
@@ -491,10 +492,10 @@ pub fn weather_app_component(cx: Scope<AppProps>) -> Element {
 
         #[cfg(target_arch = "wasm32")]
         if let Some(Some(loc)) = location_future.value() {
-            if !cache.contains_key(loc) || cache.is_empty() {
+            if loc != location && (!cache.contains_key(loc) || cache.is_empty()) {
                 debug!("set location {location}");
-                set_location(location.clone());
-                location_future.clear();
+                set_location.modify(|_| loc.clone());
+                set_location.needs_update();
             }
         }
 
@@ -530,7 +531,7 @@ pub fn weather_app_component(cx: Scope<AppProps>) -> Element {
             cache,
             set_cache,
             location,
-            set_location.as_ref(),
+            set_location,
             weather,
             set_weather,
             forecast,
@@ -701,7 +702,7 @@ pub fn index_element<'a>(
     draft: &'a str,
     set_draft: &'a UseState<String>,
     location: &'a WeatherLocation,
-    set_location: &'a dyn std::ops::Fn(WeatherLocation),
+    set_location: &'a UseState<WeatherLocation>,
     ip_location: &'a WeatherLocation,
     set_ip_location: &'a UseState<WeatherLocation>,
     search_history: &'a [String],
@@ -719,7 +720,6 @@ pub fn index_element<'a>(
             debug!("set location {loc:?}");
             set_ip_location.set(loc.clone());
         }
-        location_future.clear();
     }
 
     rsx! {
@@ -743,7 +743,8 @@ pub fn index_element<'a>(
                             });
                             set_search_history.needs_update();
                         }
-                        set_location(ip_location.clone());
+                        set_location.modify(|_| ip_location.clone());
+                        set_location.needs_update();
                         location_future.restart();
                     }
                 },
@@ -803,7 +804,8 @@ pub fn index_element<'a>(
                                 });
                                 set_search_history.needs_update();
                             }
-                            set_location(loc);
+                            set_location.modify(|_| loc);
+                            set_location.needs_update();
                             set_current_loc.set(Some(draft.to_string()));
                             set_current_loc.needs_update();
                             set_draft.set(String::new());
@@ -835,7 +837,8 @@ pub fn index_element<'a>(
                         });
                         set_search_history.needs_update();
                     }
-                    set_location(loc);
+                    set_location.modify(|_| loc);
+                    set_location.needs_update();
                 },
                 search_history.iter().rev().enumerate().map(|(idx, s)| {
                     rsx! {
