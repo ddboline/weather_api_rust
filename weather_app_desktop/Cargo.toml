@@ -1,6 +1,6 @@
 [package]
 name = "weather_app_desktop"
-version = "0.7.2"
+version = "0.7.3"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,7 +12,7 @@ log = "0.4"
 env_logger = "0.10"
 futures-channel = "0.3"
 weather_util_rust = {version="0.15", default-features=false, features=["cli"]}
-tokio = {version="1.21", features=["full"]}
+tokio = {version="1.24", features=["full"]}
 futures-util = "0.3"
 dioxus = "0.3"
 dioxus-desktop = "0.3"

@@ -1,6 +1,6 @@
 [package]
 name = "weather_app_wasm"
-version = "0.7.2"
+version = "0.7.3"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -14,7 +14,7 @@ anyhow = "1.0"
 lazy_static = "1.4"
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 log = "0.4"
-wasm-logger = "0.2.0"
+wasm-logger = "0.2"
 serde = "1.0"
 url = "2.3"
 web-sys = {version="0.3", features=["Geolocation", "Navigator", "Request", "RequestInit", "Response", "Window"]}
