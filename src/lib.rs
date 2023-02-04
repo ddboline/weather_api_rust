@@ -16,7 +16,6 @@ pub mod errors;
 pub mod latitude_wrapper;
 pub mod longitude_wrapper;
 pub mod routes;
-pub mod timestamp;
 
 use derive_more::{From, Into};
 use rweb::Schema;
