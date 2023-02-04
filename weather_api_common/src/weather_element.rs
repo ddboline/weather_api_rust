@@ -15,8 +15,8 @@ use url::Url;
 use futures_util::{sink::SinkExt, StreamExt};
 
 use weather_util_rust::{
-    precipitation::Precipitation, weather_api::WeatherLocation, weather_data::WeatherData,
-    weather_forecast::WeatherForecast,
+    format_string, precipitation::Precipitation, weather_api::WeatherLocation,
+    weather_data::WeatherData, weather_forecast::WeatherForecast,
 };
 
 use crate::WeatherEntry;
@@ -67,16 +67,29 @@ pub fn weather_element<'a>(
     let weather_lines = weather_lines.join("\n");
 
     let weather_element = if plot.is_none() {
-        Some(rsx! {
+        rsx! {
             textarea {
                 readonly: "true",
                 rows: "{weather_rows}",
                 cols: "{weather_cols}",
                 "{weather_lines}"
             },
-        })
+        }
     } else {
-        None
+        let name = &weather.name;
+        let mut title = format_string!("{name}");
+        if let Some(country) = &weather.sys.country {
+            write!(&mut title, " {country}").unwrap();
+        }
+        let lat = weather.coord.lat;
+        let lon = weather.coord.lon;
+        write!(&mut title, " {lat:0.5}N {lon:0.5}E").unwrap();
+        rsx! {
+            div {
+                style: "text-anchor: middle; font-size: 16px;",
+                "{title}"
+            }
+        }
     };
 
     let forecast_lines = forecast.as_ref().map(|forecast| {
