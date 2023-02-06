@@ -25,10 +25,10 @@ fn main() {
 }
 
 pub fn index_component(cx: Scope) -> Element {
-    let (url_path, set_url_path) = use_state(&cx, || "weather/plot.html").split();
-    let (draft, set_draft) = use_state(&cx, String::new).split();
-    let (current_loc, set_current_loc) = use_state(&cx, || None).split();
-    let (search_history, set_search_history) = use_state(&cx, || {
+    let (url_path, set_url_path) = use_state(cx, || "weather/plot.html").split();
+    let (draft, set_draft) = use_state(cx, String::new).split();
+    let (current_loc, set_current_loc) = use_state(cx, || None).split();
+    let (search_history, set_search_history) = use_state(cx, || {
         #[cfg(not(target_arch = "wasm32"))]
         let history = vec![String::from("zip=10001")];
 
@@ -38,9 +38,8 @@ pub fn index_component(cx: Scope) -> Element {
         history
     })
     .split();
-    let (ip_location, set_ip_location) =
-        use_state(&cx, || get_parameters(DEFAULT_LOCATION)).split();
-    let (location, set_location) = use_state(&cx, || get_parameters(DEFAULT_LOCATION)).split();
+    let (ip_location, set_ip_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
+    let (location, set_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
 
     let mut origin = DEFAULT_URL.to_string();
     let mut url: Option<Url> = None;
@@ -91,7 +90,7 @@ pub fn index_component(cx: Scope) -> Element {
         }
     }
 
-    let location_future = use_future(&cx, (), |_| async move {
+    let location_future = use_future(cx, (), |_| async move {
         #[cfg(target_arch = "wasm32")]
         if let Ok(ip) = get_ip_address().await {
             debug!("ip {ip}");
