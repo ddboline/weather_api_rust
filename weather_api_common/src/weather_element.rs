@@ -45,6 +45,20 @@ pub struct PlotData {
     yaxis: String,
 }
 
+fn update_search_history(sh: &Vec<String>, s: &str) -> Vec<String> {
+    let mut v: Vec<String> = Vec::with_capacity(sh.len());
+    v.push(s.into());
+    for x in sh {
+        if x.as_str() != v[0] {continue;}
+        v.push(x.clone())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    set_history(&v).expect("Failed to set history");
+
+    v
+}
+
 #[inline_props]
 pub fn weather_component(
     cx: Scope,
@@ -313,11 +327,7 @@ fn weather_app_element<'a>(
                                     if evt.key() == Key::Enter {
                                         set_draft.modify(|_| String::new());
                                         set_draft.needs_update();
-                                        set_search_history.modify(|sh| {
-                                            let mut v: Vec<String> = sh.iter().filter(|s| s.as_str() != draft).cloned().collect();
-                                            v.push(draft.into());
-                                            v
-                                        });
+                                        set_search_history.modify(|sh| update_search_history(sh, draft));
                                         set_location.modify(|_| new_location);
                                         set_location.needs_update();
                                         set_cache.needs_update();
@@ -351,11 +361,7 @@ fn weather_app_element<'a>(
                                     lc
                                 });
                                 set_location_cache.needs_update();
-                                set_search_history.modify(|sh| {
-                                    let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != s).cloned().collect();
-                                    v.push(s.into());
-                                    v
-                                });
+                                set_search_history.modify(|sh| update_search_history(sh, &s));
                                 set_search_history.needs_update();
                                 l
                             }, Clone::clone);
@@ -745,15 +751,7 @@ pub fn index_element<'a>(
                     if location != ip_location {
                         let s = format!("{ip_location}");
                         if !search_history.contains(&s) {
-                            set_search_history.modify(|sh| {
-                                let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != s).cloned().collect();
-                                v.push(s);
-
-                                #[cfg(target_arch = "wasm32")]
-                                set_history(&v).expect("Failed to set history");
-
-                                v
-                            });
+                            set_search_history.modify(|sh| update_search_history(sh, &s));
                             set_search_history.needs_update();
                         }
                         set_location.modify(|_| ip_location.clone());
@@ -806,15 +804,7 @@ pub fn index_element<'a>(
                         if !draft.is_empty() {
                             let loc = get_parameters(draft);
                             if !search_history.contains(&draft.to_string()) {
-                                set_search_history.modify(|sh| {
-                                    let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != draft).cloned().collect();
-                                    v.push(draft.into());
-
-                                    #[cfg(target_arch = "wasm32")]
-                                    set_history(&v).expect("Failed to set history");
-
-                                    v
-                                });
+                                set_search_history.modify(|sh| update_search_history(sh, draft));
                                 set_search_history.needs_update();
                             }
                             set_location.modify(|_| loc);
@@ -836,24 +826,25 @@ pub fn index_element<'a>(
             select {
                 id: "history-selector",
                 onchange: move |x| {
+                    if x.data.value.is_empty() {
+                        return;
+                    }
                     let s = x.data.value.as_str().to_string();
                     let loc = get_parameters(&s);
                     if !search_history.contains(&s) {
-                        set_search_history.modify(|sh| {
-                            let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != s).cloned().collect();
-                            v.push(s);
-
-                            #[cfg(target_arch = "wasm32")]
-                            set_history(&v).expect("Failed to set history");
-
-                            v
-                        });
+                        set_search_history.modify(|sh| update_search_history(sh, &s));
                         set_search_history.needs_update();
                     }
                     set_location.modify(|_| loc);
                     set_location.needs_update();
                 },
                 search_history.iter().rev().enumerate().map(|(idx, s)| {
+                    let loc = get_parameters(&s);
+                    let s = if &loc == location {
+                        ""
+                    } else {
+                        s.as_str()
+                    };
                     rsx! {
                         option {
                             key: "search-history-key-{idx}",
