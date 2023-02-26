@@ -49,7 +49,9 @@ fn update_search_history(sh: &Vec<String>, s: &str) -> Vec<String> {
     let mut v: Vec<String> = Vec::with_capacity(sh.len());
     v.push(s.into());
     for x in sh {
-        if x.as_str() != v[0] {continue;}
+        if x.as_str() != v[0] {
+            continue;
+        }
         v.push(x.clone())
     }
 
