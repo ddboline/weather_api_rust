@@ -363,7 +363,7 @@ fn weather_app_element<'a>(
                                     lc
                                 });
                                 set_location_cache.needs_update();
-                                set_search_history.modify(|sh| update_search_history(sh, &s));
+                                set_search_history.modify(|sh| update_search_history(sh, s));
                                 set_search_history.needs_update();
                                 l
                             }, Clone::clone);
@@ -841,7 +841,7 @@ pub fn index_element<'a>(
                     set_location.needs_update();
                 },
                 search_history.iter().rev().enumerate().map(|(idx, s)| {
-                    let loc = get_parameters(&s);
+                    let loc = get_parameters(s);
                     let s = if &loc == location {
                         ""
                     } else {
