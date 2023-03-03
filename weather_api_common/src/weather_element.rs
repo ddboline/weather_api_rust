@@ -49,7 +49,7 @@ fn update_search_history(sh: &Vec<String>, s: &str) -> Vec<String> {
     let mut v: Vec<String> = Vec::with_capacity(sh.len());
     v.push(s.into());
     for x in sh {
-        if x.as_str() != v[0] {
+        if x.as_str() == v[0] {
             continue;
         }
         v.push(x.clone())
@@ -849,12 +849,6 @@ pub fn index_element<'a>(
                     set_location.needs_update();
                 },
                 search_history.iter().rev().enumerate().map(|(idx, s)| {
-                    let loc = get_parameters(s);
-                    let s = if &loc == location {
-                        ""
-                    } else {
-                        s.as_str()
-                    };
                     rsx! {
                         option {
                             key: "search-history-key-{idx}",
