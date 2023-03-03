@@ -848,13 +848,24 @@ pub fn index_element<'a>(
                     set_location.modify(|_| loc);
                     set_location.needs_update();
                 },
-                search_history.iter().rev().enumerate().map(|(idx, s)| {
-                    rsx! {
-                        option {
-                            key: "search-history-key-{idx}",
-                            value: "{s}",
-                            "{s}"
-                        }
+                option {
+                    value: "",
+                    "",
+                },
+                search_history.iter().rev().enumerate().filter_map(|(idx, s)| {
+                    let loc = get_parameters(&s);
+                    if &loc == location {
+                        None
+                    } else {
+                        Some(
+                            rsx! {
+                                option {
+                                    key: "search-history-key-{idx}",
+                                    value: "{s}",
+                                    "{s}"
+                                }
+                            }
+                        )
                     }
                 })
             },
