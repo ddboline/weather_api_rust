@@ -329,7 +329,11 @@ fn weather_app_element<'a>(
                                     if evt.key() == Key::Enter {
                                         set_draft.modify(|_| String::new());
                                         set_draft.needs_update();
-                                        set_search_history.modify(|sh| update_search_history(sh, draft));
+                                        set_search_history.modify(|sh| {
+                                            let mut v: Vec<String> = sh.iter().filter(|s| s.as_str() != draft).cloned().collect();
+                                            v.push(draft.into());
+                                            v
+                                        });
                                         set_location.modify(|_| new_location);
                                         set_location.needs_update();
                                         set_cache.needs_update();
@@ -363,7 +367,11 @@ fn weather_app_element<'a>(
                                     lc
                                 });
                                 set_location_cache.needs_update();
-                                set_search_history.modify(|sh| update_search_history(sh, s));
+                                set_search_history.modify(|sh| {
+                                    let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != s).cloned().collect();
+                                    v.push(s.into());
+                                    v
+                                });
                                 set_search_history.needs_update();
                                 l
                             }, Clone::clone);
