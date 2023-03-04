@@ -82,30 +82,38 @@ pub fn weather_element<'a>(
     let weather_rows = weather_lines.len() + 2;
     let weather_lines = weather_lines.join("\n");
 
+    let name = &weather.name;
+    let lat = weather.coord.lat;
+    let lon = weather.coord.lon;
+    let mut title = format_string!("{name}");
+    if let Some(country) = &weather.sys.country {
+        write!(&mut title, " {country}").unwrap();
+    }
+    write!(&mut title, " {lat:0.5}N {lon:0.5}E").unwrap();
+    let url = format_string!("https://www.google.com/maps?ll={lat},{lon}&q={lat},{lon}");
+
+    let location_element = rsx! {
+        div {
+            style: "text-anchor: middle; font-size: 16px;",
+            a {
+                href: "{url}",
+                target: "_blank",
+                "{title}",
+            }
+        }
+    };
+
     let weather_element = if plot.is_none() {
-        rsx! {
+        Some(rsx! {
             textarea {
                 readonly: "true",
                 rows: "{weather_rows}",
                 cols: "{weather_cols}",
                 "{weather_lines}"
             },
-        }
+        })
     } else {
-        let name = &weather.name;
-        let mut title = format_string!("{name}");
-        if let Some(country) = &weather.sys.country {
-            write!(&mut title, " {country}").unwrap();
-        }
-        let lat = weather.coord.lat;
-        let lon = weather.coord.lon;
-        write!(&mut title, " {lat:0.5}N {lon:0.5}E").unwrap();
-        rsx! {
-            div {
-                style: "text-anchor: middle; font-size: 16px;",
-                "{title}"
-            }
-        }
+        None
     };
 
     let forecast_lines = forecast.as_ref().map(|forecast| {
@@ -124,6 +132,7 @@ pub fn weather_element<'a>(
             }
         },
         body {
+            location_element,
             div {
                 weather_element,
                 {
@@ -853,7 +862,7 @@ pub fn index_element<'a>(
                     "",
                 },
                 search_history.iter().rev().enumerate().filter_map(|(idx, s)| {
-                    let loc = get_parameters(&s);
+                    let loc = get_parameters(s);
                     if &loc == location {
                         None
                     } else {
