@@ -105,7 +105,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
 
     if let Some(locations_to_record) = app.config.locations_to_record.as_ref() {
         async fn update_db(app: AppState, locations: Vec<WeatherLocation>) {
-            let mut i = interval(Duration::from_secs(3600));
+            let mut i = interval(Duration::from_secs(1800));
             loop {
                 for loc in &locations {
                     get_weather_data(app.pool.as_ref(), &app.api, loc)
