@@ -15,6 +15,9 @@ pub mod country_code_wrapper;
 pub mod errors;
 pub mod latitude_wrapper;
 pub mod longitude_wrapper;
+pub mod model;
+pub mod parse_opts;
+pub mod pgpool;
 pub mod routes;
 
 use derive_more::{From, Into};

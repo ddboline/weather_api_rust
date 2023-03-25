@@ -1,11 +1,10 @@
 use anyhow::Error;
 
-use weather_api_rust::app::start_app;
+use weather_api_rust::parse_opts::ParseOpts;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     env_logger::init();
-    tokio::spawn(async move { start_app().await })
-        .await
-        .unwrap()
+
+    ParseOpts::process_args().await
 }
