@@ -106,6 +106,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         config: config.clone(),
         pool: pool.clone(),
     };
+    let mut task = None;
 
     if let Some(locations_to_record) = app.config.locations_to_record.as_ref() {
         async fn update_db(app: AppState, locations: Vec<WeatherLocation>) {
@@ -126,7 +127,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
             .collect();
 
         let app = app.clone();
-        spawn(update_db(app, locations));
+        task.replace(spawn(update_db(app, locations)));
     }
 
     let (spec, api_path) = openapi::spec()
