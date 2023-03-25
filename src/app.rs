@@ -43,6 +43,8 @@ pub async fn get_weather_data(
         let weather_data_db: WeatherDataDB = weather_data.clone().into();
         info!("writing {loc} to db");
         weather_data_db.insert(pool).await?;
+    } else {
+        info!("using cache for {loc}");
     }
     Ok(weather_data)
 }
@@ -107,9 +109,10 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
 
     if let Some(locations_to_record) = app.config.locations_to_record.as_ref() {
         async fn update_db(app: AppState, locations: Vec<WeatherLocation>) {
-            let mut i = interval(Duration::from_secs(1800));
+            let mut i = interval(Duration::from_secs(300));
             loop {
                 for loc in &locations {
+                    info!("check {loc}");
                     get_weather_data(app.pool.as_ref(), &app.api, loc)
                         .await
                         .map_or((), |_| ());
