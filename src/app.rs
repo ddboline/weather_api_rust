@@ -1,25 +1,68 @@
 use anyhow::Error;
+use cached::{proc_macro::cached, TimedSizedCache};
 use rweb::{
     filters::BoxedFilter,
     http::header::CONTENT_TYPE,
     openapi::{self, Info},
     reply, Filter, Reply,
 };
-use stack_string::format_sstr;
-use std::{net::SocketAddr, sync::Arc};
+use stack_string::{format_sstr, StackString};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
+use tokio::{task::spawn, time::interval};
 
-use weather_util_rust::weather_api::WeatherApi;
+use weather_api_common::weather_element::get_parameters;
+
+use weather_util_rust::{
+    weather_api::{WeatherApi, WeatherLocation},
+    weather_data::WeatherData,
+    weather_forecast::WeatherForecast,
+};
 
 use super::{
     config::Config,
-    errors::error_response,
+    errors::{error_response, ServiceError},
+    model::WeatherDataDB,
+    pgpool::PgPool,
     routes::{forecast, forecast_plot, frontpage, statistics, timeseries_js, weather},
 };
+
+#[cached(
+    type = "TimedSizedCache<StackString, WeatherData>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
+    convert = r#"{ format_sstr!("{:?}", loc) }"#,
+    result = true
+)]
+pub async fn get_weather_data(
+    pool: Option<&PgPool>,
+    api: &WeatherApi,
+    loc: &WeatherLocation,
+) -> Result<WeatherData, ServiceError> {
+    let weather_data = api.get_weather_data(loc).await?;
+    if let Some(pool) = pool {
+        let weather_data_db: WeatherDataDB = weather_data.clone().into();
+        weather_data_db.insert(pool).await?;
+    }
+    Ok(weather_data)
+}
+
+#[cached(
+    type = "TimedSizedCache<StackString, WeatherForecast>",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
+    convert = r#"{ format_sstr!("{:?}", loc) }"#,
+    result = true
+)]
+pub async fn get_weather_forecast(
+    api: &WeatherApi,
+    loc: &WeatherLocation,
+) -> Result<WeatherForecast, ServiceError> {
+    api.get_weather_forecast(loc).await.map_err(Into::into)
+}
 
 #[derive(Clone)]
 pub struct AppState {
     pub api: Arc<WeatherApi>,
     pub config: Config,
+    pub pool: Option<PgPool>,
 }
 
 /// # Errors
@@ -49,6 +92,7 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
 }
 
 async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
+    let pool = config.database_url.as_ref().map(|db| PgPool::new(db));
     let app = AppState {
         api: Arc::new(WeatherApi::new(
             &config.api_key,
@@ -56,7 +100,29 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
             &config.api_path,
         )),
         config: config.clone(),
+        pool: pool.clone(),
     };
+
+    if let Some(locations_to_record) = app.config.locations_to_record.as_ref() {
+        async fn update_db(app: AppState, locations: Vec<WeatherLocation>) {
+            let mut i = interval(Duration::from_secs(1800));
+            loop {
+                for loc in &locations {
+                    get_weather_data(app.pool.as_ref(), &app.api, loc)
+                        .await
+                        .map_or((), |_| ());
+                }
+                i.tick().await;
+            }
+        }
+        let locations: Vec<_> = locations_to_record
+            .iter()
+            .map(|l| get_parameters(l))
+            .collect();
+
+        let app = app.clone();
+        spawn(update_db(app, locations));
+    }
 
     let (spec, api_path) = openapi::spec()
         .info(Info {
@@ -170,10 +236,10 @@ mod test {
             .json()
             .await?;
         info!("{}", serde_json::to_string(&stats)?);
-        assert!(stats.data_cache_hits == 2);
-        assert!(stats.data_cache_misses == 1);
-        assert!(stats.forecast_cache_hits == 2);
-        assert!(stats.forecast_cache_misses == 1);
+        assert!(stats.data_cache_hits >= 2);
+        assert!(stats.data_cache_misses >= 1);
+        assert!(stats.forecast_cache_hits >= 2);
+        assert!(stats.forecast_cache_misses >= 1);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/weather?q=Minneapolis");
         let weather: WeatherData = reqwest::get(url.as_str())

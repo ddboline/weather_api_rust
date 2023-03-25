@@ -1,9 +1,9 @@
-use cached::{proc_macro::cached, Cached, TimedSizedCache};
+use cached::Cached;
 use dioxus::prelude::VirtualDom;
 use lazy_static::lazy_static;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
-use stack_string::{format_sstr, StackString};
+use stack_string::StackString;
 use std::{collections::HashMap, convert::Infallible};
 use tokio::sync::RwLock;
 
@@ -13,15 +13,15 @@ use rweb_helper::{
 use weather_api_common::weather_element::{
     get_forecast_plots, weather_component, weather_componentProps,
 };
-use weather_util_rust::{
-    weather_api::{WeatherApi, WeatherLocation},
-    weather_data::WeatherData,
-    weather_forecast::WeatherForecast,
-};
+use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
 use crate::{
-    api_options::ApiOptions, app::AppState, errors::ServiceError as Error, WeatherDataWrapper,
-    WeatherForecastWrapper,
+    api_options::ApiOptions,
+    app::{
+        get_weather_data, get_weather_forecast, AppState, GET_WEATHER_DATA, GET_WEATHER_FORECAST,
+    },
+    errors::ServiceError as Error,
+    WeatherDataWrapper, WeatherForecastWrapper,
 };
 
 pub type WarpResult<T> = Result<T, Rejection>;
@@ -55,29 +55,6 @@ impl StringLengthMap {
     }
 }
 
-#[cached(
-    type = "TimedSizedCache<StackString, WeatherData>",
-    create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
-    convert = r#"{ format_sstr!("{:?}", loc) }"#,
-    result = true
-)]
-async fn get_weather_data(api: &WeatherApi, loc: &WeatherLocation) -> Result<WeatherData, Error> {
-    api.get_weather_data(loc).await.map_err(Into::into)
-}
-
-#[cached(
-    type = "TimedSizedCache<StackString, WeatherForecast>",
-    create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
-    convert = r#"{ format_sstr!("{:?}", loc) }"#,
-    result = true
-)]
-async fn get_weather_forecast(
-    api: &WeatherApi,
-    loc: &WeatherLocation,
-) -> Result<WeatherForecast, Error> {
-    api.get_weather_forecast(loc).await.map_err(Into::into)
-}
-
 #[derive(RwebResponse)]
 #[response(description = "Display Current Weather and Forecast", content = "html")]
 struct IndexResponse(HtmlBase<StackString, Error>);
@@ -91,7 +68,7 @@ pub async fn frontpage(
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
-    let weather = get_weather_data(&api, &loc).await?;
+    let weather = get_weather_data(data.pool.as_ref(), &api, &loc).await?;
     let forecast = get_weather_forecast(&api, &loc).await?;
 
     let body = {
@@ -137,7 +114,7 @@ pub async fn forecast_plot(
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
-    let weather = get_weather_data(&api, &loc).await?;
+    let weather = get_weather_data(data.pool.as_ref(), &api, &loc).await?;
     let forecast = get_weather_forecast(&api, &loc).await?;
 
     let plots = get_forecast_plots(&weather, &forecast).map_err(Into::<Error>::into)?;
@@ -207,7 +184,7 @@ pub async fn weather(
 async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherData> {
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
-    let weather_data = get_weather_data(&api, &loc).await?;
+    let weather_data = get_weather_data(data.pool.as_ref(), &api, &loc).await?;
     Ok(weather_data)
 }
 
