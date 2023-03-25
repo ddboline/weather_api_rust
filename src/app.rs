@@ -9,6 +9,7 @@ use rweb::{
 use stack_string::{format_sstr, StackString};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{task::spawn, time::interval};
+use log::info;
 
 use weather_api_common::weather_element::get_parameters;
 
@@ -40,6 +41,7 @@ pub async fn get_weather_data(
     let weather_data = api.get_weather_data(loc).await?;
     if let Some(pool) = pool {
         let weather_data_db: WeatherDataDB = weather_data.clone().into();
+        info!("writing {loc} to db");
         weather_data_db.insert(pool).await?;
     }
     Ok(weather_data)
