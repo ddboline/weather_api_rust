@@ -69,10 +69,10 @@ impl From<WeatherData> for WeatherDataDB {
             visibility: value.visibility.map(Distance::meters),
             rain: value
                 .rain
-                .and_then(|r| r.three_hour.map(Precipitation::millimeters)),
+                .and_then(|r| r.one_hour.map(Precipitation::millimeters)),
             snow: value
                 .snow
-                .and_then(|s| s.three_hour.map(Precipitation::millimeters)),
+                .and_then(|s| s.one_hour.map(Precipitation::millimeters)),
             wind_speed: value.wind.speed.mps(),
             wind_direction: value.wind.deg.map(|d| d.deg()),
             country: value.sys.country.map_or("".into(), Into::into),
@@ -108,10 +108,12 @@ impl From<WeatherDataDB> for WeatherData {
             },
             visibility: value.visibility.and_then(|v| v.try_into().ok()),
             rain: value.rain.map(|r| Rain {
-                three_hour: r.try_into().ok(),
+                three_hour: None,
+                one_hour: r.try_into().ok(),
             }),
             snow: value.snow.map(|s| Snow {
-                three_hour: s.try_into().ok(),
+                three_hour: None,
+                one_hour: s.try_into().ok(),
             }),
             wind: Wind {
                 speed: value.wind_speed.try_into().unwrap(),
