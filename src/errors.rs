@@ -1,6 +1,7 @@
 use anyhow::Error as AnyhowError;
 use http::{Error as HTTPError, StatusCode};
 use indexmap::IndexMap;
+use postgres_query::Error as PgError;
 use rweb::{
     openapi::{
         ComponentDescriptor, ComponentOrInlineSchema, Entity, Response, ResponseEntity, Responses,
@@ -36,6 +37,8 @@ pub enum ServiceError {
     TimeFormatError(#[from] FormatError),
     #[error("AnyhowError {0}")]
     AnyhowError(#[from] AnyhowError),
+    #[error("PgError {0}")]
+    PgError(#[from] PgError),
 }
 
 impl Reject for ServiceError {}

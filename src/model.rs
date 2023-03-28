@@ -1,21 +1,24 @@
 use anyhow::Error;
-use futures::Stream;
-use postgres_query::{client::GenericClient, query, query_dyn, Error as PqError, FromSqlRow};
+use futures::{Stream, StreamExt};
+use postgres_query::{
+    client::GenericClient, query, query_dyn, Error as PgError, FromSqlRow, Parameter,
+};
+use serde::{Deserialize, Serialize};
 use stack_string::{format_sstr, StackString};
 use std::convert::TryInto;
-use time::OffsetDateTime;
+use time::{macros::time, Date, OffsetDateTime, PrimitiveDateTime};
 use uuid::Uuid;
 
 use weather_util_rust::{
+    direction::Direction,
     distance::Distance,
     precipitation::Precipitation,
-    direction::Direction,
     weather_data::{Coord, Rain, Snow, Sys, WeatherCond, WeatherData, WeatherMain, Wind},
 };
 
 use crate::pgpool::PgPool;
 
-#[derive(FromSqlRow)]
+#[derive(FromSqlRow, Serialize, Deserialize, Debug, Clone)]
 pub struct WeatherDataDB {
     pub id: Uuid,
     dt: i32,
@@ -38,6 +41,7 @@ pub struct WeatherDataDB {
     sunrise: OffsetDateTime,
     sunset: OffsetDateTime,
     timezone: i32,
+    server: StackString,
 }
 
 impl From<WeatherData> for WeatherDataDB {
@@ -75,6 +79,7 @@ impl From<WeatherData> for WeatherDataDB {
             sunrise: value.sys.sunrise,
             sunset: value.sys.sunset,
             timezone: tz,
+            server: "N/A".into(),
         }
     }
 }
@@ -125,6 +130,10 @@ impl From<WeatherDataDB> for WeatherData {
 }
 
 impl WeatherDataDB {
+    pub fn set_server(&mut self, server: &str) {
+        self.server = server.into();
+    }
+
     /// # Errors
     /// Return error if db query fails
     pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<Option<Self>, Error> {
@@ -161,12 +170,58 @@ impl WeatherDataDB {
 
     /// # Errors
     /// Return error if db query fails
+    pub async fn get_by_name_dates(
+        pool: &PgPool,
+        name: Option<&str>,
+        server: Option<&str>,
+        start_date: Option<Date>,
+        end_date: Option<Date>,
+    ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
+        let conn = pool.get().await?;
+        let mut bindings = Vec::new();
+        let mut constraints = Vec::new();
+        let start_date = start_date.map(|d| PrimitiveDateTime::new(d, time!(00:00)).assume_utc());
+        let end_date = end_date.map(|d| PrimitiveDateTime::new(d, time!(00:00)).assume_utc());
+        if let Some(name) = &name {
+            constraints.push(format_sstr!("location_name = $name"));
+            bindings.push(("name", name as Parameter));
+        }
+        if let Some(server) = &server {
+            constraints.push(format_sstr!("server = $server"));
+            bindings.push(("server", server as Parameter));
+        }
+        if let Some(start_date) = &start_date {
+            constraints.push(format_sstr!("created_at >= $start_date"));
+            bindings.push(("start_date", start_date as Parameter));
+        }
+        if let Some(end_date) = &end_date {
+            constraints.push(format_sstr!("created_at <= $end_date"));
+            bindings.push(("end_date", end_date as Parameter));
+        }
+        let where_str = if constraints.is_empty() {
+            "".into()
+        } else {
+            format_sstr!("WHERE {}", constraints.join(" AND "))
+        };
+        let query = format_sstr!(
+            r#"
+                SELECT * FROM weather_data
+                {where_str}
+                ORDER BY created_at
+            "#
+        );
+        let query = query_dyn!(&query, ..bindings)?;
+        query.fetch_streaming(&conn).await.map_err(Into::into)
+    }
+
+    /// # Errors
+    /// Return error if db query fails
     pub async fn get(
         pool: &PgPool,
         offset: Option<usize>,
         limit: Option<usize>,
         order: bool,
-    ) -> Result<impl Stream<Item = Result<Self, PqError>>, Error> {
+    ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
         let conn = pool.get().await?;
         let mut query = format_sstr!("SELECT * FROM weather_data");
         if order {
@@ -182,6 +237,34 @@ impl WeatherDataDB {
         }
         let query = query_dyn!(&query)?;
         query.fetch_streaming(&conn).await.map_err(Into::into)
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn get_locations(
+        pool: &PgPool,
+        offset: Option<usize>,
+        limit: Option<usize>,
+    ) -> Result<impl Stream<Item = Result<StackString, Error>>, Error> {
+        let conn = pool.get().await?;
+        let mut query = format_sstr!("SELECT distinct location_name FROM weather_data ORDER BY 1");
+        if let Some(offset) = offset {
+            query.push_str(&format_sstr!(" OFFSET {offset}"));
+        }
+        if let Some(limit) = limit {
+            query.push_str(&format_sstr!(" LIMIT {limit}"));
+        }
+        let query = query_dyn!(&query)?;
+        query
+            .query_streaming(&conn)
+            .await
+            .map_err(Into::into)
+            .map(|s| {
+                s.map(|row| {
+                    let location: StackString = row?.try_get("location_name")?;
+                    Ok(location)
+                })
+            })
     }
 
     /// # Errors
@@ -225,7 +308,8 @@ impl WeatherDataDB {
                     country,
                     sunrise,
                     sunset,
-                    timezone
+                    timezone,
+                    server
                 ) VALUES (
                     $dt,
                     $created_at,
@@ -246,7 +330,8 @@ impl WeatherDataDB {
                     $country,
                     $sunrise,
                     $sunset,
-                    $timezone
+                    $timezone,
+                    $server
                 ) ON CONFLICT DO NOTHING
             "#,
             dt = self.dt,
@@ -269,6 +354,7 @@ impl WeatherDataDB {
             sunrise = self.sunrise,
             sunset = self.sunset,
             timezone = self.timezone,
+            server = self.server,
         );
         query.execute(conn).await.map_err(Into::into)
     }
@@ -277,6 +363,7 @@ impl WeatherDataDB {
 #[cfg(test)]
 mod tests {
     use anyhow::Error;
+    use log::info;
 
     use weather_util_rust::weather_api::{WeatherApi, WeatherLocation};
 
@@ -296,7 +383,7 @@ mod tests {
         if let Some(db_url) = config.database_url.as_ref() {
             let pool = PgPool::new(db_url);
             let written = weather_db.insert(&pool).await?;
-            println!("written {written}");
+            info!("written {written}");
 
             let weather_fromcache =
                 WeatherDataDB::get_by_dt_name(&pool, weather_db.dt, &weather_db.location_name)

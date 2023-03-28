@@ -33,6 +33,8 @@ pub struct ConfigInner {
     pub port: u32,
     pub locations_to_record: Option<Vec<StackString>>,
     pub database_url: Option<StackString>,
+    #[serde(default = "default_server")]
+    pub server: StackString,
 }
 fn default_host() -> StackString {
     "0.0.0.0".into()
@@ -45,6 +47,9 @@ fn default_api_endpoint() -> StackString {
 }
 fn default_api_path() -> StackString {
     "data/2.5/".into()
+}
+fn default_server() -> StackString {
+    "N/A".into()
 }
 
 /// Configuration struct

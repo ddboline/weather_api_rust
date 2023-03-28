@@ -902,3 +902,66 @@ pub fn index_element<'a>(
         },
     }
 }
+
+pub fn get_history_plots(history: &[WeatherData]) -> Result<Vec<PlotData>, Error> {
+    let mut plots = Vec::new();
+
+    if history.is_empty() {
+        return Ok(plots);
+    }
+    let weather = history.last().unwrap();
+    let fo: UtcOffset = weather.timezone.into();
+    let forecast_data = history
+        .iter()
+        .map(|w| {
+            let date_str = w.dt.to_offset(fo).format(format_description!(
+                "[year]-[month]-[day]T[hour]:[minute]:[second]"
+            ))?;
+            let temp = w.main.temp.fahrenheit();
+            Ok((date_str, temp))
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+
+    let forecast_data = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
+    plots.push(PlotData {
+        forecast_data,
+        title: format!(
+            "Temperature Forecast {:0.1} F / {:0.1} C",
+            weather.main.temp.fahrenheit(),
+            weather.main.temp.celcius()
+        ),
+        xaxis: "".into(),
+        yaxis: "F".into(),
+    });
+
+    let forecast_data = history
+        .iter()
+        .map(|w| {
+            let rain = if let Some(rain) = &w.rain {
+                rain.three_hour.unwrap_or_default()
+            } else {
+                Precipitation::default()
+            };
+            let snow = if let Some(snow) = &w.snow {
+                snow.three_hour.unwrap_or_default()
+            } else {
+                Precipitation::default()
+            };
+            let dt_str = w.dt.to_offset(fo).format(format_description!(
+                "[year]-[month]-[day]T[hour]:[minute]:[second]"
+            ))?;
+            Ok((dt_str, (rain + snow).inches()))
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+
+    let forecast_data = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
+
+    plots.push(PlotData {
+        forecast_data,
+        title: "Precipitation Forecast".into(),
+        xaxis: "".into(),
+        yaxis: "in".into(),
+    });
+
+    Ok(plots)
+}

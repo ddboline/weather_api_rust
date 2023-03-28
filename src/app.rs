@@ -1,5 +1,6 @@
 use anyhow::Error;
 use cached::{proc_macro::cached, TimedSizedCache};
+use log::info;
 use rweb::{
     filters::BoxedFilter,
     http::header::CONTENT_TYPE,
@@ -9,7 +10,6 @@ use rweb::{
 use stack_string::{format_sstr, StackString};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{task::spawn, time::interval};
-use log::info;
 
 use weather_api_common::weather_element::get_parameters;
 
@@ -24,7 +24,10 @@ use super::{
     errors::{error_response, ServiceError},
     model::WeatherDataDB,
     pgpool::PgPool,
-    routes::{forecast, forecast_plot, frontpage, statistics, timeseries_js, weather},
+    routes::{
+        forecast, forecast_plot, frontpage, history, history_plot, locations, statistics,
+        timeseries_js, weather,
+    },
 };
 
 #[cached(
@@ -35,12 +38,14 @@ use super::{
 )]
 pub async fn get_weather_data(
     pool: Option<&PgPool>,
+    config: &Config,
     api: &WeatherApi,
     loc: &WeatherLocation,
 ) -> Result<WeatherData, ServiceError> {
     let weather_data = api.get_weather_data(loc).await?;
     if let Some(pool) = pool {
-        let weather_data_db: WeatherDataDB = weather_data.clone().into();
+        let mut weather_data_db: WeatherDataDB = weather_data.clone().into();
+        weather_data_db.set_server(&config.server);
         info!("writing {loc} to db");
         weather_data_db.insert(pool).await?;
     } else {
@@ -79,12 +84,15 @@ pub async fn start_app() -> Result<(), Error> {
 }
 
 fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
-    let frontpage_path = frontpage(app.clone());
-    let forecast_plot_path = forecast_plot(app.clone());
-    let timeseries_js_path = timeseries_js();
-    let weather_path = weather(app.clone());
-    let forecast_path = forecast(app.clone());
-    let statistics_path = statistics();
+    let frontpage_path = frontpage(app.clone()).boxed();
+    let forecast_plot_path = forecast_plot(app.clone()).boxed();
+    let timeseries_js_path = timeseries_js().boxed();
+    let weather_path = weather(app.clone()).boxed();
+    let forecast_path = forecast(app.clone()).boxed();
+    let statistics_path = statistics().boxed();
+    let locations_path = locations(app.clone()).boxed();
+    let history_path = history(app.clone()).boxed();
+    let history_plot_path = history_plot(app.clone()).boxed();
 
     frontpage_path
         .or(forecast_plot_path)
@@ -92,6 +100,9 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
         .or(forecast_path)
         .or(statistics_path)
         .or(timeseries_js_path)
+        .or(locations_path)
+        .or(history_path)
+        .or(history_plot_path)
         .boxed()
 }
 
@@ -114,7 +125,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
             loop {
                 for loc in &locations {
                     info!("check {loc}");
-                    get_weather_data(app.pool.as_ref(), &app.api, loc)
+                    get_weather_data(app.pool.as_ref(), &app.config, &app.api, loc)
                         .await
                         .map_or((), |_| ());
                 }

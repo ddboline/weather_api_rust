@@ -22,7 +22,7 @@ pub mod routes;
 
 use derive_more::{From, Into};
 use rweb::Schema;
-use rweb_helper::{derive_rweb_schema, DateTimeType};
+use rweb_helper::{derive_rweb_schema, DateTimeType, UuidWrapper};
 use serde::{Deserialize, Serialize};
 
 use weather_util_rust::{
@@ -30,6 +30,8 @@ use weather_util_rust::{
     weather_forecast::{CityEntry, ForecastEntry, ForecastMain, WeatherForecast},
     StringType,
 };
+
+use crate::model::WeatherDataDB;
 
 #[derive(Into, From, Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct CoordWrapper(Coord);
@@ -43,6 +45,38 @@ struct _CoordWrapper {
     lon: f64,
     #[schema(description = "Latitude")]
     lat: f64,
+}
+
+#[derive(Into, From, Deserialize, Serialize, Debug, Clone)]
+pub struct WeatherDataDBWrapper(WeatherDataDB);
+
+derive_rweb_schema!(WeatherDataDBWrapper, _WeatherDataDBWrapper);
+
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _WeatherDataDBWrapper {
+    pub id: UuidWrapper,
+    dt: i32,
+    created_at: DateTimeType,
+    location_name: StringType,
+    latitude: f64,
+    longitude: f64,
+    condition: StringType,
+    temperature: f64,
+    temperature_minimum: f64,
+    temperature_maximum: f64,
+    pressure: f64,
+    humidity: i32,
+    visibility: Option<f64>,
+    rain: Option<f64>,
+    snow: Option<f64>,
+    wind_speed: f64,
+    wind_direction: Option<f64>,
+    country: StringType,
+    sunrise: DateTimeType,
+    sunset: DateTimeType,
+    timezone: i32,
+    server: StringType,
 }
 
 // Weather Data

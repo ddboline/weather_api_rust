@@ -1,5 +1,6 @@
 use cached::Cached;
 use dioxus::prelude::VirtualDom;
+use futures::TryStreamExt;
 use lazy_static::lazy_static;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
@@ -8,10 +9,11 @@ use std::{collections::HashMap, convert::Infallible};
 use tokio::sync::RwLock;
 
 use rweb_helper::{
-    html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, RwebResponse,
+    html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, DateType,
+    RwebResponse,
 };
 use weather_api_common::weather_element::{
-    get_forecast_plots, weather_component, weather_componentProps,
+    get_forecast_plots, get_history_plots, weather_component, weather_componentProps,
 };
 use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
@@ -21,7 +23,8 @@ use crate::{
         get_weather_data, get_weather_forecast, AppState, GET_WEATHER_DATA, GET_WEATHER_FORECAST,
     },
     errors::ServiceError as Error,
-    WeatherDataWrapper, WeatherForecastWrapper,
+    model::WeatherDataDB,
+    WeatherDataDBWrapper, WeatherDataWrapper, WeatherForecastWrapper,
 };
 
 pub type WarpResult<T> = Result<T, Rejection>;
@@ -68,7 +71,7 @@ pub async fn frontpage(
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
-    let weather = get_weather_data(data.pool.as_ref(), &api, &loc).await?;
+    let weather = get_weather_data(data.pool.as_ref(), &data.config, &api, &loc).await?;
     let forecast = get_weather_forecast(&api, &loc).await?;
 
     let body = {
@@ -114,7 +117,7 @@ pub async fn forecast_plot(
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
-    let weather = get_weather_data(data.pool.as_ref(), &api, &loc).await?;
+    let weather = get_weather_data(data.pool.as_ref(), &data.config, &api, &loc).await?;
     let forecast = get_weather_forecast(&api, &loc).await?;
 
     let plots = get_forecast_plots(&weather, &forecast).map_err(Into::<Error>::into)?;
@@ -184,7 +187,7 @@ pub async fn weather(
 async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherData> {
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
-    let weather_data = get_weather_data(data.pool.as_ref(), &api, &loc).await?;
+    let weather_data = get_weather_data(data.pool.as_ref(), &data.config, &api, &loc).await?;
     Ok(weather_data)
 }
 
@@ -206,4 +209,131 @@ async fn forecast_body(data: AppState, query: ApiOptions) -> HttpResult<WeatherF
     let loc = query.get_weather_location(&data.config)?;
     let weather_forecast = get_weather_forecast(&api, &loc).await?;
     Ok(weather_forecast)
+}
+
+#[derive(RwebResponse)]
+#[response(description = "Get Weather History Locations")]
+struct HistoryLocationsResponse(JsonBase<Vec<StackString>, Error>);
+
+#[derive(Deserialize, Schema)]
+struct OffsetLocation {
+    offset: Option<usize>,
+    limit: Option<usize>,
+}
+
+#[get("/weather/locations")]
+pub async fn locations(
+    #[data] data: AppState,
+    query: Query<OffsetLocation>,
+) -> WarpResult<HistoryLocationsResponse> {
+    let history = if let Some(pool) = &data.pool {
+        let query = query.into_inner();
+        WeatherDataDB::get_locations(pool, query.offset, query.limit)
+            .await
+            .map_err(Into::<Error>::into)?
+            .try_collect()
+            .await
+            .map_err(Into::<Error>::into)?
+    } else {
+        Vec::new()
+    };
+    Ok(JsonBase::new(history).into())
+}
+
+#[derive(Deserialize, Schema)]
+struct HistoryRequest {
+    name: Option<StackString>,
+    server: Option<StackString>,
+    start_time: Option<DateType>,
+    end_time: Option<DateType>,
+}
+
+#[derive(RwebResponse)]
+#[response(description = "Get Weather History")]
+struct HistoryResponse(JsonBase<Vec<WeatherDataDBWrapper>, Error>);
+
+#[get("/weather/history")]
+pub async fn history(
+    #[data] data: AppState,
+    query: Query<HistoryRequest>,
+) -> WarpResult<HistoryResponse> {
+    let history = if let Some(pool) = &data.pool {
+        let query = query.into_inner();
+        WeatherDataDB::get_by_name_dates(
+            pool,
+            query.name.as_ref().map(StackString::as_str),
+            query.server.as_ref().map(StackString::as_str),
+            query.start_time.map(Into::into),
+            query.end_time.map(Into::into),
+        )
+        .await
+        .map_err(Into::<Error>::into)?
+        .map_ok(Into::<WeatherDataDBWrapper>::into)
+        .try_collect()
+        .await
+        .map_err(Into::<Error>::into)?
+    } else {
+        Vec::new()
+    };
+    Ok(JsonBase::new(history).into())
+}
+
+#[derive(Deserialize, Schema)]
+struct HistoryPlotRequest {
+    name: StackString,
+    server: Option<StackString>,
+    start_time: Option<DateType>,
+    end_time: Option<DateType>,
+}
+
+#[derive(RwebResponse)]
+#[response(description = "Show Plot of Historical Weather", content = "html")]
+struct HistoryPlotResponse(HtmlBase<String, Error>);
+
+#[get("/weather/history_plot.html")]
+pub async fn history_plot(
+    #[data] data: AppState,
+    query: Query<HistoryPlotRequest>,
+) -> WarpResult<HistoryPlotResponse> {
+    let history = if let Some(pool) = &data.pool {
+        let query = query.into_inner();
+        WeatherDataDB::get_by_name_dates(
+            pool,
+            Some(&query.name),
+            query.server.as_ref().map(StackString::as_str),
+            query.start_time.map(Into::into),
+            query.end_time.map(Into::into),
+        )
+        .await
+        .map_err(Into::<Error>::into)?
+        .map_ok(Into::<WeatherData>::into)
+        .try_collect()
+        .await
+        .map_err(Into::<Error>::into)?
+    } else {
+        Vec::new()
+    };
+    if history.is_empty() {
+        return Ok(HtmlBase::new(String::new()).into());
+    }
+    let weather = history.get(0).unwrap().clone();
+    let plots = get_history_plots(&history).map_err(Into::<Error>::into)?;
+
+    let body = {
+        let mut app = VirtualDom::new_with_props(
+            weather_component,
+            weather_componentProps {
+                weather,
+                forecast: None,
+                plot: Some(plots),
+            },
+        );
+        drop(app.rebuild());
+        dioxus_ssr::render(&app)
+    };
+
+    WEATHER_STRING_LENGTH
+        .insert_lenth("/weather/plot.html", body.len())
+        .await;
+    Ok(HtmlBase::new(body).into())
 }
