@@ -938,12 +938,12 @@ pub fn get_history_plots(history: &[WeatherData]) -> Result<Vec<PlotData>, Error
         .iter()
         .map(|w| {
             let rain = if let Some(rain) = &w.rain {
-                rain.three_hour.unwrap_or_default()
+                rain.one_hour.unwrap_or_default()
             } else {
                 Precipitation::default()
             };
             let snow = if let Some(snow) = &w.snow {
-                snow.three_hour.unwrap_or_default()
+                snow.one_hour.unwrap_or_default()
             } else {
                 Precipitation::default()
             };
