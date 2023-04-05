@@ -42,19 +42,16 @@ pub async fn get_weather_data(
     api: &WeatherApi,
     loc: &WeatherLocation,
 ) -> Result<WeatherData, ServiceError> {
-    println!("GOT HERE {loc:?}");
     let loc = if let Some(pool) = pool {
         if let Some(l) = WeatherLocationCache::from_weather_location_cache(pool, loc).await? {
-            println!("cached {l:?}");
             l.get_lat_lon_location()?
         } else {
             let l = WeatherLocationCache::from_weather_location(api, loc).await?;
-            println!("create_cache {l:?}");
+            info!("create_cache {l:?}");
             l.insert(pool).await?;
             l.get_lat_lon_location()?
         }
     } else {
-        println!("no pool {loc:?}");
         loc.to_lat_lon(api).await?
     };
     let weather_data = api.get_weather_data(&loc).await?;
