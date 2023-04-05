@@ -465,7 +465,7 @@ pub fn weather_app_component(cx: Scope<AppProps>) -> Element {
         let send = cx.props.send.clone();
         async move {
             if !contains_key {
-                debug!("send {l}");
+                debug!("send {l:?}");
                 let mut send = send.lock().await;
                 send.send(l.clone()).await.unwrap();
             }
@@ -502,7 +502,7 @@ pub fn weather_app_component(cx: Scope<AppProps>) -> Element {
         if let Some(Some((loc, entry))) = recv_future.value() {
             if (!cache.contains_key(loc)) || cache.is_empty() {
                 debug!(
-                    "set location {location} {} {}",
+                    "set location {location:?} {} {}",
                     entry.weather.is_none(),
                     entry.forecast.is_none()
                 );
