@@ -22,11 +22,11 @@ use weather_util_rust::{
 use super::{
     config::Config,
     errors::{error_response, ServiceError},
-    model::WeatherDataDB,
+    model::{WeatherDataDB, WeatherLocationCache},
     pgpool::PgPool,
     routes::{
-        forecast, forecast_plot, frontpage, history, history_plot, locations, statistics,
-        timeseries_js, weather,
+        forecast, forecast_plot, frontpage, geo_direct, geo_reverse, geo_zip, history,
+        history_plot, locations, statistics, timeseries_js, weather,
     },
 };
 
@@ -42,7 +42,22 @@ pub async fn get_weather_data(
     api: &WeatherApi,
     loc: &WeatherLocation,
 ) -> Result<WeatherData, ServiceError> {
-    let weather_data = api.get_weather_data(loc).await?;
+    println!("GOT HERE {loc:?}");
+    let loc = if let Some(pool) = pool {
+        if let Some(l) = WeatherLocationCache::from_weather_location_cache(pool, loc).await? {
+            println!("cached {l:?}");
+            l.get_lat_lon_location()?
+        } else {
+            let l = WeatherLocationCache::from_weather_location(api, loc).await?;
+            println!("create_cache {l:?}");
+            l.insert(pool).await?;
+            l.get_lat_lon_location()?
+        }
+    } else {
+        println!("no pool {loc:?}");
+        loc.to_lat_lon(api).await?
+    };
+    let weather_data = api.get_weather_data(&loc).await?;
     if let Some(pool) = pool {
         let mut weather_data_db: WeatherDataDB = weather_data.clone().into();
         weather_data_db.set_server(&config.server);
@@ -93,6 +108,9 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
     let locations_path = locations(app.clone()).boxed();
     let history_path = history(app.clone()).boxed();
     let history_plot_path = history_plot(app.clone()).boxed();
+    let geo_direct_path = geo_direct(app.clone()).boxed();
+    let geo_zip_path = geo_zip(app.clone()).boxed();
+    let geo_reverse_path = geo_reverse(app.clone()).boxed();
 
     frontpage_path
         .or(forecast_plot_path)
@@ -103,6 +121,9 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
         .or(locations_path)
         .or(history_path)
         .or(history_plot_path)
+        .or(geo_direct_path)
+        .or(geo_zip_path)
+        .or(geo_reverse_path)
         .boxed()
 }
 
@@ -113,6 +134,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
             &config.api_key,
             &config.api_endpoint,
             &config.api_path,
+            &config.geo_path,
         )),
         config: config.clone(),
         pool: pool.clone(),
@@ -132,10 +154,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
                 i.tick().await;
             }
         }
-        let locations: Vec<_> = locations_to_record
-            .iter()
-            .map(|l| get_parameters(l))
-            .collect();
+        let locations: Vec<_> = locations_to_record.split(';').map(get_parameters).collect();
 
         let app = app.clone();
         task.replace(spawn(update_db(app, locations)));

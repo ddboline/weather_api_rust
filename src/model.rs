@@ -1,5 +1,6 @@
-use anyhow::Error;
+use anyhow::{format_err, Error};
 use futures::{Stream, StreamExt};
+use isocountry::CountryCode;
 use postgres_query::{
     client::GenericClient, query, query_dyn, Error as PgError, FromSqlRow, Parameter,
 };
@@ -13,6 +14,7 @@ use weather_util_rust::{
     direction::Direction,
     distance::Distance,
     precipitation::Precipitation,
+    weather_api::{WeatherApi, WeatherLocation},
     weather_data::{Coord, Rain, Snow, Sys, WeatherCond, WeatherData, WeatherMain, Wind},
 };
 
@@ -362,6 +364,239 @@ impl WeatherDataDB {
     }
 }
 
+#[derive(FromSqlRow, Serialize, Deserialize, Debug)]
+pub struct WeatherLocationCache {
+    pub id: Uuid,
+    pub location_name: StackString,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub zipcode: Option<i32>,
+    pub country_code: Option<StackString>,
+    pub city_name: Option<StackString>,
+    pub created_at: OffsetDateTime,
+}
+
+impl Default for WeatherLocationCache {
+    fn default() -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            location_name: StackString::new(),
+            latitude: 0.0,
+            longitude: 0.0,
+            zipcode: None,
+            country_code: None,
+            city_name: None,
+            created_at: OffsetDateTime::now_utc(),
+        }
+    }
+}
+
+impl WeatherLocationCache {
+    /// # Errors
+    /// Return error if db query fails
+    pub fn get_lat_lon_location(&self) -> Result<WeatherLocation, Error> {
+        Ok(WeatherLocation::LatLon {
+            latitude: self.latitude.try_into()?,
+            longitude: self.longitude.try_into()?,
+        })
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<Option<Self>, Error> {
+        let conn = pool.get().await?;
+        let query = query!("SELECT * FROM weather_location_cache WHERE id=$id", id = id,);
+        query.fetch_opt(&conn).await.map_err(Into::into)
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn get_by_location_name(pool: &PgPool, name: &str) -> Result<Option<Self>, Error> {
+        let conn = pool.get().await?;
+        let query = query!(
+            r#"
+                SELECT * FROM weather_location_cache
+                WHERE location_name=$name
+                ORDER BY created_at DESC
+                LIMIT 1
+            "#,
+            name = name,
+        );
+        query.fetch_opt(&conn).await.map_err(Into::into)
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn get_by_city_name(
+        pool: &PgPool,
+        name: &str,
+    ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
+        let conn = pool.get().await?;
+        let query = query!(
+            "SELECT * FROM weather_location_cache WHERE city_name=$name",
+            name = name,
+        );
+        query.fetch_streaming(&conn).await.map_err(Into::into)
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn get_by_zip(
+        pool: &PgPool,
+        zip: u64,
+        country_code: Option<CountryCode>,
+    ) -> Result<Option<Self>, Error> {
+        let zip = zip as i32;
+        let country_code = country_code.map(|c| format_sstr!("{c}"));
+        let mut constraints = vec!["zipcode=$zip"];
+        let mut bindings = vec![("zip", &zip as Parameter)];
+        if let Some(country_code) = &country_code {
+            constraints.push("country_code=$country_code");
+            bindings.push(("country_code", country_code as Parameter));
+        }
+        let query = format_sstr!(
+            r#"
+                SELECT * FROM weather_location_cache 
+                WHERE {}
+                ORDER BY created_at DESC
+                LIMIT 1
+            "#,
+            constraints.join(" AND "),
+        );
+        println!("query {query}");
+        let query = query_dyn!(&query, ..bindings)?;
+        let conn = pool.get().await?;
+        query.fetch_opt(&conn).await.map_err(Into::into)
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn get_by_lat_lon(pool: &PgPool, lat: f64, lon: f64) -> Result<Option<Self>, Error> {
+        let conn = pool.get().await?;
+        let query = query!(
+            r#"
+                SELECT * FROM weather_location_cache
+                WHERE abs(latitude - $lat) < 0.0001
+                  AND abs(longitude - $lon) < 0.0001
+                ORDER BY (latitude - $lat) * (latitude - $lat) + (longitude - $lon) * (longitude - $lon)
+                LIMIT 1
+            "#,
+            lat = lat,
+            lon = lon,
+        );
+        query.fetch_opt(&conn).await.map_err(Into::into)
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn insert(&self, pool: &PgPool) -> Result<u64, Error> {
+        let query = query!(
+            r#"
+                INSERT INTO weather_location_cache (
+                    location_name, latitude, longitude, zipcode, country_code, city_name, created_at
+                ) VALUES (
+                    $location_name, $latitude, $longitude, $zipcode, $country_code, $city_name, now()
+                )
+            "#,
+            location_name = self.location_name,
+            latitude = self.latitude,
+            longitude = self.longitude,
+            zipcode = self.zipcode,
+            country_code = self.country_code,
+            city_name = self.city_name,
+        );
+        let conn = pool.get().await?;
+        query.execute(&conn).await.map_err(Into::into)
+    }
+
+    /// # Errors
+    /// Return error if api call fails
+    pub async fn from_weather_location(
+        api: &WeatherApi,
+        location: &WeatherLocation,
+    ) -> Result<Self, Error> {
+        match location {
+            WeatherLocation::LatLon {
+                latitude,
+                longitude,
+            } => {
+                let mut locations = api.get_geo_location(*latitude, *longitude).await?;
+                if locations.is_empty() {
+                    return Err(format_err!("no location"));
+                }
+                let loc = locations.swap_remove(0);
+                Ok(Self {
+                    id: Uuid::new_v4(),
+                    location_name: loc.name.into(),
+                    latitude: (*latitude).into(),
+                    longitude: (*longitude).into(),
+                    country_code: Some(loc.country.into()),
+                    ..Self::default()
+                })
+            }
+            WeatherLocation::ZipCode {
+                zipcode,
+                country_code,
+            } => {
+                let loc = api.get_zip_location(*zipcode, *country_code).await?;
+                Ok(Self {
+                    id: Uuid::new_v4(),
+                    location_name: loc.name.into(),
+                    latitude: loc.lat,
+                    longitude: loc.lon,
+                    zipcode: Some(*zipcode as i32),
+                    country_code: Some(loc.country.into()),
+                    ..Self::default()
+                })
+            }
+            WeatherLocation::CityName(city_name) => {
+                if let WeatherLocation::LatLon {
+                    latitude,
+                    longitude,
+                } = location.to_lat_lon(api).await?
+                {
+                    let mut locations = api.get_geo_location(latitude, longitude).await?;
+                    if locations.is_empty() {
+                        return Err(format_err!("no location"));
+                    }
+                    let loc = locations.swap_remove(0);
+                    Ok(Self {
+                        id: Uuid::new_v4(),
+                        location_name: city_name.into(),
+                        latitude: latitude.into(),
+                        longitude: longitude.into(),
+                        country_code: Some(loc.country.into()),
+                        ..Self::default()
+                    })
+                } else {
+                    Err(format_err!("failed to get lat lon"))
+                }
+            }
+        }
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn from_weather_location_cache(
+        pool: &PgPool,
+        location: &WeatherLocation,
+    ) -> Result<Option<Self>, Error> {
+        match location {
+            WeatherLocation::LatLon {
+                latitude,
+                longitude,
+            } => Self::get_by_lat_lon(pool, (*latitude).into(), (*longitude).into()).await,
+            WeatherLocation::ZipCode {
+                zipcode,
+                country_code,
+            } => Self::get_by_zip(pool, *zipcode, *country_code).await,
+            WeatherLocation::CityName(city_name) => {
+                Self::get_by_location_name(pool, city_name).await
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use anyhow::Error;
@@ -375,7 +610,12 @@ mod tests {
     #[ignore]
     async fn test_weather_data_db() -> Result<(), Error> {
         let config = Config::init_config(None)?;
-        let api = WeatherApi::new(&config.api_key, &config.api_endpoint, &config.api_path);
+        let api = WeatherApi::new(
+            &config.api_key,
+            &config.api_endpoint,
+            &config.api_path,
+            &config.geo_path,
+        );
         let loc = WeatherLocation::ZipCode {
             zipcode: 99782,
             country_code: None,

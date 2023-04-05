@@ -1,6 +1,7 @@
 use anyhow::Error as AnyhowError;
 use http::{Error as HTTPError, StatusCode};
 use indexmap::IndexMap;
+use log::error;
 use postgres_query::Error as PgError;
 use rweb::{
     openapi::{
@@ -12,7 +13,9 @@ use rweb::{
 use serde::Serialize;
 use serde_json::Error as SerdeJsonError;
 use stack_string::StackString;
-use std::{borrow::Cow, convert::Infallible, fmt::Debug, string::FromUtf8Error};
+use std::{
+    borrow::Cow, convert::Infallible, fmt::Debug, num::ParseIntError, string::FromUtf8Error,
+};
 use thiserror::Error;
 use time::error::Format as FormatError;
 use weather_util_rust::Error as WeatherUtilError;
@@ -39,6 +42,8 @@ pub enum ServiceError {
     AnyhowError(#[from] AnyhowError),
     #[error("PgError {0}")]
     PgError(#[from] PgError),
+    #[error("ParseIntError {0}")]
+    ParseIntError(#[from] ParseIntError),
 }
 
 impl Reject for ServiceError {}
@@ -66,6 +71,7 @@ pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
             code = StatusCode::BAD_REQUEST;
             message = msg.as_str();
         } else {
+            error!("{service_err:?}");
             code = StatusCode::INTERNAL_SERVER_ERROR;
             message = "Internal Server Error, Please try again later";
         }

@@ -25,7 +25,12 @@ fn main() -> Result<(), Error> {
         .api_key
         .as_ref()
         .ok_or_else(|| format_err!("No api key given"))?;
-    let api = WeatherApi::new(api_key.as_str(), &config.api_endpoint, &config.api_path);
+    let api = WeatherApi::new(
+        api_key.as_str(),
+        &config.api_endpoint,
+        &config.api_path,
+        &config.geo_path,
+    );
     let handle: std::thread::JoinHandle<Result<(), Error>> = std::thread::spawn(move || {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()

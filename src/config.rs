@@ -17,6 +17,9 @@ pub struct ConfigInner {
     /// api path (default `data/2.5/`)
     #[serde(default = "default_api_path")]
     pub api_path: StackString,
+    /// Geo Api path (default is `geo/1.0/`)
+    #[serde(default = "default_geo_path")]
+    pub geo_path: StackString,
     /// optional default zipcode
     pub zipcode: Option<u64>,
     /// optional default country code
@@ -31,7 +34,7 @@ pub struct ConfigInner {
     pub host: StackString,
     #[serde(default = "default_port")]
     pub port: u32,
-    pub locations_to_record: Option<Vec<StackString>>,
+    pub locations_to_record: Option<StackString>,
     pub database_url: Option<StackString>,
     #[serde(default = "default_server")]
     pub server: StackString,
@@ -47,6 +50,9 @@ fn default_api_endpoint() -> StackString {
 }
 fn default_api_path() -> StackString {
     "data/2.5/".into()
+}
+fn default_geo_path() -> StackString {
+    "geo/1.0/".into()
 }
 fn default_server() -> StackString {
     "N/A".into()

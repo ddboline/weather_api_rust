@@ -26,6 +26,8 @@ use rweb_helper::{derive_rweb_schema, DateTimeType, UuidWrapper};
 use serde::{Deserialize, Serialize};
 
 use weather_util_rust::{
+    precipitation::Precipitation,
+    weather_api::GeoLocation,
     weather_data::{Coord, Rain, Snow, Sys, WeatherCond, WeatherData, WeatherMain, Wind},
     weather_forecast::{CityEntry, ForecastEntry, ForecastMain, WeatherForecast},
     StringType,
@@ -163,12 +165,16 @@ pub struct RainWrapper {
     #[serde(alias = "3h", skip_serializing_if = "Option::is_none")]
     #[schema(description = "Rain (mm over previous 3 hours)")]
     pub three_hour: Option<f64>,
+    #[serde(alias = "1h", skip_serializing_if = "Option::is_none")]
+    #[schema(description = "Rain (mm over previous hour)")]
+    pub one_hour: Option<f64>,
 }
 
 impl From<Rain> for RainWrapper {
     fn from(item: Rain) -> Self {
         Self {
-            three_hour: item.three_hour.map(Into::into),
+            three_hour: item.three_hour.map(Precipitation::millimeters),
+            one_hour: item.one_hour.map(Precipitation::millimeters),
         }
     }
 }
@@ -178,12 +184,16 @@ pub struct SnowWrapper {
     #[serde(alias = "3h", skip_serializing_if = "Option::is_none")]
     #[schema(description = "Snow (mm over previous 3 hours)")]
     pub three_hour: Option<f64>,
+    #[serde(alias = "1h", skip_serializing_if = "Option::is_none")]
+    #[schema(description = "Rain (mm over previous hour)")]
+    pub one_hour: Option<f64>,
 }
 
 impl From<Snow> for SnowWrapper {
     fn from(item: Snow) -> Self {
         Self {
-            three_hour: item.three_hour.map(Into::into),
+            three_hour: item.three_hour.map(Precipitation::millimeters),
+            one_hour: item.one_hour.map(Precipitation::millimeters),
         }
     }
 }
@@ -215,6 +225,21 @@ struct _WeatherForecastWrapper {
     list: Vec<ForecastEntryWrapper>,
     #[schema(description = "City Information")]
     city: CityEntryWrapper,
+}
+
+#[derive(Into, From, Deserialize, Serialize, Debug, Clone)]
+pub struct GeoLocationWrapper(GeoLocation);
+
+derive_rweb_schema!(GeoLocationWrapper, _GeoLocationWrapper);
+
+#[allow(dead_code)]
+#[derive(Schema)]
+struct _GeoLocationWrapper {
+    name: StringType,
+    lat: f64,
+    lon: f64,
+    country: StringType,
+    zip: Option<StringType>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

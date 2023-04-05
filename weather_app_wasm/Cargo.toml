@@ -9,7 +9,7 @@ edition = "2021"
 weather_api_common = {path = "../weather_api_common/"}
 dioxus-web = "0.3"
 dioxus = "0.3"
-weather_util_rust = {version="0.15", default-features=false}
+weather_util_rust = {version="0.16", default-features=false}
 anyhow = "1.0"
 lazy_static = "1.4"
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}

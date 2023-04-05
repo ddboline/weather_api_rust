@@ -26,7 +26,7 @@ exclude = [
 
 [dependencies]
 weather_api_common = {path = "weather_api_common/"}
-weather_util_rust = {version="0.15", default-features=false, features=["cli"]}
+weather_util_rust = {version="0.16", default-features=false, features=["cli"]}
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"
 cached = "0.42"

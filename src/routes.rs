@@ -1,6 +1,7 @@
 use cached::Cached;
 use dioxus::prelude::VirtualDom;
 use futures::TryStreamExt;
+use isocountry::CountryCode;
 use lazy_static::lazy_static;
 use rweb::{get, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,9 @@ use rweb_helper::{
 use weather_api_common::weather_element::{
     get_forecast_plots, get_history_plots, weather_component, weather_componentProps,
 };
-use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
+use weather_util_rust::{
+    weather_api::WeatherLocation, weather_data::WeatherData, weather_forecast::WeatherForecast,
+};
 
 use crate::{
     api_options::ApiOptions,
@@ -24,7 +27,7 @@ use crate::{
     },
     errors::ServiceError as Error,
     model::WeatherDataDB,
-    WeatherDataDBWrapper, WeatherDataWrapper, WeatherForecastWrapper,
+    GeoLocationWrapper, WeatherDataDBWrapper, WeatherDataWrapper, WeatherForecastWrapper,
 };
 
 pub type WarpResult<T> = Result<T, Rejection>;
@@ -209,6 +212,92 @@ async fn forecast_body(data: AppState, query: ApiOptions) -> HttpResult<WeatherF
     let loc = query.get_weather_location(&data.config)?;
     let weather_forecast = get_weather_forecast(&api, &loc).await?;
     Ok(weather_forecast)
+}
+
+#[derive(RwebResponse)]
+#[response(description = "Direct Geo Location")]
+struct GeoDirectResponse(JsonBase<Vec<GeoLocationWrapper>, Error>);
+
+#[get("/weather/direct")]
+pub async fn geo_direct(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+) -> WarpResult<GeoDirectResponse> {
+    let query = query.into_inner();
+    let api = query.get_weather_api(&data.api);
+    let loc = query
+        .get_weather_location(&data.config)
+        .map_err(Into::<Error>::into)?;
+    let geo_locations: Vec<GeoLocationWrapper> = if let WeatherLocation::CityName(city_name) = loc {
+        api.get_direct_location(&city_name)
+            .await
+            .map_err(Into::<Error>::into)?
+            .into_iter()
+            .map(Into::into)
+            .collect()
+    } else {
+        Vec::new()
+    };
+    Ok(GeoDirectResponse(JsonBase::new(geo_locations)))
+}
+
+#[derive(Serialize, Deserialize, Schema)]
+struct ZipOptions {
+    zip: StackString,
+}
+
+#[derive(RwebResponse)]
+#[response(description = "Zip Geo Location")]
+struct GeoZipResponse(JsonBase<GeoLocationWrapper, Error>);
+
+#[get("/weather/zip")]
+pub async fn geo_zip(
+    #[data] data: AppState,
+    query: Query<ZipOptions>,
+) -> WarpResult<GeoZipResponse> {
+    let query = query.into_inner();
+    let api = &data.api;
+    let zip_country: Vec<_> = query.zip.split(',').take(2).collect();
+    let zip: u64 = zip_country
+        .first()
+        .expect("zip invalid")
+        .parse()
+        .map_err(Into::<Error>::into)?;
+    let country_code: Option<CountryCode> = zip_country
+        .get(1)
+        .and_then(|s| CountryCode::for_alpha2(s).ok());
+    let loc = api
+        .get_zip_location(zip, country_code)
+        .await
+        .map_err(Into::<Error>::into)?;
+    Ok(GeoZipResponse(JsonBase::new(loc.into())))
+}
+
+#[get("/weather/reverse")]
+pub async fn geo_reverse(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+) -> WarpResult<GeoDirectResponse> {
+    let query = query.into_inner();
+    let api = query.get_weather_api(&data.api);
+    let loc = query
+        .get_weather_location(&data.config)
+        .map_err(Into::<Error>::into)?;
+    let geo_locations = if let WeatherLocation::LatLon {
+        latitude,
+        longitude,
+    } = loc
+    {
+        api.get_geo_location(latitude, longitude)
+            .await
+            .map_err(Into::<Error>::into)?
+            .into_iter()
+            .map(Into::into)
+            .collect()
+    } else {
+        Vec::new()
+    };
+    Ok(GeoDirectResponse(JsonBase::new(geo_locations)))
 }
 
 #[derive(RwebResponse)]

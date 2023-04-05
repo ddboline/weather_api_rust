@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-weather_util_rust = {version="0.15", default-features=false}
+weather_util_rust = {version="0.16", default-features=false}
 dioxus = "0.3"
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"
@@ -23,7 +23,7 @@ keyboard-types = "0.6"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-serde-wasm-bindgen = "0.4"
+serde-wasm-bindgen = "0.5"
 web-sys = {version="0.3", features=["Storage", "Window", "Request", "RequestInit", "Response"]}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
