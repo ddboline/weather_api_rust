@@ -463,7 +463,6 @@ impl WeatherLocationCache {
             "#,
             constraints.join(" AND "),
         );
-        println!("query {query}");
         let query = query_dyn!(&query, ..bindings)?;
         let conn = pool.get().await?;
         query.fetch_opt(&conn).await.map_err(Into::into)
