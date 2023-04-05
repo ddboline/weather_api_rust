@@ -134,6 +134,10 @@ impl From<WeatherDataDB> for WeatherData {
 }
 
 impl WeatherDataDB {
+    pub fn set_location_name(&mut self, name: &str) {
+        self.location_name = name.into();
+    }
+
     pub fn set_server(&mut self, server: &str) {
         self.server = server.into();
     }
