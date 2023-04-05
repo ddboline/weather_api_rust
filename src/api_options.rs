@@ -17,7 +17,6 @@ pub struct ApiOptions {
     pub q: Option<StackString>,
     pub lat: Option<LatitudeWrapper>,
     pub lon: Option<LongitudeWrapper>,
-    #[serde(rename = "APPID")]
     pub appid: Option<SmallString<32>>,
 }
 
@@ -112,7 +111,7 @@ mod test {
             assert!(false);
         }
 
-        let opt: ApiOptions = serde_json::from_str(r#"{"APPID":"TEST"}"#)?;
+        let opt: ApiOptions = serde_json::from_str(r#"{"appid":"TEST"}"#)?;
 
         set_var("ZIPCODE", "49934");
 
@@ -128,7 +127,7 @@ mod test {
         remove_var("ZIPCODE");
         set_var("CITY_NAME", "TEST CITY");
 
-        let opt: ApiOptions = serde_json::from_str(r#"{"APPID":"TEST"}"#)?;
+        let opt: ApiOptions = serde_json::from_str(r#"{"appid":"TEST"}"#)?;
 
         let conf_path = Path::new("tests/config.env");
         let config = Config::init_config(Some(conf_path))?;
@@ -145,7 +144,7 @@ mod test {
         set_var("LAT", "40.7518359");
         set_var("LON", "-74.0529922");
 
-        let opt: ApiOptions = serde_json::from_str(r#"{"APPID":"TEST"}"#)?;
+        let opt: ApiOptions = serde_json::from_str(r#"{"appid":"TEST"}"#)?;
 
         let conf_path = Path::new("tests/config.env");
         let config = Config::init_config(Some(conf_path))?;
