@@ -1,1 +1,1 @@
-ALTER TABLE weather_location_cache DROP CONSTRAINT weather_location_cache_temp_location_name_key;
+ALTER TABLE weather_location_cache DROP CONSTRAINT weather_location_cache_location_name_key;
