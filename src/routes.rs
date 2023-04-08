@@ -300,9 +300,15 @@ pub async fn geo_reverse(
     Ok(GeoDirectResponse(JsonBase::new(geo_locations)))
 }
 
+#[derive(Debug, Serialize, Deserialize, Schema)]
+struct LocationCount {
+    location: StackString,
+    count: i64,
+}
+
 #[derive(RwebResponse)]
 #[response(description = "Get Weather History Locations")]
-struct HistoryLocationsResponse(JsonBase<Vec<StackString>, Error>);
+struct HistoryLocationsResponse(JsonBase<Vec<LocationCount>, Error>);
 
 #[derive(Deserialize, Schema)]
 struct OffsetLocation {
@@ -320,6 +326,7 @@ pub async fn locations(
         WeatherDataDB::get_locations(pool, query.offset, query.limit)
             .await
             .map_err(Into::<Error>::into)?
+            .map_ok(|(location, count)| LocationCount { location, count })
             .try_collect()
             .await
             .map_err(Into::<Error>::into)?
