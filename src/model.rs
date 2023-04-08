@@ -253,9 +253,16 @@ impl WeatherDataDB {
         pool: &PgPool,
         offset: Option<usize>,
         limit: Option<usize>,
-    ) -> Result<impl Stream<Item = Result<StackString, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<(StackString, i64), Error>>, Error> {
         let conn = pool.get().await?;
-        let mut query = format_sstr!("SELECT distinct location_name FROM weather_data ORDER BY 1");
+        let mut query = format_sstr!(
+            r#"
+                SELECT location_name, count(*) as count
+                FROM weather_data
+                GROUP BY 1
+                ORDER BY 2 DESC
+            "#
+        );
         if let Some(offset) = offset {
             query.push_str(&format_sstr!(" OFFSET {offset}"));
         }
@@ -269,8 +276,10 @@ impl WeatherDataDB {
             .map_err(Into::into)
             .map(|s| {
                 s.map(|row| {
-                    let location: StackString = row?.try_get("location_name")?;
-                    Ok(location)
+                    let row = row?;
+                    let location: StackString = row.try_get("location_name")?;
+                    let count: i64 = row.try_get("count")?;
+                    Ok((location, count))
                 })
             })
     }
