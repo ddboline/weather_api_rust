@@ -8,12 +8,12 @@ use url::Url;
 use web_sys::window;
 
 use weather_api_common::weather_element::{
-    get_parameters, index_element, DEFAULT_LOCATION, DEFAULT_URL,
+    get_parameters, index_element, WeatherPage, DEFAULT_LOCATION, DEFAULT_URL,
 };
 
 #[cfg(target_arch = "wasm32")]
 use weather_api_common::wasm_utils::{
-    get_history, get_ip_address, get_location_from_ip, set_history,
+    get_history, get_ip_address, get_location_from_ip, get_locations, set_history,
 };
 
 fn main() {
@@ -25,7 +25,7 @@ fn main() {
 }
 
 pub fn index_component(cx: Scope) -> Element {
-    let (url_path, set_url_path) = use_state(cx, || "weather/plot.html").split();
+    let (url_path, set_url_path) = use_state(cx, || WeatherPage::Index).split();
     let (draft, set_draft) = use_state(cx, String::new).split();
     let (current_loc, set_current_loc) = use_state(cx, || None).split();
     let (search_history, set_search_history) = use_state(cx, || {
@@ -40,6 +40,8 @@ pub fn index_component(cx: Scope) -> Element {
     .split();
     let (ip_location, set_ip_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
     let (location, set_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
+    let (history_location, set_history_location) =
+        use_state(cx, || String::from("Astoria")).split();
 
     let mut origin = DEFAULT_URL.to_string();
     let mut url: Option<Url> = None;
@@ -93,11 +95,17 @@ pub fn index_component(cx: Scope) -> Element {
     let location_future = use_future(cx, (), |_| async move {
         #[cfg(target_arch = "wasm32")]
         if let Ok(ip) = get_ip_address().await {
-            debug!("ip {ip}");
             if let Ok(loc) = get_location_from_ip(ip).await {
-                debug!("get location {loc:?}");
                 return Some(loc);
             }
+        }
+        None
+    });
+
+    let history_locaton_future = use_future(cx, (), |_| async move {
+        #[cfg(target_arch = "wasm32")]
+        if let Ok(locations) = get_locations().await {
+            return Some(locations);
         }
         None
     });
@@ -117,6 +125,9 @@ pub fn index_component(cx: Scope) -> Element {
         search_history,
         set_search_history,
         location_future,
+        history_location,
+        set_history_location,
+        history_locaton_future,
         set_current_loc,
     ))
 }
