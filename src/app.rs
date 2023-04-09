@@ -46,11 +46,12 @@ pub async fn get_weather_data(
     let loc = if let Some(pool) = pool {
         if let Some(l) = WeatherLocationCache::from_weather_location_cache(pool, loc).await? {
             l.get_lat_lon_location()?
-        } else {
-            let l = WeatherLocationCache::from_weather_location(api, loc).await?;
+        } else if let Ok(l) = WeatherLocationCache::from_weather_location(api, loc).await {
             info!("create_cache {l:?}");
             l.insert(pool).await?;
             l.get_lat_lon_location()?
+        } else {
+            loc.clone()
         }
     } else {
         loc.to_lat_lon(api).await?
@@ -223,15 +224,15 @@ mod test {
         });
         tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
-        let url = format_sstr!("http://localhost:{test_port}/weather/weather?zip=55427");
+        let url = format_sstr!("http://localhost:{test_port}/weather/weather?zip=55416");
         let weather: WeatherData = reqwest::get(url.as_str())
             .await?
             .error_for_status()?
             .json()
             .await?;
-        assert_eq!(weather.name.as_str(), "Minneapolis");
+        assert_eq!(weather.name.as_str(), "Saint Louis Park");
 
-        let url = format_sstr!("http://localhost:{test_port}/weather/forecast?zip=55427");
+        let url = format_sstr!("http://localhost:{test_port}/weather/forecast?zip=55416");
         let forecast: WeatherForecast = reqwest::get(url.as_str())
             .await?
             .error_for_status()?
@@ -246,7 +247,7 @@ mod test {
         let expected_offset = local.offset();
         assert_eq!(city_offset, expected_offset);
 
-        let url = format_sstr!("http://localhost:{test_port}/weather/index.html?zip=55427");
+        let url = format_sstr!("http://localhost:{test_port}/weather/index.html?zip=55416");
         let text = reqwest::get(url.as_str())
             .await?
             .error_for_status()?
@@ -255,7 +256,7 @@ mod test {
         info!("{}", text);
         assert!(text.len() > 0);
 
-        let url = format_sstr!("http://localhost:{test_port}/weather/plot.html?zip=55427");
+        let url = format_sstr!("http://localhost:{test_port}/weather/plot.html?zip=55416");
         let text = reqwest::get(url.as_str())
             .await?
             .error_for_status()?
