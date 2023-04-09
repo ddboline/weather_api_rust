@@ -1,6 +1,6 @@
 use anyhow::{format_err, Error};
 use http::Method;
-use log::{debug, error};
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::net::Ipv4Addr;
 use url::Url;
@@ -13,7 +13,7 @@ use weather_util_rust::{
     weather_data::WeatherData, weather_forecast::WeatherForecast, ApiStringType,
 };
 
-use crate::WeatherEntry;
+use crate::{LocationCount, WeatherEntry};
 
 static API_ENDPOINT: &str = "https://cloud.ddboline.net/weather/";
 
@@ -29,7 +29,6 @@ pub async fn get_ip_address() -> Result<Ipv4Addr, JsValue> {
         .ok_or_else(|| JsValue::from_str("Failed to get ip"))?
         .trim()
         .to_string();
-    debug!("got resp {resp}");
     resp.parse().map_err(|e| {
         let e: JsValue = format!("{e}").into();
         e
@@ -56,7 +55,6 @@ pub async fn get_location_from_ip(ip: Ipv4Addr) -> Result<WeatherLocation, JsVal
             let e: JsValue = format!("{e}").into();
             e
         })?;
-    debug!("url {url}");
     let json = js_fetch(&url, Method::GET).await?;
     let location: Location = serde_wasm_bindgen::from_value(json)?;
     Ok(WeatherLocation::from_lat_lon(
@@ -88,7 +86,6 @@ pub async fn text_fetch(url: &Url, method: Method) -> Result<JsValue, JsValue> {
 }
 
 pub async fn get_weather_data_forecast(location: &WeatherLocation) -> WeatherEntry {
-    debug!("{location:?}");
     let weather = get_weather_data(location).await.ok();
     let forecast = get_weather_forecast(location).await.ok();
     WeatherEntry { weather, forecast }
@@ -141,4 +138,24 @@ pub fn get_history() -> Result<Vec<String>, JsValue> {
         }),
         None => Ok(vec![String::from("zip=10001")]),
     }
+}
+
+pub async fn get_locations() -> Result<Vec<LocationCount>, JsValue> {
+    let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
+    let location = window.location();
+    let host = location.host()?;
+    let protocol = location.protocol()?;
+    let url = if protocol != "https" {
+        format!("https://www.ddboline.net/weather/locations")
+    } else {
+        format!("https://{host}/weather/locations")
+    };
+    let options = vec![("offset", "0"), ("limit", "10")];
+    let url = Url::parse_with_params(&url, &options).map_err(|e| {
+        error!("error {e}");
+        let e: JsValue = format!("{e}").into();
+        e
+    })?;
+    let json = js_fetch(&url, Method::GET).await?;
+    serde_wasm_bindgen::from_value(json).map_err(Into::into)
 }
