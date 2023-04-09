@@ -3,6 +3,8 @@
 
 pub mod weather_element;
 
+use serde::{Deserialize, Serialize};
+
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_utils;
 
@@ -15,4 +17,10 @@ use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherFore
 pub struct WeatherEntry {
     pub weather: Option<WeatherData>,
     pub forecast: Option<WeatherForecast>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LocationCount {
+    pub location: String,
+    pub count: i64,
 }
