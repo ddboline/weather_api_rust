@@ -145,7 +145,7 @@ pub async fn get_locations() -> Result<Vec<LocationCount>, JsValue> {
     let location = window.location();
     let host = location.host()?;
     let protocol = location.protocol()?;
-    let url = if protocol != "https" {
+    let url = if protocol != "https:" {
         format!("https://www.ddboline.net/weather/locations")
     } else {
         format!("https://{host}/weather/locations")
