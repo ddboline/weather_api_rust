@@ -836,6 +836,12 @@ pub fn index_element<'a>(
             } else {
                 Vec::new()
             };
+            if !locations.contains(&history_location) {
+                if let Some(loc) = locations.first() {
+                    set_history_location.modify(|_| loc.to_string());
+                    set_history_location.needs_update();
+                }
+            }
             Some(rsx! {
                 button {
                     id: "current-value",
