@@ -7,7 +7,7 @@ use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use futures_util::lock::Mutex;
 use keyboard_types::Key;
 use std::{collections::HashMap, fmt, fmt::Write, sync::Arc};
-use time::{macros::format_description, UtcOffset};
+use time::{format_description::FormatItem, macros::format_description, Date, UtcOffset};
 use url::Url;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -35,6 +35,10 @@ static BASE_URL: Option<&str> = Some(DEFAULT_URL);
 
 #[cfg(not(debug_assertions))]
 static BASE_URL: Option<&str> = None;
+
+static DATETIME_FORMAT: &'static [FormatItem<'static>] =
+    format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]");
+static DATE_FORMAT: &'static [FormatItem<'static>] = format_description!("[year]-[month]-[day]");
 
 #[derive(Debug, Clone, Copy)]
 pub enum WeatherPage {
@@ -218,9 +222,7 @@ pub fn get_forecast_plots(
         .list
         .iter()
         .map(|entry| {
-            let date_str = entry.dt.to_offset(fo).format(format_description!(
-                "[year]-[month]-[day]T[hour]:[minute]:[second]"
-            ))?;
+            let date_str = entry.dt.to_offset(fo).format(DATETIME_FORMAT)?;
             let temp = entry.main.temp.fahrenheit();
             Ok((date_str, temp))
         })
@@ -253,9 +255,7 @@ pub fn get_forecast_plots(
             } else {
                 Precipitation::default()
             };
-            let dt_str = entry.dt.to_offset(fo).format(format_description!(
-                "[year]-[month]-[day]T[hour]:[minute]:[second]"
-            ))?;
+            let dt_str = entry.dt.to_offset(fo).format(DATETIME_FORMAT)?;
             Ok((dt_str, (rain + snow).inches()))
         })
         .collect::<Result<Vec<_>, Error>>()?;
@@ -752,6 +752,10 @@ pub fn index_element<'a>(
     set_history_location: &'a UseState<String>,
     history_location_future: &'a UseFuture<Option<Vec<LocationCount>>>,
     set_current_loc: &'a UseState<Option<String>>,
+    start_date: &'a Option<Date>,
+    set_start_date: &'a UseState<Option<Date>>,
+    end_date: &'a Option<Date>,
+    set_end_date: &'a UseState<Option<Date>>,
 ) -> LazyNodes<'a, 'a> {
     let base_url = BASE_URL.unwrap_or(&origin);
     let url: Url = format!("{base_url}/{url_path}")
@@ -763,7 +767,16 @@ pub fn index_element<'a>(
         }
         WeatherPage::Wasm => url,
         WeatherPage::HistoryPlot => {
-            Url::parse_with_params(url.as_str(), &[("name", history_location)]).unwrap_or(url)
+            let mut options = vec![("name", history_location)];
+            let start_date = start_date.map(|d| format!("{d}"));
+            let end_date = end_date.map(|d| format!("{d}"));
+            if let Some(start_date) = &start_date {
+                options.push(("start_time", start_date));
+            }
+            if let Some(end_date) = &end_date {
+                options.push(("end_time", end_date));
+            }
+            Url::parse_with_params(url.as_str(), &options).unwrap_or(url)
         }
     };
     if let Some(Some(loc)) = location_future.value() {
@@ -879,6 +892,26 @@ pub fn index_element<'a>(
                         }
                     }),
                 }
+                input {
+                    "type": "date",
+                    name: "start-date",
+                    onchange: move |x| {
+                        if let Ok(date) = Date::parse(&x.data.value, DATE_FORMAT) {
+                            set_start_date.modify(|_| Some(date));
+                            set_start_date.needs_update();
+                        }
+                    }
+                }
+                input {
+                    "type": "date",
+                    name: "end-date",
+                    onchange: move |x| {
+                        if let Ok(date) = Date::parse(&x.data.value, DATE_FORMAT) {
+                            set_end_date.modify(|_| Some(date));
+                            set_end_date.needs_update();
+                        }
+                    }
+                }
             })
         }
         WeatherPage::Wasm => None,
@@ -991,9 +1024,7 @@ pub fn get_history_plots(history: &[WeatherData]) -> Result<Vec<PlotData>, Error
     let forecast_data = history
         .iter()
         .map(|w| {
-            let date_str = w.dt.to_offset(fo).format(format_description!(
-                "[year]-[month]-[day]T[hour]:[minute]:[second]"
-            ))?;
+            let date_str = w.dt.to_offset(fo).format(DATETIME_FORMAT)?;
             let temp = w.main.temp.fahrenheit();
             Ok((date_str, temp))
         })
@@ -1024,9 +1055,7 @@ pub fn get_history_plots(history: &[WeatherData]) -> Result<Vec<PlotData>, Error
             } else {
                 Precipitation::default()
             };
-            let dt_str = w.dt.to_offset(fo).format(format_description!(
-                "[year]-[month]-[day]T[hour]:[minute]:[second]"
-            ))?;
+            let dt_str = w.dt.to_offset(fo).format(DATETIME_FORMAT)?;
             Ok((dt_str, (rain + snow).inches()))
         })
         .collect::<Result<Vec<_>, Error>>()?;
