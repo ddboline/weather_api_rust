@@ -1,6 +1,7 @@
 #![allow(clippy::unused_peekable)]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_sign_loss)]
+#![allow(clippy::too_many_lines)]
 
 use dioxus::prelude::{use_future, use_state, Element, Scope};
 use log::debug;
@@ -42,6 +43,8 @@ pub fn index_component(cx: Scope) -> Element {
     let (location, set_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
     let (history_location, set_history_location) =
         use_state(cx, || String::from("Astoria")).split();
+    let (start_date, set_start_date) = use_state(cx, || None).split();
+    let (end_date, set_end_date) = use_state(cx, || None).split();
 
     let mut origin = DEFAULT_URL.to_string();
     let mut url: Option<Url> = None;
@@ -129,5 +132,9 @@ pub fn index_component(cx: Scope) -> Element {
         set_history_location,
         history_locaton_future,
         set_current_loc,
+        start_date,
+        set_start_date,
+        end_date,
+        set_end_date,
     ))
 }
