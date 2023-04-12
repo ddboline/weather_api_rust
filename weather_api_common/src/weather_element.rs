@@ -36,9 +36,9 @@ static BASE_URL: Option<&str> = Some(DEFAULT_URL);
 #[cfg(not(debug_assertions))]
 static BASE_URL: Option<&str> = None;
 
-static DATETIME_FORMAT: &'static [FormatItem<'static>] =
+static DATETIME_FORMAT: &[FormatItem<'static>] =
     format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]");
-static DATE_FORMAT: &'static [FormatItem<'static>] = format_description!("[year]-[month]-[day]");
+static DATE_FORMAT: &[FormatItem<'static>] = format_description!("[year]-[month]-[day]");
 
 #[derive(Debug, Clone, Copy)]
 pub enum WeatherPage {
