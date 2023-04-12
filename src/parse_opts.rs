@@ -101,7 +101,7 @@ impl ParseOpts {
                 let results: Vec<_> = WeatherDataDB::get_by_name_dates(
                     &pool,
                     None,
-                    server.as_ref().map(|s| s.as_str()),
+                    server.as_ref().map(StackString::as_str),
                     start_time.map(Into::into),
                     end_time.map(Into::into),
                 )
