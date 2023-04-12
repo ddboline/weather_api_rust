@@ -26,7 +26,7 @@ use super::{
     pgpool::PgPool,
     routes::{
         forecast, forecast_plot, frontpage, geo_direct, geo_reverse, geo_zip, history,
-        history_plot, locations, statistics, timeseries_js, weather,
+        history_plot, history_update, locations, statistics, timeseries_js, weather,
     },
 };
 
@@ -107,6 +107,7 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
     let statistics_path = statistics().boxed();
     let locations_path = locations(app.clone()).boxed();
     let history_path = history(app.clone()).boxed();
+    let history_update_path = history_update(app.clone()).boxed();
     let history_plot_path = history_plot(app.clone()).boxed();
     let geo_direct_path = geo_direct(app.clone()).boxed();
     let geo_zip_path = geo_zip(app.clone()).boxed();
@@ -120,6 +121,7 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
         .or(timeseries_js_path)
         .or(locations_path)
         .or(history_path)
+        .or(history_update_path)
         .or(history_plot_path)
         .or(geo_direct_path)
         .or(geo_zip_path)
@@ -205,6 +207,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
 mod test {
     use anyhow::Error;
     use log::info;
+    use serde::Serialize;
     use stack_string::format_sstr;
     use std::convert::TryInto;
     use time::UtcOffset;
@@ -212,20 +215,27 @@ mod test {
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
-    use crate::{app::run_app, config::Config, routes::StatisticsObject};
+    use crate::{app::run_app, config::Config, routes::StatisticsObject, WeatherDataDBWrapper};
 
     #[tokio::test]
     async fn test_run_app() -> Result<(), Error> {
         let config = Config::init_config(None)?;
         let test_port = 12345;
-        tokio::task::spawn(async move {
-            env_logger::init();
-            run_app(&config, test_port).await.unwrap()
+        tokio::task::spawn({
+            let config = config.clone();
+            async move {
+                env_logger::init();
+                run_app(&config, test_port).await.unwrap()
+            }
         });
         tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
+        let client = reqwest::Client::new();
+
         let url = format_sstr!("http://localhost:{test_port}/weather/weather?zip=55416");
-        let weather: WeatherData = reqwest::get(url.as_str())
+        let weather: WeatherData = client
+            .get(url.as_str())
+            .send()
             .await?
             .error_for_status()?
             .json()
@@ -233,7 +243,9 @@ mod test {
         assert_eq!(weather.name.as_str(), "Saint Louis Park");
 
         let url = format_sstr!("http://localhost:{test_port}/weather/forecast?zip=55416");
-        let forecast: WeatherForecast = reqwest::get(url.as_str())
+        let forecast: WeatherForecast = client
+            .get(url.as_str())
+            .send()
             .await?
             .error_for_status()?
             .json()
@@ -248,7 +260,9 @@ mod test {
         assert_eq!(city_offset, expected_offset);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/index.html?zip=55416");
-        let text = reqwest::get(url.as_str())
+        let text = client
+            .get(url.as_str())
+            .send()
             .await?
             .error_for_status()?
             .text()
@@ -257,7 +271,9 @@ mod test {
         assert!(text.len() > 0);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/plot.html?zip=55416");
-        let text = reqwest::get(url.as_str())
+        let text = client
+            .get(url.as_str())
+            .send()
             .await?
             .error_for_status()?
             .text()
@@ -266,7 +282,9 @@ mod test {
         assert!(text.len() > 0);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/statistics");
-        let stats: StatisticsObject = reqwest::get(url.as_str())
+        let stats: StatisticsObject = client
+            .get(url.as_str())
+            .send()
             .await?
             .error_for_status()?
             .json()
@@ -278,7 +296,9 @@ mod test {
         assert!(stats.forecast_cache_misses >= 1);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/weather?q=Minneapolis");
-        let weather: WeatherData = reqwest::get(url.as_str())
+        let weather: WeatherData = client
+            .get(url.as_str())
+            .send()
             .await?
             .error_for_status()?
             .json()
@@ -286,7 +306,9 @@ mod test {
         assert_eq!(weather.name.as_str(), "Minneapolis");
 
         let url = format_sstr!("http://localhost:{test_port}/weather/weather?lat=0&lon=0");
-        let weather: WeatherData = reqwest::get(url.as_str())
+        let weather: WeatherData = client
+            .get(url.as_str())
+            .send()
             .await?
             .error_for_status()?
             .json()
@@ -294,6 +316,33 @@ mod test {
         assert_eq!(weather.coord.lat, 0.0.try_into()?);
         assert_eq!(weather.coord.lon, 0.0.try_into()?);
 
+        let url = format_sstr!("http://localhost:{test_port}/weather/history?zip=11106&appid={}&start_time=2023-04-01&end_time=2023-04-02", &config.api_key);
+        let result: Vec<WeatherDataDBWrapper> = client
+            .get(url.as_str())
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert!(result.len() > 0);
+
+        #[derive(Serialize)]
+        struct HistoryUpdateRequest {
+            updates: Vec<WeatherDataDBWrapper>,
+        }
+
+        let url = format_sstr!(
+            "http://localhost:{test_port}/weather/history?appid={}",
+            &config.api_key
+        );
+        let result: u64 = client
+            .post(url.as_str())
+            .json(&HistoryUpdateRequest { updates: result })
+            .send()
+            .await?
+            .json()
+            .await?;
+        assert_eq!(result, 0);
         Ok(())
     }
 }
