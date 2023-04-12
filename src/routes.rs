@@ -1,9 +1,9 @@
 use cached::Cached;
 use dioxus::prelude::VirtualDom;
-use futures::TryStreamExt;
+use futures::{future::try_join_all, TryStreamExt};
 use isocountry::CountryCode;
 use lazy_static::lazy_static;
-use rweb::{get, Query, Rejection, Schema};
+use rweb::{get, post, Json, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
 use std::{collections::HashMap, convert::Infallible};
@@ -372,6 +372,42 @@ pub async fn history(
         Vec::new()
     };
     Ok(JsonBase::new(history).into())
+}
+
+#[derive(Serialize, Deserialize, Schema)]
+struct HistoryUpdateRequest {
+    updates: Vec<WeatherDataDBWrapper>,
+}
+
+#[derive(RwebResponse)]
+#[response(description = "Update Weather History")]
+struct HistoryUpdateResponse(JsonBase<u64, Error>);
+
+#[post("/weather/history")]
+pub async fn history_update(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+    payload: Json<HistoryUpdateRequest>,
+) -> WarpResult<HistoryUpdateResponse> {
+    let payload = payload.into_inner();
+    let query = query.into_inner();
+    let appid = query
+        .appid
+        .ok_or_else(|| Error::BadRequest("Missing appid".into()))?;
+    if appid != data.config.api_key {
+        return Err(Error::BadRequest("Incorrect appid".into()).into());
+    }
+    let inserts = if let Some(pool) = &data.pool {
+        let futures = payload.updates.into_iter().map(|update| async move {
+            let entry: WeatherDataDB = update.into();
+            entry.insert(pool).await.map_err(Into::<Error>::into)
+        });
+        let results: Result<Vec<u64>, Error> = try_join_all(futures).await;
+        results?.into_iter().sum()
+    } else {
+        0
+    };
+    Ok(JsonBase::new(inserts).into())
 }
 
 #[derive(Deserialize, Schema)]
