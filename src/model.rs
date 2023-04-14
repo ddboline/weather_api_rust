@@ -20,6 +20,23 @@ use weather_util_rust::{
 
 use crate::pgpool::PgPool;
 
+#[derive(FromSqlRow, Clone, Debug)]
+pub struct AuthorizedUsers {
+    pub email: StackString,
+}
+
+impl AuthorizedUsers {
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn get_authorized_users(
+        pool: &PgPool,
+    ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
+        let query = query!("SELECT * FROM authorized_users");
+        let conn = pool.get().await?;
+        query.fetch_streaming(&conn).await.map_err(Into::into)
+    }
+}
+
 #[derive(FromSqlRow, Serialize, Deserialize, Debug, Clone)]
 pub struct WeatherDataDB {
     pub id: Uuid,

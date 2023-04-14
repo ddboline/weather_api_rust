@@ -22,6 +22,8 @@ use weather_util_rust::Error as WeatherUtilError;
 
 #[derive(Error, Debug)]
 pub enum ServiceError {
+    #[error("Unauthorized")]
+    Unauthorized,
     #[error("Internal Server Error")]
     InternalServerError,
     #[error("BadRequest: {}", _0)]

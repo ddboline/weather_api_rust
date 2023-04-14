@@ -2,7 +2,11 @@ use anyhow::Error;
 use isocountry::CountryCode;
 use serde::Deserialize;
 use stack_string::{SmallString, StackString};
-use std::{ops::Deref, path::Path, sync::Arc};
+use std::{
+    ops::Deref,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use weather_util_rust::{latitude::Latitude, longitude::Longitude};
 
@@ -38,6 +42,10 @@ pub struct ConfigInner {
     pub database_url: Option<StackString>,
     #[serde(default = "default_server")]
     pub server: StackString,
+    #[serde(default = "default_secret_path")]
+    pub secret_path: PathBuf,
+    #[serde(default = "default_secret_path")]
+    pub jwt_secret_path: PathBuf,
 }
 fn default_host() -> StackString {
     "0.0.0.0".into()
@@ -56,6 +64,12 @@ fn default_geo_path() -> StackString {
 }
 fn default_server() -> StackString {
     "N/A".into()
+}
+fn default_secret_path() -> PathBuf {
+    dirs::config_dir()
+        .unwrap()
+        .join("aws_app_rust")
+        .join("secret.bin")
 }
 
 /// Configuration struct

@@ -27,6 +27,7 @@ use crate::{
         get_weather_data, get_weather_forecast, AppState, GET_WEATHER_DATA, GET_WEATHER_FORECAST,
     },
     errors::ServiceError as Error,
+    logged_user::LoggedUser,
     model::WeatherDataDB,
     GeoLocationWrapper, WeatherDataDBWrapper, WeatherDataWrapper, WeatherForecastWrapper,
 };
@@ -353,6 +354,7 @@ struct HistoryResponse(JsonBase<Vec<WeatherDataDBWrapper>, Error>);
 pub async fn history(
     #[data] data: AppState,
     query: Query<HistoryRequest>,
+    _: LoggedUser,
 ) -> WarpResult<HistoryResponse> {
     let history = if let Some(pool) = &data.pool {
         let query = query.into_inner();
@@ -397,6 +399,7 @@ pub async fn history_update(
     #[data] data: AppState,
     query: Query<ApiOptions>,
     payload: Json<HistoryUpdateRequest>,
+    _: LoggedUser,
 ) -> WarpResult<HistoryUpdateResponse> {
     let payload = payload.into_inner();
     let query = query.into_inner();
@@ -477,4 +480,13 @@ pub async fn history_plot(
         .insert_lenth("/weather/plot.html", body.len())
         .await;
     Ok(HtmlBase::new(body).into())
+}
+
+#[derive(RwebResponse)]
+#[response(description = "Logged in User")]
+struct UserResponse(JsonBase<LoggedUser, Error>);
+
+#[get("/weather/user")]
+pub async fn user(user: LoggedUser) -> WarpResult<UserResponse> {
+    Ok(JsonBase::new(user).into())
 }

@@ -29,7 +29,7 @@ weather_api_common = {path = "weather_api_common/"}
 weather_util_rust = {version="0.16", default-features=false, features=["cli"]}
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"
-cached = "0.42"
+cached = "0.43"
 thiserror = "1.0"
 http = "0.2"
 tokio = {version="1.24", features=["full"]}
@@ -52,6 +52,7 @@ log = "0.4"
 env_logger = "0.10"
 parking_lot = "0.12"
 futures = "0.3"
+maplit = "1.0"
 uuid = { version = "1.0", features = ["serde", "v4"] }
 deadpool = {version = "0.9", features=["serde", "rt_tokio_1"]}
 deadpool-postgres = {version="0.10", features=["serde"]}
@@ -60,6 +61,7 @@ postgres-types = {version="0.2", features=["with-time-0_3", "with-uuid-1", "with
 refinery = {version="0.8", features=["tokio-postgres"]}
 postgres_query = {git = "https://github.com/ddboline/rust-postgres-query", tag = "0.3.4", features=["deadpool"]}
 clap = {version="4.0", features=["derive"]}
+authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", tag="0.10.5"}
 
 [dev-dependencies]
 reqwest = {version = "0.11", features=["cookies", "rustls-tls", "gzip", "json"], default-features=false}

@@ -14,6 +14,7 @@ pub mod config;
 pub mod country_code_wrapper;
 pub mod errors;
 pub mod latitude_wrapper;
+pub mod logged_user;
 pub mod longitude_wrapper;
 pub mod model;
 pub mod parse_opts;

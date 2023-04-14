@@ -1,4 +1,5 @@
 use anyhow::Error;
+use authorized_users::TRIGGER_DB_UPDATE;
 use cached::{proc_macro::cached, TimedSizedCache};
 use log::info;
 use rweb::{
@@ -22,11 +23,12 @@ use weather_util_rust::{
 use super::{
     config::Config,
     errors::{error_response, ServiceError},
+    logged_user::{fill_from_db, get_secrets},
     model::{WeatherDataDB, WeatherLocationCache},
     pgpool::PgPool,
     routes::{
         forecast, forecast_plot, frontpage, geo_direct, geo_reverse, geo_zip, history,
-        history_plot, history_update, locations, statistics, timeseries_js, weather,
+        history_plot, history_update, locations, statistics, timeseries_js, user, weather,
     },
 };
 
@@ -93,6 +95,7 @@ pub struct AppState {
 /// Returns error if Config init fails, or if `run_app` fails
 pub async fn start_app() -> Result<(), Error> {
     let config = Config::init_config(None)?;
+    get_secrets(&config.secret_path, &config.jwt_secret_path).await?;
 
     let port = config.port;
     run_app(&config, port).await
@@ -112,6 +115,7 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
     let geo_direct_path = geo_direct(app.clone()).boxed();
     let geo_zip_path = geo_zip(app.clone()).boxed();
     let geo_reverse_path = geo_reverse(app.clone()).boxed();
+    let user_path = user().boxed();
 
     frontpage_path
         .or(forecast_plot_path)
@@ -126,6 +130,7 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
         .or(geo_direct_path)
         .or(geo_zip_path)
         .or(geo_reverse_path)
+        .or(user_path)
         .boxed()
 }
 
@@ -141,7 +146,21 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         config: config.clone(),
         pool: pool.clone(),
     };
-    let mut task = None;
+    let mut record_task = None;
+    let mut db_task = None;
+
+    if let Some(pool) = &pool {
+        async fn update_db(pool: PgPool) {
+            let mut i = interval(Duration::from_secs(60));
+            loop {
+                fill_from_db(&pool).await.unwrap_or(());
+                i.tick().await;
+            }
+        }
+
+        TRIGGER_DB_UPDATE.set();
+        db_task.replace(spawn(update_db(pool.clone())));
+    }
 
     if let Some(locations_to_record) = app.config.locations_to_record.as_ref() {
         async fn update_db(app: AppState, locations: Vec<WeatherLocation>) {
@@ -159,7 +178,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         let locations: Vec<_> = locations_to_record.split(';').map(get_parameters).collect();
 
         let app = app.clone();
-        task.replace(spawn(update_db(app, locations)));
+        record_task.replace(spawn(update_db(app, locations)));
     }
 
     let (spec, api_path) = openapi::spec()
@@ -220,6 +239,7 @@ mod test {
     #[tokio::test]
     async fn test_run_app() -> Result<(), Error> {
         let config = Config::init_config(None)?;
+
         let test_port = 12345;
         tokio::task::spawn({
             let config = config.clone();
