@@ -12,6 +12,7 @@ pub mod api_options;
 pub mod app;
 pub mod config;
 pub mod country_code_wrapper;
+pub mod date_time_wrapper;
 pub mod errors;
 pub mod latitude_wrapper;
 pub mod logged_user;
@@ -20,7 +21,6 @@ pub mod model;
 pub mod parse_opts;
 pub mod pgpool;
 pub mod routes;
-pub mod date_time_wrapper;
 
 use derive_more::{From, Into};
 use rweb::Schema;

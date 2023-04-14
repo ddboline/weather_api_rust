@@ -18,8 +18,7 @@ use weather_util_rust::{
     weather_data::{Coord, Rain, Snow, Sys, WeatherCond, WeatherData, WeatherMain, Wind},
 };
 
-use crate::pgpool::PgPool;
-use crate::date_time_wrapper::DateTimeWrapper;
+use crate::{date_time_wrapper::DateTimeWrapper, pgpool::PgPool};
 
 #[derive(FromSqlRow, Clone, Debug)]
 pub struct AuthorizedUsers {
