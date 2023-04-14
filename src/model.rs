@@ -19,6 +19,7 @@ use weather_util_rust::{
 };
 
 use crate::pgpool::PgPool;
+use crate::date_time_wrapper::DateTimeWrapper;
 
 #[derive(FromSqlRow, Clone, Debug)]
 pub struct AuthorizedUsers {
@@ -41,7 +42,7 @@ impl AuthorizedUsers {
 pub struct WeatherDataDB {
     pub id: Uuid,
     dt: i32,
-    created_at: OffsetDateTime,
+    created_at: DateTimeWrapper,
     location_name: StackString,
     latitude: f64,
     longitude: f64,
@@ -57,8 +58,8 @@ pub struct WeatherDataDB {
     wind_speed: f64,
     wind_direction: Option<f64>,
     country: StackString,
-    sunrise: OffsetDateTime,
-    sunset: OffsetDateTime,
+    sunrise: DateTimeWrapper,
+    sunset: DateTimeWrapper,
     timezone: i32,
     server: StackString,
 }
@@ -75,7 +76,7 @@ impl From<WeatherData> for WeatherDataDB {
         Self {
             id: Uuid::new_v4(),
             dt: value.dt.unix_timestamp() as i32,
-            created_at: value.dt,
+            created_at: value.dt.into(),
             location_name: value.name.into(),
             latitude: value.coord.lat.into(),
             longitude: value.coord.lon.into(),
@@ -95,8 +96,8 @@ impl From<WeatherData> for WeatherDataDB {
             wind_speed: value.wind.speed.mps(),
             wind_direction: value.wind.deg.map(|d| d.deg()),
             country: value.sys.country.map_or("".into(), Into::into),
-            sunrise: value.sys.sunrise,
-            sunset: value.sys.sunset,
+            sunrise: value.sys.sunrise.into(),
+            sunset: value.sys.sunset.into(),
             timezone: tz,
             server: "N/A".into(),
         }
@@ -138,11 +139,11 @@ impl From<WeatherDataDB> for WeatherData {
                 speed: value.wind_speed.try_into().unwrap(),
                 deg: value.wind_direction.map(Direction::from_deg),
             },
-            dt: value.created_at,
+            dt: value.created_at.into(),
             sys: Sys {
                 country: Some(value.country.into()),
-                sunrise: value.sunrise,
-                sunset: value.sunset,
+                sunrise: value.sunrise.into(),
+                sunset: value.sunset.into(),
             },
             timezone: value.timezone.try_into().unwrap(),
             name: value.location_name.into(),
