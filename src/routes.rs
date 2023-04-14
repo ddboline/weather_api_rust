@@ -7,6 +7,7 @@ use rweb::{get, post, Json, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
 use std::{collections::HashMap, convert::Infallible};
+use time::{Date, Duration, OffsetDateTime};
 use tokio::sync::RwLock;
 
 use rweb_helper::{
@@ -355,11 +356,19 @@ pub async fn history(
 ) -> WarpResult<HistoryResponse> {
     let history = if let Some(pool) = &data.pool {
         let query = query.into_inner();
+        let server = query
+            .server
+            .as_ref()
+            .map_or(data.config.server.as_str(), StackString::as_str);
+        let start_time: Date = query.start_time.map_or(
+            (OffsetDateTime::now_utc() - Duration::days(7)).date(),
+            Into::into,
+        );
         WeatherDataDB::get_by_name_dates(
             pool,
             query.name.as_ref().map(StackString::as_str),
-            query.server.as_ref().map(StackString::as_str),
-            query.start_time.map(Into::into),
+            Some(server),
+            Some(start_time),
             query.end_time.map(Into::into),
         )
         .await
