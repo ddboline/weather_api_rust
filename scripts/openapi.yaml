@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: Weather App
   description: Web App to disply weather from openweatherapi
-  version: 0.6.10
+  version: 0.7.20
 paths:
   /weather/index.html:
     get:
@@ -40,7 +40,7 @@ paths:
           format: longitude
           nullable: true
           type: number
-      - name: APPID
+      - name: appid
         in: query
         required: false
         schema:
@@ -97,7 +97,7 @@ paths:
           format: longitude
           nullable: true
           type: number
-      - name: APPID
+      - name: appid
         in: query
         required: false
         schema:
@@ -163,7 +163,7 @@ paths:
           format: longitude
           nullable: true
           type: number
-      - name: APPID
+      - name: appid
         in: query
         required: false
         schema:
@@ -261,12 +261,20 @@ paths:
                         description: Rain (mm over previous 3 hours)
                         nullable: true
                         type: number
+                      one_hour:
+                        description: Rain (mm over previous hour)
+                        nullable: true
+                        type: number
                     nullable: true
                     type: object
                   snow:
                     properties:
                       three_hour:
                         description: Snow (mm over previous 3 hours)
+                        nullable: true
+                        type: number
+                      one_hour:
+                        description: Rain (mm over previous hour)
                         nullable: true
                         type: number
                     nullable: true
@@ -353,7 +361,7 @@ paths:
           format: longitude
           nullable: true
           type: number
-      - name: APPID
+      - name: appid
         in: query
         required: false
         schema:
@@ -435,12 +443,20 @@ paths:
                               description: Rain (mm over previous 3 hours)
                               nullable: true
                               type: number
+                            one_hour:
+                              description: Rain (mm over previous hour)
+                              nullable: true
+                              type: number
                           nullable: true
                           type: object
                         snow:
                           properties:
                             three_hour:
                               description: Snow (mm over previous 3 hours)
+                              nullable: true
+                              type: number
+                            one_hour:
+                              description: Rain (mm over previous hour)
                               nullable: true
                               type: number
                           nullable: true
@@ -515,6 +531,543 @@ paths:
                 - forecast_cache_hits
                 - forecast_cache_misses
                 - weather_string_length_map
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal Server Error
+  /weather/locations:
+    get:
+      parameters:
+      - name: offset
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: integer
+          minimum: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: integer
+          minimum: 0
+      responses:
+        '200':
+          description: Get Weather History Locations
+          content:
+            application/json:
+              schema:
+                items:
+                  properties:
+                    location:
+                      type: string
+                    count:
+                      type: integer
+                  type: object
+                  required:
+                  - location
+                  - count
+                type: array
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal Server Error
+  /weather/history:
+    get:
+      parameters:
+      - name: name
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: server
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          format: date
+          nullable: true
+          type: string
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          format: date
+          nullable: true
+          type: string
+      responses:
+        '200':
+          description: Get Weather History
+          content:
+            application/json:
+              schema:
+                items:
+                  properties:
+                    id:
+                      format: uuid
+                      type: string
+                    dt:
+                      type: integer
+                    created_at:
+                      format: date-time
+                      type: string
+                    location_name:
+                      type: string
+                    latitude:
+                      type: number
+                    longitude:
+                      type: number
+                    condition:
+                      type: string
+                    temperature:
+                      type: number
+                    temperature_minimum:
+                      type: number
+                    temperature_maximum:
+                      type: number
+                    pressure:
+                      type: number
+                    humidity:
+                      type: integer
+                    visibility:
+                      nullable: true
+                      type: number
+                    rain:
+                      nullable: true
+                      type: number
+                    snow:
+                      nullable: true
+                      type: number
+                    wind_speed:
+                      type: number
+                    wind_direction:
+                      nullable: true
+                      type: number
+                    country:
+                      type: string
+                    sunrise:
+                      format: date-time
+                      type: string
+                    sunset:
+                      format: date-time
+                      type: string
+                    timezone:
+                      type: integer
+                    server:
+                      type: string
+                  type: object
+                  required:
+                  - id
+                  - dt
+                  - created_at
+                  - location_name
+                  - latitude
+                  - longitude
+                  - condition
+                  - temperature
+                  - temperature_minimum
+                  - temperature_maximum
+                  - pressure
+                  - humidity
+                  - wind_speed
+                  - country
+                  - sunrise
+                  - sunset
+                  - timezone
+                  - server
+                type: array
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal Server Error
+    post:
+      parameters:
+      - name: zip
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: integer
+          minimum: 0
+      - name: country_code
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: lat
+        in: query
+        required: false
+        schema:
+          format: latitude
+          nullable: true
+          type: number
+      - name: lon
+        in: query
+        required: false
+        schema:
+          format: longitude
+          nullable: true
+          type: number
+      - name: appid
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                updates:
+                  items:
+                    properties:
+                      id:
+                        format: uuid
+                        type: string
+                      dt:
+                        type: integer
+                      created_at:
+                        format: date-time
+                        type: string
+                      location_name:
+                        type: string
+                      latitude:
+                        type: number
+                      longitude:
+                        type: number
+                      condition:
+                        type: string
+                      temperature:
+                        type: number
+                      temperature_minimum:
+                        type: number
+                      temperature_maximum:
+                        type: number
+                      pressure:
+                        type: number
+                      humidity:
+                        type: integer
+                      visibility:
+                        nullable: true
+                        type: number
+                      rain:
+                        nullable: true
+                        type: number
+                      snow:
+                        nullable: true
+                        type: number
+                      wind_speed:
+                        type: number
+                      wind_direction:
+                        nullable: true
+                        type: number
+                      country:
+                        type: string
+                      sunrise:
+                        format: date-time
+                        type: string
+                      sunset:
+                        format: date-time
+                        type: string
+                      timezone:
+                        type: integer
+                      server:
+                        type: string
+                    type: object
+                    required:
+                    - id
+                    - dt
+                    - created_at
+                    - location_name
+                    - latitude
+                    - longitude
+                    - condition
+                    - temperature
+                    - temperature_minimum
+                    - temperature_maximum
+                    - pressure
+                    - humidity
+                    - wind_speed
+                    - country
+                    - sunrise
+                    - sunset
+                    - timezone
+                    - server
+                  type: array
+              type: object
+              required:
+              - updates
+        required: true
+      responses:
+        '200':
+          description: Update Weather History
+          content:
+            application/json:
+              schema:
+                type: integer
+                minimum: 0
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal Server Error
+  /weather/history_plot.html:
+    get:
+      parameters:
+      - name: name
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: server
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          format: date
+          nullable: true
+          type: string
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          format: date
+          nullable: true
+          type: string
+      responses:
+        '200':
+          description: Show Plot of Historical Weather
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal Server Error
+  /weather/direct:
+    get:
+      parameters:
+      - name: zip
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: integer
+          minimum: 0
+      - name: country_code
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: lat
+        in: query
+        required: false
+        schema:
+          format: latitude
+          nullable: true
+          type: number
+      - name: lon
+        in: query
+        required: false
+        schema:
+          format: longitude
+          nullable: true
+          type: number
+      - name: appid
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      responses:
+        '200':
+          description: Direct Geo Location
+          content:
+            application/json:
+              schema:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    lat:
+                      type: number
+                    lon:
+                      type: number
+                    country:
+                      type: string
+                    zip:
+                      nullable: true
+                      type: string
+                  type: object
+                  required:
+                  - name
+                  - lat
+                  - lon
+                  - country
+                type: array
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal Server Error
+  /weather/zip:
+    get:
+      parameters:
+      - name: zip
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Zip Geo Location
+          content:
+            application/json:
+              schema:
+                properties:
+                  name:
+                    type: string
+                  lat:
+                    type: number
+                  lon:
+                    type: number
+                  country:
+                    type: string
+                  zip:
+                    nullable: true
+                    type: string
+                type: object
+                required:
+                - name
+                - lat
+                - lon
+                - country
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal Server Error
+  /weather/reverse:
+    get:
+      parameters:
+      - name: zip
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: integer
+          minimum: 0
+      - name: country_code
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: lat
+        in: query
+        required: false
+        schema:
+          format: latitude
+          nullable: true
+          type: number
+      - name: lon
+        in: query
+        required: false
+        schema:
+          format: longitude
+          nullable: true
+          type: number
+      - name: appid
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      responses:
+        '200':
+          description: Direct Geo Location
+          content:
+            application/json:
+              schema:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    lat:
+                      type: number
+                    lon:
+                      type: number
+                    country:
+                      type: string
+                    zip:
+                      nullable: true
+                      type: string
+                  type: object
+                  required:
+                  - name
+                  - lat
+                  - lon
+                  - country
+                type: array
         '400':
           description: Bad Request
         '404':
