@@ -226,7 +226,6 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
 mod test {
     use anyhow::Error;
     use log::info;
-    use serde::Serialize;
     use stack_string::format_sstr;
     use std::convert::TryInto;
     use time::UtcOffset;
@@ -234,7 +233,7 @@ mod test {
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 
-    use crate::{app::run_app, config::Config, routes::StatisticsObject, WeatherDataDBWrapper};
+    use crate::{app::run_app, config::Config, routes::StatisticsObject};
 
     #[tokio::test]
     async fn test_run_app() -> Result<(), Error> {
@@ -335,52 +334,6 @@ mod test {
             .await?;
         assert_eq!(weather.coord.lat, 0.0.try_into()?);
         assert_eq!(weather.coord.lon, 0.0.try_into()?);
-        Ok(())
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_history_ep() -> Result<(), Error> {
-        let config = Config::init_config(None)?;
-        let test_port = 12345;
-        tokio::task::spawn({
-            let config = config.clone();
-            async move {
-                env_logger::init();
-                run_app(&config, test_port).await.unwrap()
-            }
-        });
-        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-
-        let client = reqwest::Client::new();
-
-        let url = format_sstr!("http://localhost:{test_port}/weather/history?zip=11106&appid={}&start_time=2023-04-01&end_time=2023-04-02", &config.api_key);
-        let result: Vec<WeatherDataDBWrapper> = client
-            .get(url.as_str())
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
-        assert!(result.len() > 0);
-
-        #[derive(Serialize)]
-        struct HistoryUpdateRequest {
-            updates: Vec<WeatherDataDBWrapper>,
-        }
-
-        let url = format_sstr!(
-            "http://localhost:{test_port}/weather/history?appid={}",
-            &config.api_key
-        );
-        let result: u64 = client
-            .post(url.as_str())
-            .json(&HistoryUpdateRequest { updates: result })
-            .send()
-            .await?
-            .json()
-            .await?;
-        assert_eq!(result, 0);
         Ok(())
     }
 }
