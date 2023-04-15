@@ -33,6 +33,8 @@ pub enum ParseOpts {
         #[clap(short, long)]
         /// Input file (if missinge will read from stdin)
         filepath: Option<PathBuf>,
+        #[clap(short, long)]
+        table: Option<StackString>,
     },
     /// Export history
     Export {
@@ -47,6 +49,8 @@ pub enum ParseOpts {
         #[clap(short, long)]
         /// Output file (if missinge will read from stdin)
         filepath: Option<PathBuf>,
+        #[clap(short, long)]
+        table: Option<StackString>,
     },
 }
 
@@ -69,7 +73,7 @@ impl ParseOpts {
             Self::Daemon => {
                 tokio::spawn(async move { start_app().await }).await??;
             }
-            Self::Import { filepath } => {
+            Self::Import { filepath, table: _ } => {
                 let db_url = config.database_url.as_ref().unwrap();
                 let pool = PgPool::new(db_url);
 
@@ -95,6 +99,7 @@ impl ParseOpts {
                 start_time,
                 end_time,
                 filepath,
+                table: _,
             } => {
                 let db_url = config.database_url.as_ref().unwrap();
                 let pool = PgPool::new(db_url);
