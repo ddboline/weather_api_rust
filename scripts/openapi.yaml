@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: Weather App
   description: Web App to disply weather from openweatherapi
-  version: 0.7.20
+  version: 0.7.25
 paths:
   /weather/index.html:
     get:
@@ -1068,6 +1068,38 @@ paths:
                   - lon
                   - country
                 type: array
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal Server Error
+  /weather/user:
+    get:
+      responses:
+        '200':
+          description: Logged in User
+          content:
+            application/json:
+              schema:
+                properties:
+                  email:
+                    description: Email Address
+                    type: string
+                  session:
+                    description: Session Id
+                    format: uuid
+                    type: string
+                  secret_key:
+                    description: Secret Key
+                    type: string
+                type: object
+                required:
+                - email
+                - session
+                - secret_key
         '400':
           description: Bad Request
         '404':

@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.7.24"
+version = "0.7.25"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -29,7 +29,7 @@ weather_api_common = {path = "weather_api_common/"}
 weather_util_rust = {version="0.16", default-features=false, features=["cli"]}
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 anyhow = "1.0"
-cached = "0.43"
+cached = "0.44"
 thiserror = "1.0"
 http = "0.2"
 tokio = {version="1.24", features=["full"]}
@@ -40,12 +40,12 @@ serde_yaml = "0.9"
 dotenvy = "0.15"
 dirs = "5.0"
 envy = "0.4"
-rweb = {version="0.15", features=["openapi"]}
-stack-string = {version="0.8", features=["postgres_types", "rweb-openapi"]}
+rweb = {git = "https://github.com/ddboline/rweb.git", features=["openapi"]}
+stack-string = {git = "https://github.com/ddboline/stack-string-rs.git", features=["postgres_types", "rweb-openapi"]}
 isocountry = "0.3"
 derive_more = "0.99"
 indexmap = "1.9"
-rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", tag="0.4.16", features=["time"]}
+rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", features=["time"]}
 dioxus = "0.3"
 dioxus-ssr = "0.3"
 log = "0.4"
@@ -62,7 +62,7 @@ postgres-types = {version="0.2", features=["with-time-0_3", "with-uuid-1", "with
 refinery = {version="0.8", features=["tokio-postgres"]}
 postgres_query = {git = "https://github.com/ddboline/rust-postgres-query", tag = "0.3.4", features=["deadpool"]}
 clap = {version="4.0", features=["derive"]}
-authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", tag="0.10.5"}
+authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", tag="0.10.7"}
 
 [dev-dependencies]
 reqwest = {version = "0.11", features=["cookies", "rustls-tls", "gzip", "json"], default-features=false}
