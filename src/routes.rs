@@ -391,7 +391,7 @@ struct HistoryUpdateRequest {
 }
 
 #[derive(RwebResponse)]
-#[response(description = "Update Weather History")]
+#[response(description = "Update Weather History", status = "CREATED")]
 struct HistoryUpdateResponse(JsonBase<u64, Error>);
 
 #[post("/weather/history")]

@@ -826,7 +826,7 @@ paths:
               - updates
         required: true
       responses:
-        '200':
+        '201':
           description: Update Weather History
           content:
             application/json:
