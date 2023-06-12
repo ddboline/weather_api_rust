@@ -457,16 +457,18 @@ impl WeatherLocationCache {
 
     /// # Errors
     /// Return error if db query fails
-    pub async fn get_by_city_name(
-        pool: &PgPool,
-        name: &str,
-    ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
+    pub async fn get_by_city_name(pool: &PgPool, name: &str) -> Result<Option<Self>, Error> {
         let conn = pool.get().await?;
         let query = query!(
-            "SELECT * FROM weather_location_cache WHERE city_name=$name",
+            r#"
+                SELECT * FROM weather_location_cache
+                WHERE city_name=$name"
+                ORDER BY created_at DESC
+                LIMIT 1
+            "#,
             name = name,
         );
-        query.fetch_streaming(&conn).await.map_err(Into::into)
+        query.fetch_opt(&conn).await.map_err(Into::into)
     }
 
     /// # Errors
@@ -591,10 +593,11 @@ impl WeatherLocationCache {
                     let loc = locations.swap_remove(0);
                     Ok(Self {
                         id: Uuid::new_v4(),
-                        location_name: city_name.into(),
+                        location_name: loc.name.into(),
                         latitude: latitude.into(),
                         longitude: longitude.into(),
                         country_code: Some(loc.country.into()),
+                        city_name: Some(city_name.into()),
                         ..Self::default()
                     })
                 } else {
@@ -620,7 +623,11 @@ impl WeatherLocationCache {
                 country_code,
             } => Self::get_by_zip(pool, *zipcode, *country_code).await,
             WeatherLocation::CityName(city_name) => {
-                Self::get_by_location_name(pool, city_name).await
+                if let Ok(Some(l)) = Self::get_by_city_name(pool, city_name).await {
+                    Ok(Some(l))
+                } else {
+                    Self::get_by_location_name(pool, city_name).await
+                }
             }
         }
     }
