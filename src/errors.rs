@@ -20,6 +20,19 @@ use thiserror::Error;
 use time::error::Format as FormatError;
 use weather_util_rust::Error as WeatherUtilError;
 
+static LOGIN_HTML: &str = r#"
+    <script>
+    !function() {
+        let final_url = location.href;
+        location.replace('/auth/login.html?final_url=' + final_url);
+    }()
+    </script>
+"#;
+
+fn login_html() -> impl Reply {
+    rweb::reply::html(LOGIN_HTML)
+}
+
 #[derive(Error, Debug)]
 pub enum ServiceError {
     #[error("Unauthorized")]
@@ -61,7 +74,7 @@ struct ErrorMessage {
 /// # Errors
 /// Will never return an error
 #[allow(clippy::unused_async)]
-pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
+pub async fn error_response(err: Rejection) -> Result<Box<dyn Reply>, Infallible> {
     let code;
     let message;
 
@@ -69,13 +82,19 @@ pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
         code = StatusCode::NOT_FOUND;
         message = "NOT FOUND";
     } else if let Some(service_err) = err.find::<ServiceError>() {
-        if let ServiceError::BadRequest(msg) = service_err {
-            code = StatusCode::BAD_REQUEST;
-            message = msg.as_str();
-        } else {
-            error!("{service_err:?}");
-            code = StatusCode::INTERNAL_SERVER_ERROR;
-            message = "Internal Server Error, Please try again later";
+        match service_err {
+            ServiceError::BadRequest(msg) => {
+                code = StatusCode::BAD_REQUEST;
+                message = msg.as_str();
+            }
+            ServiceError::Unauthorized => {
+                return Ok(Box::new(login_html()));
+            }
+            _ => {
+                error!("{service_err:?}");
+                code = StatusCode::INTERNAL_SERVER_ERROR;
+                message = "Internal Server Error, Please try again later";
+            }
         }
     } else if err.find::<rweb::reject::MethodNotAllowed>().is_some() {
         code = StatusCode::METHOD_NOT_ALLOWED;
@@ -89,8 +108,9 @@ pub async fn error_response(err: Rejection) -> Result<impl Reply, Infallible> {
         code: code.as_u16(),
         message: message.into(),
     });
+    let reply = rweb::reply::with_status(json, code);
 
-    Ok(rweb::reply::with_status(json, code))
+    Ok(Box::new(reply))
 }
 
 impl Entity for ServiceError {
