@@ -7,7 +7,7 @@ use postgres_query::{
 use serde::{Deserialize, Serialize};
 use stack_string::{format_sstr, StackString};
 use std::convert::TryInto;
-use time::{macros::time, Date, OffsetDateTime, PrimitiveDateTime};
+use time::{macros::time, Date, Duration, OffsetDateTime, PrimitiveDateTime};
 use uuid::Uuid;
 
 use weather_util_rust::{
@@ -203,10 +203,13 @@ impl WeatherDataDB {
         end_date: Option<Date>,
     ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
         let conn = pool.get().await?;
-        let mut bindings = Vec::new();
-        let mut constraints = Vec::new();
-        let start_date = start_date.map(|d| PrimitiveDateTime::new(d, time!(00:00)).assume_utc());
+        let start_date = start_date.map_or_else(
+            || OffsetDateTime::now_utc() - Duration::days(7),
+            |d| PrimitiveDateTime::new(d, time!(00:00)).assume_utc(),
+        );
         let end_date = end_date.map(|d| PrimitiveDateTime::new(d, time!(00:00)).assume_utc());
+        let mut bindings = vec![("start_date", &start_date as Parameter)];
+        let mut constraints = vec![format_sstr!("created_at >= $start_date")];
         if let Some(name) = &name {
             constraints.push(format_sstr!("location_name = $name"));
             bindings.push(("name", name as Parameter));
@@ -214,10 +217,6 @@ impl WeatherDataDB {
         if let Some(server) = &server {
             constraints.push(format_sstr!("server = $server"));
             bindings.push(("server", server as Parameter));
-        }
-        if let Some(start_date) = &start_date {
-            constraints.push(format_sstr!("created_at >= $start_date"));
-            bindings.push(("start_date", start_date as Parameter));
         }
         if let Some(end_date) = &end_date {
             constraints.push(format_sstr!("created_at <= $end_date"));
