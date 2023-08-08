@@ -66,7 +66,7 @@ authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", t
 
 [dev-dependencies]
 reqwest = {version = "0.11", features=["cookies", "rustls-tls", "gzip", "json"], default-features=false}
-time-tz = "1.0"
+time-tz = "2.0"
 
 [[bin]]
 name = "weather-api-rust"
