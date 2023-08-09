@@ -5,6 +5,7 @@
 
 use dioxus::prelude::{use_future, use_state, Element, Scope};
 use log::debug;
+use time::{Duration, OffsetDateTime};
 use url::Url;
 use web_sys::window;
 
@@ -43,7 +44,10 @@ pub fn index_component(cx: Scope) -> Element {
     let (location, set_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
     let (history_location, set_history_location) =
         use_state(cx, || String::from("Astoria")).split();
-    let (start_date, set_start_date) = use_state(cx, || None).split();
+    let (start_date, set_start_date) = use_state(cx, || {
+        Some((OffsetDateTime::now_utc() - Duration::days(7)).date())
+    })
+    .split();
     let (end_date, set_end_date) = use_state(cx, || None).split();
 
     let mut origin = DEFAULT_URL.to_string();
