@@ -5,9 +5,14 @@
 
 use dioxus::prelude::{use_future, use_state, Element, Scope};
 use log::debug;
-use time::{Duration, OffsetDateTime};
 use url::Url;
 use web_sys::window;
+
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date as JsDate;
+
+#[cfg(target_arch = "wasm32")]
+use time::{Date, Duration, Month, PrimitiveDateTime, Time};
 
 use weather_api_common::weather_element::{
     get_parameters, index_element, WeatherPage, DEFAULT_LOCATION, DEFAULT_URL,
@@ -45,10 +50,46 @@ pub fn index_component(cx: Scope) -> Element {
     let (history_location, set_history_location) =
         use_state(cx, || String::from("Astoria")).split();
     let (start_date, set_start_date) = use_state(cx, || {
-        Some((OffsetDateTime::now_utc() - Duration::days(7)).date())
+        #[cfg(target_arch = "wasm32")]
+        {
+            let js_date = JsDate::new_0();
+            let month: Month = (js_date.get_utc_month() as u8 + 1).try_into().ok()?;
+            let date = Date::from_calendar_date(
+                js_date.get_utc_full_year() as i32,
+                month,
+                js_date.get_utc_date() as u8,
+            )
+            .ok()?;
+            let time = Time::from_hms(
+                js_date.get_utc_hours() as u8,
+                js_date.get_utc_minutes() as u8,
+                js_date.get_utc_minutes() as u8,
+            )
+            .ok()?;
+            let date = PrimitiveDateTime::new(date, time).assume_utc();
+            return Some((date - Duration::days(7)).date());
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        None
     })
     .split();
-    let (end_date, set_end_date) = use_state(cx, || None).split();
+    let (end_date, set_end_date) = use_state(cx, || {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let js_date = JsDate::new_0();
+            let month: Month = (js_date.get_utc_month() as u8 + 1).try_into().ok()?;
+            let date = Date::from_calendar_date(
+                js_date.get_utc_full_year() as i32,
+                month,
+                js_date.get_utc_date() as u8,
+            )
+            .ok()?;
+            return Some(date);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        None
+    })
+    .split();
 
     let mut origin = DEFAULT_URL.to_string();
     let mut url: Option<Url> = None;
