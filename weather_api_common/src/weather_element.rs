@@ -855,6 +855,8 @@ pub fn index_element<'a>(
                     set_history_location.needs_update();
                 }
             }
+            let start_date_string = start_date.map_or("2023-01-01".into(), |d| format!("{d}"));
+            let end_date_string = end_date.map_or("2024-01-01".into(), |d| format!("{d}"));
             Some(rsx! {
                 button {
                     id: "current-value",
@@ -895,6 +897,7 @@ pub fn index_element<'a>(
                 input {
                     "type": "date",
                     name: "start-date",
+                    value: "{start_date_string}",
                     onchange: move |x| {
                         if let Ok(date) = Date::parse(&x.data.value, DATE_FORMAT) {
                             set_start_date.modify(|_| Some(date));
@@ -905,6 +908,7 @@ pub fn index_element<'a>(
                 input {
                     "type": "date",
                     name: "end-date",
+                    value: "{end_date_string}",
                     onchange: move |x| {
                         if let Ok(date) = Date::parse(&x.data.value, DATE_FORMAT) {
                             set_end_date.modify(|_| Some(date));
