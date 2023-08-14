@@ -8,6 +8,8 @@ use log::debug;
 use url::Url;
 use web_sys::window;
 
+const DEFAULT_HISTORY_DAYS: usize = 7;
+
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date as JsDate;
 
@@ -67,7 +69,7 @@ pub fn index_component(cx: Scope) -> Element {
             )
             .ok()?;
             let date = PrimitiveDateTime::new(date, time).assume_utc();
-            return Some((date - Duration::days(7)).date());
+            return Some((date - Duration::days(DEFAULT_HISTORY_DAYS)).date());
         }
         #[cfg(not(target_arch = "wasm32"))]
         None

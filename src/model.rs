@@ -7,7 +7,7 @@ use postgres_query::{
 use serde::{Deserialize, Serialize};
 use stack_string::{format_sstr, StackString};
 use std::convert::TryInto;
-use time::{macros::time, Date, Duration, OffsetDateTime, PrimitiveDateTime};
+use time::{macros::time, Date, OffsetDateTime, PrimitiveDateTime};
 use uuid::Uuid;
 
 use weather_util_rust::{
@@ -507,8 +507,8 @@ impl WeatherLocationCache {
         let query = query!(
             r#"
                 SELECT * FROM weather_location_cache
-                WHERE abs(latitude - $lat) < 0.0001
-                  AND abs(longitude - $lon) < 0.0001
+                WHERE abs(latitude - $lat) < 0.007
+                  AND abs(longitude - $lon) < 0.008
                 ORDER BY (latitude - $lat) * (latitude - $lat) + (longitude - $lon) * (longitude - $lon)
                 LIMIT 1
             "#,
