@@ -216,7 +216,7 @@ impl WeatherDataDB {
             bindings.push(("server", server as Parameter));
         }
         if let Some(start_date) = &start_date {
-            constraints.push(format_sstr!("created_at <= $start_date"));
+            constraints.push(format_sstr!("created_at >= $start_date"));
             bindings.push(("start_date", start_date as Parameter));
         }
         if let Some(end_date) = &end_date {
