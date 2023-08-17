@@ -216,7 +216,7 @@ impl WeatherDataDB {
             bindings.push(("server", server as Parameter));
         }
         if let Some(start_date) = &start_date {
-            constraints.push(format_sstr!("created_at <= $start_date"));
+            constraints.push(format_sstr!("created_at >= $start_date"));
             bindings.push(("start_date", start_date as Parameter));
         }
         if let Some(end_date) = &end_date {
@@ -507,8 +507,8 @@ impl WeatherLocationCache {
         let query = query!(
             r#"
                 SELECT * FROM weather_location_cache
-                WHERE abs(latitude - $lat) < 0.0001
-                  AND abs(longitude - $lon) < 0.0001
+                WHERE abs(latitude - $lat) < 0.007
+                  AND abs(longitude - $lon) < 0.008
                 ORDER BY (latitude - $lat) * (latitude - $lat) + (longitude - $lon) * (longitude - $lon)
                 LIMIT 1
             "#,
