@@ -1,12 +1,14 @@
-use anyhow::Error;
+use anyhow::{format_err, Error};
 use chrono::NaiveDateTime;
 use futures::TryStreamExt;
+use log::debug;
 use polars::{
     datatypes::{DatetimeChunked, TimeUnit},
     io::SerReader,
+    lazy::frame::IntoLazy,
     prelude::{
         BooleanChunked, DataFrame, Float64Chunked, Int32Chunked, IntoSeries, NewChunkedArray,
-        ParquetReader, ParquetWriter, UniqueKeepStrategy, Utf8Chunked,
+        ParquetReader, ParquetWriter, SortOptions, UniqueKeepStrategy, Utf8Chunked,
     },
 };
 use postgres_query::{query, FromSqlRow};
@@ -54,8 +56,9 @@ struct WeatherDataColumns {
 
 impl WeatherDataColumns {
     pub fn into_weather_data(self) -> Vec<WeatherDataDB> {
+        debug!("cap {}", self.id.len());
         let mut output = Vec::with_capacity(self.id.len());
-        for i in 0..output.len() {
+        for i in 0..self.id.len() {
             output.push(WeatherDataDB {
                 id: Uuid::parse_str(&self.id[i]).expect("Invalid uuid"),
                 dt: self.dt[i],
@@ -79,12 +82,15 @@ impl WeatherDataColumns {
                 sunset: convert_naive_offset(self.sunset[i]).into(),
                 timezone: self.timezone[i],
                 server: self.server[i].clone(),
-            })
+            });
         }
+        debug!("output {}", output.len());
         output
     }
 }
 
+/// # Errors
+/// Returns error if db query fails
 pub async fn insert_db_into_parquet(
     pool: &PgPool,
     outdir: &Path,
@@ -244,13 +250,153 @@ pub async fn insert_db_into_parquet(
     Ok(output)
 }
 
+/// # Errors
+/// Returns error if path does not exist
 pub async fn get_by_name_dates(
+    input: &Path,
     name: Option<&str>,
     server: Option<&str>,
     start_date: Option<Date>,
     end_date: Option<Date>,
 ) -> Result<Vec<WeatherDataDB>, Error> {
-    Ok(Vec::new())
+    if !input.exists() {
+        return Err(format_err!("Path does not exist"));
+    }
+    let input_files = if input.is_dir() {
+        let v: Result<Vec<_>, Error> = input
+            .read_dir()?
+            .map(|p| p.map(|p| p.path()).map_err(Into::into))
+            .collect();
+        let mut v = v?;
+        v.sort();
+        v
+    } else {
+        vec![input.to_path_buf()]
+    };
+    debug!("{input_files:?}");
+    let mut output = Vec::new();
+    for input_file in input_files {
+        let df = get_by_name_dates_file(&input_file, name, server, start_date, end_date).await?;
+        debug!("df {input_file:?} {:?}", df.shape());
+        let columns = WeatherDataColumns {
+            id: df
+                .column("id")?
+                .utf8()?
+                .into_iter()
+                .filter_map(|i| i.map(Into::into))
+                .collect(),
+            dt: df
+                .column("dt")?
+                .i32()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            created_at: df
+                .column("created_at")?
+                .datetime()?
+                .into_iter()
+                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis))
+                .collect(),
+            location_name: df
+                .column("location_name")?
+                .utf8()?
+                .into_iter()
+                .filter_map(|i| i.map(Into::into))
+                .collect(),
+            latitude: df
+                .column("latitude")?
+                .f64()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            longitude: df
+                .column("longitude")?
+                .f64()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            condition: df
+                .column("condition")?
+                .utf8()?
+                .into_iter()
+                .filter_map(|i| i.map(Into::into))
+                .collect(),
+            temperature: df
+                .column("temperature")?
+                .f64()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            temperature_minimum: df
+                .column("temperature_minimum")?
+                .f64()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            temperature_maximum: df
+                .column("temperature_maximum")?
+                .f64()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            pressure: df
+                .column("pressure")?
+                .f64()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            humidity: df
+                .column("humidity")?
+                .i32()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            visibility: df.column("visibility")?.f64()?.into_iter().collect(),
+            rain: df.column("rain")?.f64()?.into_iter().collect(),
+            snow: df.column("snow")?.f64()?.into_iter().collect(),
+            wind_speed: df
+                .column("wind_speed")?
+                .f64()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            wind_direction: df.column("wind_direction")?.f64()?.into_iter().collect(),
+            country: df
+                .column("country")?
+                .utf8()?
+                .into_iter()
+                .filter_map(|i| i.map(Into::into))
+                .collect(),
+            sunrise: df
+                .column("sunrise")?
+                .datetime()?
+                .into_iter()
+                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis))
+                .collect(),
+            sunset: df
+                .column("sunset")?
+                .datetime()?
+                .into_iter()
+                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis))
+                .collect(),
+            timezone: df
+                .column("timezone")?
+                .i32()?
+                .into_iter()
+                .flatten()
+                .collect(),
+            server: df
+                .column("server")?
+                .utf8()?
+                .into_iter()
+                .filter_map(|i| i.map(Into::into))
+                .collect(),
+        };
+        let rows = columns.into_weather_data();
+        debug!("rows {}", rows.len());
+        output.extend(rows);
+    }
+    Ok(output)
 }
 
 async fn get_by_name_dates_file(
@@ -284,7 +430,8 @@ async fn get_by_name_dates_file(
     if let Some(start_date) = start_date {
         let timestamp = PrimitiveDateTime::new(start_date, Time::from_hms(0, 0, 0)?)
             .assume_utc()
-            .unix_timestamp();
+            .unix_timestamp()
+            * 1000;
         let mask: Vec<_> = df
             .column("created_at")?
             .datetime()?
@@ -303,7 +450,8 @@ async fn get_by_name_dates_file(
     if let Some(end_date) = end_date {
         let timestamp = PrimitiveDateTime::new(end_date, Time::from_hms(0, 0, 0)?)
             .assume_utc()
-            .unix_timestamp();
+            .unix_timestamp()
+            * 1000;
         let mask: Vec<_> = df
             .column("created_at")?
             .datetime()?
@@ -319,5 +467,15 @@ async fn get_by_name_dates_file(
         let mask = BooleanChunked::from_slice("created_at", &mask);
         df = df.filter(&mask)?;
     }
+    let df = df
+        .lazy()
+        .sort(
+            "created_at",
+            SortOptions {
+                descending: true,
+                ..SortOptions::default()
+            },
+        )
+        .collect()?;
     Ok(df)
 }
