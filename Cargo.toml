@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.7.30"
+version = "0.8.0"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -46,8 +46,8 @@ isocountry = "0.3"
 derive_more = "0.99"
 indexmap = "1.9"
 rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", features=["time"], tag="0.5.0-1"}
-dioxus = "0.3"
-dioxus-ssr = "0.3"
+dioxus = "0.4"
+dioxus-ssr = "0.4"
 log = "0.4"
 env_logger = "0.10"
 parking_lot = "0.12"
