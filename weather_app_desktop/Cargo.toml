@@ -1,6 +1,6 @@
 [package]
 name = "weather_app_desktop"
-version = "0.7.32"
+version = "0.8.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -14,8 +14,8 @@ futures-channel = "0.3"
 weather_util_rust = {version="0.16", default-features=false, features=["cli"]}
 tokio = {version="1.24", features=["full"]}
 futures-util = "0.3"
-dioxus = "0.3"
-dioxus-desktop = "0.3"
+dioxus = "0.4"
+dioxus-desktop = "0.4"
 parking_lot = "0.12"
 
 [[bin]]

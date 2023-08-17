@@ -46,6 +46,8 @@ pub struct ConfigInner {
     pub secret_path: PathBuf,
     #[serde(default = "default_secret_path")]
     pub jwt_secret_path: PathBuf,
+    #[serde(default = "default_cache_dir")]
+    pub cache_dir: PathBuf,
 }
 fn default_host() -> StackString {
     "0.0.0.0".into()
@@ -70,6 +72,11 @@ fn default_secret_path() -> PathBuf {
         .unwrap()
         .join("aws_app_rust")
         .join("secret.bin")
+}
+fn default_cache_dir() -> PathBuf {
+    dirs::home_dir()
+        .expect("No home directory")
+        .join(".weather-data-cache")
 }
 
 /// Configuration struct

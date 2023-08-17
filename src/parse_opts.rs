@@ -2,7 +2,8 @@ use anyhow::Error;
 use clap::Parser;
 use futures::{future::try_join_all, TryStreamExt};
 use refinery::embed_migrations;
-use stack_string::StackString;
+use rweb_helper::DateType;
+use stack_string::{format_sstr, StackString};
 use std::path::PathBuf;
 use time::{macros::format_description, Date};
 use tokio::{
@@ -10,9 +11,13 @@ use tokio::{
     io::{stdin, stdout, AsyncReadExt, AsyncWrite, AsyncWriteExt},
 };
 
-use rweb_helper::DateType;
-
-use crate::{app::start_app, config::Config, pgpool::PgPool, WeatherDataDB};
+use crate::{
+    app::start_app,
+    config::Config,
+    pgpool::PgPool,
+    polars_analysis::{get_by_name_dates, insert_db_into_parquet},
+    WeatherDataDB,
+};
 
 embed_migrations!("migrations");
 
@@ -51,6 +56,23 @@ pub enum ParseOpts {
         filepath: Option<PathBuf>,
         #[clap(short, long)]
         table: Option<StackString>,
+    },
+    /// Export DB data into parquet files
+    Db {
+        #[clap(short = 'd', long = "directory")]
+        directory: Option<PathBuf>,
+    },
+    Read {
+        #[clap(short = 'd', long = "directory")]
+        directory: Option<PathBuf>,
+        #[clap(short = 'n', long = "name")]
+        name: Option<StackString>,
+        #[clap(short = 's', long = "server")]
+        server: Option<StackString>,
+        #[clap(short='b', long="start_date", value_parser=parse_date_from_str)]
+        start_date: Option<DateType>,
+        #[clap(short='e', long="end_date", value_parser=parse_date_from_str)]
+        end_date: Option<DateType>,
     },
 }
 
@@ -122,6 +144,40 @@ impl ParseOpts {
                     };
 
                 file.write_all(&serde_json::to_vec(&results)?).await?;
+            }
+            Self::Db { directory } => {
+                let directory = directory.unwrap_or_else(|| config.cache_dir.clone());
+                let db_url = config.database_url.as_ref().unwrap();
+                let pool = PgPool::new(db_url);
+                stdout()
+                    .write_all(
+                        insert_db_into_parquet(&pool, &directory)
+                            .await?
+                            .join("\n")
+                            .as_bytes(),
+                    )
+                    .await?;
+                stdout().write_all(b"\n").await?;
+            }
+            Self::Read {
+                directory,
+                name,
+                server,
+                start_date,
+                end_date,
+            } => {
+                let directory = directory.unwrap_or_else(|| config.cache_dir.clone());
+                let rows = get_by_name_dates(
+                    &directory,
+                    name.as_ref().map(Into::into),
+                    server.as_ref().map(Into::into),
+                    start_date.map(Into::into),
+                    end_date.map(Into::into),
+                )
+                .await?;
+                stdout()
+                    .write_all(format_sstr!("{}\n", rows.len()).as_bytes())
+                    .await?;
             }
         }
         Ok(())

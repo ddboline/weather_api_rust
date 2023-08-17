@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.7.32"
+version = "0.8.0"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -46,8 +46,8 @@ isocountry = "0.3"
 derive_more = "0.99"
 indexmap = "1.9"
 rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", features=["time"], tag="0.5.0-1"}
-dioxus = "0.3"
-dioxus-ssr = "0.3"
+dioxus = "0.4"
+dioxus-ssr = "0.4"
 log = "0.4"
 env_logger = "0.10"
 parking_lot = "0.12"
@@ -62,6 +62,8 @@ postgres-types = {version="0.2", features=["with-time-0_3", "with-uuid-1", "with
 refinery = {version="0.8", features=["tokio-postgres"]}
 postgres_query = {git = "https://github.com/ddboline/rust-postgres-query", tag = "0.3.4", features=["deadpool"]}
 clap = {version="4.0", features=["derive"]}
+polars = {version="0.32", features=["temporal", "parquet", "lazy"]}
+chrono = "0.4"
 authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", tag="0.10.10"}
 
 [dev-dependencies]
