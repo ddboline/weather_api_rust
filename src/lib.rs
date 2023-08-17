@@ -20,6 +20,7 @@ pub mod longitude_wrapper;
 pub mod model;
 pub mod parse_opts;
 pub mod pgpool;
+pub mod polars_analysis;
 pub mod routes;
 
 use derive_more::{From, Into};
@@ -59,7 +60,7 @@ derive_rweb_schema!(WeatherDataDBWrapper, _WeatherDataDBWrapper);
 #[allow(dead_code)]
 #[derive(Schema)]
 struct _WeatherDataDBWrapper {
-    pub id: UuidWrapper,
+    id: UuidWrapper,
     dt: i32,
     created_at: DateTimeType,
     location_name: StringType,
