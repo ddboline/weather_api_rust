@@ -7,6 +7,7 @@
 #![allow(clippy::similar_names)]
 #![allow(clippy::result_large_err)]
 #![allow(clippy::unused_async)]
+#![allow(clippy::unsafe_derive_deserialize)]
 
 pub mod api_options;
 pub mod app;
