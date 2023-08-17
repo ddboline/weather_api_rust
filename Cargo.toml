@@ -62,6 +62,8 @@ postgres-types = {version="0.2", features=["with-time-0_3", "with-uuid-1", "with
 refinery = {version="0.8", features=["tokio-postgres"]}
 postgres_query = {git = "https://github.com/ddboline/rust-postgres-query", tag = "0.3.4", features=["deadpool"]}
 clap = {version="4.0", features=["derive"]}
+polars = {version="0.32", features=["temporal", "parquet", "lazy"]}
+chrono = "0.4"
 authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", tag="0.10.10"}
 
 [dev-dependencies]
