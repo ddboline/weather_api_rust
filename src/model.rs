@@ -7,7 +7,7 @@ use postgres_query::{
 use serde::{Deserialize, Serialize};
 use stack_string::{format_sstr, StackString};
 use std::convert::TryInto;
-use time::{macros::time, Date, Duration, OffsetDateTime, PrimitiveDateTime};
+use time::{macros::time, Date, OffsetDateTime, PrimitiveDateTime};
 use uuid::Uuid;
 
 use weather_util_rust::{
