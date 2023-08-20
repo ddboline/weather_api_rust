@@ -202,7 +202,7 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
             rsx! {
                 script {
                     key: "forecast-plot-key-{idx}",
-                    "{script_body}",
+                    dangerous_inner_html: "{script_body}",
                 }
             }
         }),
