@@ -8,7 +8,7 @@ use log::debug;
 use url::Url;
 use web_sys::window;
 
-const DEFAULT_HISTORY_DAYS: usize = 7;
+const DEFAULT_HISTORY_DAYS: i64 = 7;
 
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date as JsDate;
