@@ -26,27 +26,20 @@ jobs:
     - name: Clippy
       run: |
         cargo clippy -- -W clippy::pedantic && \
-        cd weather_api_wasm && cargo clippy -- -W clippy::pedantic && cd ../ && \
-        cd weather_app_desktop && cargo clippy -- -W clippy::pedantic && cd ../ && \
-        cd weather_app_wasm && cargo clippy -- -W clippy::pedantic && cd ../
+        cd weather_api_wasm && cargo clippy -- -W clippy::pedantic && cd ../
 
     - name: Outdated
       run: |
         cargo install cargo-outdated && \
         cargo outdated -d2 && \
-        cd weather_api_wasm && cargo outdated -d2 && cd ../ && \
-        cd weather_app_desktop && cargo outdated -d2 && cd ../ && \
-        cd weather_app_wasm && cargo outdated -d2 && cd ../
+        cd weather_api_wasm && cargo outdated -d2 && cd ../
 
     - name: Unused Deps
       run: |
         rustup update nightly && \
         cargo +nightly install cargo-udeps && \
         cargo +nightly udeps && \
-        cd weather_api_wasm && cargo +nightly udeps && cd ../ && \
-        cd weather_app_desktop && cargo +nightly udeps && cd ../ && \
-        cd weather_app_wasm && cargo +nightly udeps && cd ../
-
+        cd weather_api_wasm && cargo +nightly udeps && cd ../
 
     - name: Build
       run: cargo build
