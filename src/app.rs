@@ -1,7 +1,7 @@
 use anyhow::Error;
 use authorized_users::TRIGGER_DB_UPDATE;
 use cached::{proc_macro::cached, TimedSizedCache};
-use log::info;
+use log::{error, info};
 use rweb::{
     filters::BoxedFilter,
     http::header::CONTENT_TYPE,
@@ -168,9 +168,11 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
             loop {
                 for loc in &locations {
                     info!("check {loc}");
-                    let _ = get_weather_data(app.pool.as_ref(), &app.config, &app.api, loc)
-                        .await
-                        .map_or((), |_| ());
+                    if let Err(e) =
+                        get_weather_data(app.pool.as_ref(), &app.config, &app.api, loc).await
+                    {
+                        error!("Encountered error {e}");
+                    }
                 }
                 i.tick().await;
             }
