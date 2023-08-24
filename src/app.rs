@@ -168,7 +168,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
             loop {
                 for loc in &locations {
                     info!("check {loc}");
-                    let _= get_weather_data(app.pool.as_ref(), &app.config, &app.api, loc)
+                    let _ = get_weather_data(app.pool.as_ref(), &app.config, &app.api, loc)
                         .await
                         .map_or((), |_| ());
                 }
