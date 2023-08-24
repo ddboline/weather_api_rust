@@ -3,12 +3,11 @@ use chrono::NaiveDateTime;
 use futures::TryStreamExt;
 use log::debug;
 use polars::{
-    datatypes::{DatetimeChunked, TimeUnit},
+    df as dataframe,
     io::SerReader,
-    lazy::frame::IntoLazy,
     prelude::{
-        BooleanChunked, DataFrame, Float64Chunked, Int32Chunked, IntoSeries, NewChunkedArray,
-        ParquetReader, ParquetWriter, SortOptions, UniqueKeepStrategy, Utf8Chunked,
+        col, lit, DataFrame, LazyFrame, NamedFrom, ParquetReader, ParquetWriter, ScanArgsParquet,
+        SortOptions, TimeUnit, UniqueKeepStrategy,
     },
 };
 use postgres_query::{query, FromSqlRow};
@@ -27,6 +26,10 @@ fn convert_offset_naive(input: OffsetDateTime) -> NaiveDateTime {
 
 fn convert_naive_offset(input: NaiveDateTime) -> OffsetDateTime {
     OffsetDateTime::from_unix_timestamp(input.timestamp()).expect("Invalid timestamp")
+}
+
+fn stackstring_to_series(col: &[StackString]) -> Vec<&str> {
+    col.iter().map(StackString::as_str).collect()
 }
 
 struct WeatherDataColumns {
@@ -55,7 +58,88 @@ struct WeatherDataColumns {
 }
 
 impl WeatherDataColumns {
-    pub fn into_weather_data(self) -> Vec<WeatherDataDB> {
+    fn new(cap: usize) -> Self {
+        Self {
+            id: Vec::with_capacity(cap),
+            dt: Vec::with_capacity(cap),
+            created_at: Vec::with_capacity(cap),
+            location_name: Vec::with_capacity(cap),
+            latitude: Vec::with_capacity(cap),
+            longitude: Vec::with_capacity(cap),
+            condition: Vec::with_capacity(cap),
+            temperature: Vec::with_capacity(cap),
+            temperature_minimum: Vec::with_capacity(cap),
+            temperature_maximum: Vec::with_capacity(cap),
+            pressure: Vec::with_capacity(cap),
+            humidity: Vec::with_capacity(cap),
+            visibility: Vec::with_capacity(cap),
+            rain: Vec::with_capacity(cap),
+            snow: Vec::with_capacity(cap),
+            wind_speed: Vec::with_capacity(cap),
+            wind_direction: Vec::with_capacity(cap),
+            country: Vec::with_capacity(cap),
+            sunrise: Vec::with_capacity(cap),
+            sunset: Vec::with_capacity(cap),
+            timezone: Vec::with_capacity(cap),
+            server: Vec::with_capacity(cap),
+        }
+    }
+
+    fn add_row(&mut self, row: WeatherDataDB) {
+        self.id.push(format_sstr!("{}", row.id));
+        self.dt.push(row.dt);
+        self.created_at
+            .push(convert_offset_naive(row.created_at.into()));
+        self.location_name.push(row.location_name);
+        self.latitude.push(row.latitude);
+        self.longitude.push(row.longitude);
+        self.condition.push(row.condition);
+        self.temperature.push(row.temperature);
+        self.temperature_minimum.push(row.temperature_minimum);
+        self.temperature_maximum.push(row.temperature_maximum);
+        self.pressure.push(row.pressure);
+        self.humidity.push(row.humidity);
+        self.visibility.push(row.visibility);
+        self.rain.push(row.rain);
+        self.snow.push(row.snow);
+        self.wind_speed.push(row.wind_speed);
+        self.wind_direction.push(row.wind_direction);
+        self.country.push(row.country);
+        self.sunrise.push(convert_offset_naive(row.sunrise.into()));
+        self.sunset.push(convert_offset_naive(row.sunset.into()));
+        self.timezone.push(row.timezone);
+        self.server.push(row.server);
+    }
+
+    fn get_dataframe(&self) -> Result<DataFrame, Error> {
+        dataframe!(
+            "id" => stackstring_to_series(&self.id),
+            "dt" => &self.dt,
+            "created_at" => &self.created_at,
+            "location_name" => stackstring_to_series(&self.location_name),
+            "latitude" => &self.latitude,
+            "longitude" => &self.longitude,
+            "condition" => stackstring_to_series(&self.condition),
+            "temperature" => &self.temperature,
+            "temperature_minimum" => &self.temperature_minimum,
+            "temperature_maximum" => &self.temperature_maximum,
+            "pressure" => &self.pressure,
+            "humidity" => &self.humidity,
+            "visibility" => &self.visibility,
+            "rain" => &self.rain,
+            "snow" => &self.snow,
+            "wind_speed" => &self.wind_speed,
+            "wind_direction" => &self.wind_direction,
+            "country" => stackstring_to_series(&self.country),
+            "sunrise" => &self.sunrise,
+            "sunset" => &self.sunset,
+            "timezone" => &self.timezone,
+            "server" => stackstring_to_series(&self.server),
+        )
+        .map_err(Into::into)
+    }
+
+    fn into_weather_data(self) -> Vec<WeatherDataDB> {
         debug!("cap {}", self.id.len());
         let mut output = Vec::with_capacity(self.id.len());
         for i in 0..self.id.len() {
@@ -116,6 +200,9 @@ pub async fn insert_db_into_parquet(
     );
     let conn = pool.get().await?;
     let rows: Vec<Wrap> = query.fetch(&conn).await?;
+    if rows.is_empty() {
+        return Ok(output);
+    }
 
     for Wrap { year, month, count } in rows {
         let query = query!(
@@ -133,104 +220,15 @@ pub async fn insert_db_into_parquet(
             .fetch_streaming::<WeatherDataDB, _>(&conn)
             .await?
             .try_fold(
-                WeatherDataColumns {
-                    id: Vec::with_capacity(count as usize),
-                    dt: Vec::with_capacity(count as usize),
-                    created_at: Vec::with_capacity(count as usize),
-                    location_name: Vec::with_capacity(count as usize),
-                    latitude: Vec::with_capacity(count as usize),
-                    longitude: Vec::with_capacity(count as usize),
-                    condition: Vec::with_capacity(count as usize),
-                    temperature: Vec::with_capacity(count as usize),
-                    temperature_minimum: Vec::with_capacity(count as usize),
-                    temperature_maximum: Vec::with_capacity(count as usize),
-                    pressure: Vec::with_capacity(count as usize),
-                    humidity: Vec::with_capacity(count as usize),
-                    visibility: Vec::with_capacity(count as usize),
-                    rain: Vec::with_capacity(count as usize),
-                    snow: Vec::with_capacity(count as usize),
-                    wind_speed: Vec::with_capacity(count as usize),
-                    wind_direction: Vec::with_capacity(count as usize),
-                    country: Vec::with_capacity(count as usize),
-                    sunrise: Vec::with_capacity(count as usize),
-                    sunset: Vec::with_capacity(count as usize),
-                    timezone: Vec::with_capacity(count as usize),
-                    server: Vec::with_capacity(count as usize),
-                },
+                WeatherDataColumns::new(count as usize),
                 |mut acc, row| async move {
-                    acc.id.push(format_sstr!("{}", row.id));
-                    acc.dt.push(row.dt);
-                    acc.created_at
-                        .push(convert_offset_naive(row.created_at.into()));
-                    acc.location_name.push(row.location_name);
-                    acc.latitude.push(row.latitude);
-                    acc.longitude.push(row.longitude);
-                    acc.condition.push(row.condition);
-                    acc.temperature.push(row.temperature);
-                    acc.temperature_minimum.push(row.temperature_minimum);
-                    acc.temperature_maximum.push(row.temperature_maximum);
-                    acc.pressure.push(row.pressure);
-                    acc.humidity.push(row.humidity);
-                    acc.visibility.push(row.visibility);
-                    acc.rain.push(row.rain);
-                    acc.snow.push(row.snow);
-                    acc.wind_speed.push(row.wind_speed);
-                    acc.wind_direction.push(row.wind_direction);
-                    acc.country.push(row.country);
-                    acc.sunrise.push(convert_offset_naive(row.sunrise.into()));
-                    acc.sunset.push(convert_offset_naive(row.sunset.into()));
-                    acc.timezone.push(row.timezone);
-                    acc.server.push(row.server);
+                    acc.add_row(row);
                     Ok(acc)
                 },
             )
             .await?;
 
-        let columns = vec![
-            Utf8Chunked::from_slice("id", &weather_rows.id).into_series(),
-            Int32Chunked::from_slice("dt", &weather_rows.dt).into_series(),
-            DatetimeChunked::from_naive_datetime(
-                "created_at",
-                weather_rows.created_at,
-                TimeUnit::Milliseconds,
-            )
-            .into_series(),
-            Utf8Chunked::from_slice("location_name", &weather_rows.location_name).into_series(),
-            Float64Chunked::from_slice("latitude", &weather_rows.latitude).into_series(),
-            Float64Chunked::from_slice("longitude", &weather_rows.longitude).into_series(),
-            Utf8Chunked::from_slice("condition", &weather_rows.condition).into_series(),
-            Float64Chunked::from_slice("temperature", &weather_rows.temperature).into_series(),
-            Float64Chunked::from_slice("temperature_minimum", &weather_rows.temperature_minimum)
-                .into_series(),
-            Float64Chunked::from_slice("temperature_maximum", &weather_rows.temperature_maximum)
-                .into_series(),
-            Float64Chunked::from_slice("pressure", &weather_rows.pressure).into_series(),
-            Int32Chunked::from_slice("humidity", &weather_rows.humidity).into_series(),
-            Float64Chunked::from_slice_options("visibility", &weather_rows.visibility)
-                .into_series(),
-            Float64Chunked::from_slice_options("rain", &weather_rows.rain).into_series(),
-            Float64Chunked::from_slice_options("snow", &weather_rows.snow).into_series(),
-            Float64Chunked::from_slice("wind_speed", &weather_rows.wind_speed).into_series(),
-            Float64Chunked::from_slice_options("wind_direction", &weather_rows.wind_direction)
-                .into_series(),
-            Utf8Chunked::from_slice("country", &weather_rows.country).into_series(),
-            DatetimeChunked::from_naive_datetime(
-                "sunrise",
-                weather_rows.sunrise,
-                TimeUnit::Milliseconds,
-            )
-            .into_series(),
-            DatetimeChunked::from_naive_datetime(
-                "sunset",
-                weather_rows.sunset,
-                TimeUnit::Milliseconds,
-            )
-            .into_series(),
-            Int32Chunked::from_slice("timezone", &weather_rows.timezone).into_series(),
-            Utf8Chunked::from_slice("server", &weather_rows.server).into_series(),
-        ];
-
-        let new_df = DataFrame::new(columns)?;
+        let new_df = weather_rows.get_dataframe()?;
         output.push(format_sstr!("{:?}", new_df.shape()));
 
         let filename = format_sstr!("weather_data_{year:04}_{month:02}.parquet");
@@ -238,8 +236,14 @@ pub async fn insert_db_into_parquet(
         let mut df = if file.exists() {
             let df = ParquetReader::new(File::open(&file)?).finish()?;
             output.push(format_sstr!("{:?}", df.shape()));
-            df.vstack(&new_df)?
-                .unique(None, UniqueKeepStrategy::First, None)?
+            let existing_entries = df.shape().0;
+            let combined_df = df
+                .vstack(&new_df)?
+                .unique(None, UniqueKeepStrategy::First, None)?;
+            if combined_df.shape().0 == existing_entries {
+                return Ok(output);
+            }
+            combined_df
         } else {
             new_df
         };
@@ -285,12 +289,7 @@ pub async fn get_by_name_dates(
                 .into_iter()
                 .filter_map(|i| i.map(Into::into))
                 .collect(),
-            dt: df
-                .column("dt")?
-                .i32()?
-                .into_iter()
-                .flatten()
-                .collect(),
+            dt: df.column("dt")?.i32()?.into_iter().flatten().collect(),
             created_at: df
                 .column("created_at")?
                 .datetime()?
@@ -406,69 +405,39 @@ async fn get_by_name_dates_file(
     start_date: Option<Date>,
     end_date: Option<Date>,
 ) -> Result<DataFrame, Error> {
-    let mut df = ParquetReader::new(File::open(input)?).finish()?;
+    let args = ScanArgsParquet::default();
+    let mut df = LazyFrame::scan_parquet(input, args)?;
     if let Some(name) = name {
-        let mask: Vec<_> = df
-            .column("location_name")?
-            .utf8()?
-            .into_iter()
-            .map(|x| x == Some(name))
-            .collect();
-        let mask = BooleanChunked::from_slice("name_mask", &mask);
-        df = df.filter(&mask)?;
+        df = df.filter(col("location_name").eq(lit(name)));
     }
     if let Some(server) = server {
-        let mask: Vec<_> = df
-            .column("server")?
-            .utf8()?
-            .into_iter()
-            .map(|x| x == Some(server))
-            .collect();
-        let mask = BooleanChunked::from_slice("server_mask", &mask);
-        df = df.filter(&mask)?;
+        df = df.filter(col("server").eq(lit(server)));
     }
     if let Some(start_date) = start_date {
         let timestamp = PrimitiveDateTime::new(start_date, Time::from_hms(0, 0, 0)?)
             .assume_utc()
             .unix_timestamp()
             * 1000;
-        let mask: Vec<_> = df
-            .column("created_at")?
-            .datetime()?
-            .into_iter()
-            .map(|t| {
-                if let Some(t) = t {
-                    t >= timestamp
-                } else {
-                    true
-                }
-            })
-            .collect();
-        let mask = BooleanChunked::from_slice("created_at", &mask);
-        df = df.filter(&mask)?;
+        df = df.filter(
+            col("created_at")
+                .dt()
+                .timestamp(TimeUnit::Milliseconds)
+                .gt_eq(timestamp),
+        );
     }
     if let Some(end_date) = end_date {
         let timestamp = PrimitiveDateTime::new(end_date, Time::from_hms(0, 0, 0)?)
             .assume_utc()
             .unix_timestamp()
             * 1000;
-        let mask: Vec<_> = df
-            .column("created_at")?
-            .datetime()?
-            .into_iter()
-            .map(|t| {
-                if let Some(t) = t {
-                    t <= timestamp
-                } else {
-                    true
-                }
-            })
-            .collect();
-        let mask = BooleanChunked::from_slice("created_at", &mask);
-        df = df.filter(&mask)?;
+        df = df.filter(
+            col("created_at")
+                .dt()
+                .timestamp(TimeUnit::Milliseconds)
+                .lt_eq(timestamp),
+        );
     }
     let df = df
-        .lazy()
         .sort(
             "created_at",
             SortOptions {
