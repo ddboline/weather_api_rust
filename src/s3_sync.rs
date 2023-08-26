@@ -27,7 +27,7 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use crate::{exponential_retry, get_md5sum};
 
 #[must_use]
-pub fn get_s3_client() -> S3Client {
+fn get_s3_client() -> S3Client {
     get_client_sts!(S3Client, Region::UsEast1).expect("Failed to obtain client")
 }
 
@@ -37,11 +37,11 @@ pub struct S3Sync {
 }
 
 #[derive(Debug, Clone, Eq)]
-pub struct KeyItem {
-    pub key: StackString,
-    pub etag: StackString,
-    pub timestamp: i64,
-    pub size: u64,
+struct KeyItem {
+    key: StackString,
+    etag: StackString,
+    timestamp: i64,
+    size: u64,
 }
 
 impl PartialEq for KeyItem {
@@ -96,16 +96,9 @@ impl S3Sync {
         }
     }
 
-    #[must_use]
-    pub fn from_client(s3client: S3Client) -> Self {
-        Self {
-            s3_client: s3client,
-        }
-    }
-
     /// # Errors
     /// Return error if db query fails
-    pub async fn get_list_of_keys(&self, bucket: &str) -> Result<Vec<KeyItem>, Error> {
+    async fn get_list_of_keys(&self, bucket: &str) -> Result<Vec<KeyItem>, Error> {
         let results: Result<Vec<_>, _> = exponential_retry(|| async move {
             self.s3_client
                 .stream_objects(bucket)
@@ -236,7 +229,7 @@ impl S3Sync {
 
     /// # Errors
     /// Return error if db query fails
-    pub async fn download_file(
+    async fn download_file(
         &self,
         local_file: &Path,
         s3_bucket: &str,
@@ -275,7 +268,7 @@ impl S3Sync {
 
     /// # Errors
     /// Return error if db query fails
-    pub async fn upload_file(
+    async fn upload_file(
         &self,
         local_file: &Path,
         s3_bucket: &str,
@@ -286,7 +279,7 @@ impl S3Sync {
 
     /// # Errors
     /// Return error if db query fails
-    pub async fn upload_file_acl(
+    async fn upload_file_acl(
         &self,
         local_file: &Path,
         s3_bucket: &str,
