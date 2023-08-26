@@ -1,7 +1,7 @@
 use anyhow::Error;
 use isocountry::CountryCode;
 use serde::Deserialize;
-use stack_string::{SmallString, StackString};
+use stack_string::{format_sstr, SmallString, StackString};
 use std::{
     ops::Deref,
     path::{Path, PathBuf},
@@ -48,6 +48,8 @@ pub struct ConfigInner {
     pub jwt_secret_path: PathBuf,
     #[serde(default = "default_cache_dir")]
     pub cache_dir: PathBuf,
+    #[serde(default = "default_s3_bucket")]
+    pub s3_bucket: StackString,
 }
 fn default_host() -> StackString {
     "0.0.0.0".into()
@@ -77,6 +79,9 @@ fn default_cache_dir() -> PathBuf {
     dirs::home_dir()
         .expect("No home directory")
         .join(".weather-data-cache")
+}
+fn default_s3_bucket() -> StackString {
+    format_sstr!("weather-data-backup-ddboline")
 }
 
 /// Configuration struct
