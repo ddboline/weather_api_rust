@@ -23,11 +23,20 @@ pub mod parse_opts;
 pub mod pgpool;
 pub mod polars_analysis;
 pub mod routes;
+pub mod s3_sync;
 
+use anyhow::{format_err, Error};
 use derive_more::{From, Into};
+use rand::{
+    distributions::{Distribution, Uniform},
+    thread_rng,
+};
 use rweb::Schema;
 use rweb_helper::{derive_rweb_schema, DateTimeType, UuidWrapper};
 use serde::{Deserialize, Serialize};
+use stack_string::StackString;
+use std::{future::Future, path::Path, time::Duration};
+use tokio::{process::Command, time::sleep};
 
 use weather_util_rust::{
     precipitation::Precipitation,
@@ -302,6 +311,52 @@ struct _ForecastMainWrapper {
     grnd_level: f64,
     #[schema(description = "Humidity %")]
     humidity: i64,
+}
+
+/// # Errors
+/// Return error after timeout
+pub async fn exponential_retry<T, U, F>(closure: T) -> Result<U, Error>
+where
+    T: Fn() -> F,
+    F: Future<Output = Result<U, Error>>,
+{
+    let mut timeout: f64 = 1.0;
+    let range = Uniform::from(0..1000);
+    loop {
+        match closure().await {
+            Ok(resp) => return Ok(resp),
+            Err(err) => {
+                sleep(Duration::from_millis((timeout * 1000.0) as u64)).await;
+                timeout *= 4.0 * f64::from(range.sample(&mut thread_rng())) / 1000.0;
+                if timeout >= 64.0 {
+                    return Err(err);
+                }
+            }
+        }
+    }
+}
+
+/// # Errors
+/// Return error if `md5sum` fails
+pub async fn get_md5sum(filename: &Path) -> Result<StackString, Error> {
+    if !Path::new("/usr/bin/md5sum").exists() {
+        return Err(format_err!(
+            "md5sum not installed (or not present at /usr/bin/md5sum"
+        ));
+    }
+    let output = Command::new("/usr/bin/md5sum")
+        .args([filename])
+        .output()
+        .await?;
+    if output.status.success() {
+        let buf = String::from_utf8_lossy(&output.stdout);
+        for line in buf.split('\n') {
+            if let Some(entry) = line.split_whitespace().next() {
+                return Ok(entry.into());
+            }
+        }
+    }
+    Err(format_err!("Command failed"))
 }
 
 #[cfg(test)]
