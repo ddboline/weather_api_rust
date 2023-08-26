@@ -16,6 +16,7 @@ use crate::{
     config::Config,
     pgpool::PgPool,
     polars_analysis::{get_by_name_dates, insert_db_into_parquet},
+    s3_sync::S3Sync,
     WeatherDataDB,
 };
 
@@ -73,6 +74,10 @@ pub enum ParseOpts {
         start_date: Option<DateType>,
         #[clap(short='e', long="end_date", value_parser=parse_date_from_str)]
         end_date: Option<DateType>,
+    },
+    Sync {
+        #[clap(short = 'd', long = "directory")]
+        directory: Option<PathBuf>,
     },
 }
 
@@ -178,6 +183,18 @@ impl ParseOpts {
                 stdout()
                     .write_all(format_sstr!("{}\n", rows.len()).as_bytes())
                     .await?;
+            }
+            Self::Sync { directory } => {
+                let sync = S3Sync::new();
+                let directory = directory.unwrap_or_else(|| config.cache_dir.clone());
+                stdout()
+                    .write_all(
+                        sync.sync_dir("weather-data", &directory, &config.s3_bucket, true)
+                            .await?
+                            .as_bytes(),
+                    )
+                    .await?;
+                stdout().write_all(b"\n").await?;
             }
         }
         Ok(())
