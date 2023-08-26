@@ -15,6 +15,7 @@ use stack_string::{format_sstr, StackString};
 use std::{
     borrow::Borrow,
     collections::{HashMap, HashSet},
+    convert::TryInto,
     fs,
     hash::{Hash, Hasher},
     path::{Path, PathBuf},
@@ -23,7 +24,6 @@ use std::{
 };
 use sts_profile_auth::get_client_sts;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
-use std::convert::TryInto;
 
 use crate::{exponential_retry, get_md5sum};
 
@@ -130,7 +130,8 @@ impl S3Sync {
                     let modified: i64 = metadata
                         .modified()?
                         .duration_since(SystemTime::UNIX_EPOCH)?
-                        .as_secs().try_into()?;
+                        .as_secs()
+                        .try_into()?;
                     let size = metadata.len();
                     Ok((f, modified, size))
                 })
