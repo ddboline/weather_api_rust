@@ -14,7 +14,7 @@ use s3_ext::S3Ext;
 use stack_string::{format_sstr, StackString};
 use std::{
     borrow::Borrow,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, BTreeSet},
     convert::TryInto,
     fs,
     hash::{Hash, Hasher},
@@ -24,8 +24,10 @@ use std::{
 };
 use sts_profile_auth::get_client_sts;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use tokio::task::spawn_blocking;
 
 use crate::{exponential_retry, get_md5sum};
+use crate::polars_analysis::merge_parquet_files;
 
 #[must_use]
 fn get_s3_client() -> S3Client {
@@ -157,7 +159,7 @@ impl S3Sync {
             get_downloaded(&key_set, check_md5sum, &file_set, &local_dir, &s3_bucket).await?
         };
         debug!("downloaded {downloaded:?}");
-        let downloaded_files: Vec<_> = downloaded
+        let downloaded_files: BTreeSet<_> = downloaded
             .iter()
             .map(|(file_name, _)| file_name.clone())
             .collect();
@@ -166,12 +168,16 @@ impl S3Sync {
             self.download_file(&file_name, s3_bucket, &key).await?;
         }
         debug!("downloaded {:?}", downloaded_files);
+        let downloaded_files = Arc::new(downloaded_files);
 
         let key_set = Arc::new(key_set);
+
+        println!("downloaded {downloaded_files:?}");
 
         // let uploaded: Vec<_> =
         let futures = file_list.into_iter().map(|(file, tmod, size)| {
             let key_set = key_set.clone();
+            let downloaded_files = downloaded_files.clone();
             async move {
                 let file_name: StackString = file.file_name()?.to_string_lossy().as_ref().into();
                 let mut do_upload = false;
@@ -200,6 +206,9 @@ impl S3Sync {
                     do_upload = true;
                 }
                 if do_upload {
+                    if downloaded_files.contains(&file) {
+                        println!("{file_name} download and upload");
+                    }
                     debug!("upload file {}", file_name);
                     Some((file, file_name))
                 } else {
@@ -264,7 +273,20 @@ impl S3Sync {
         .await;
         let output = local_file.to_path_buf();
         debug!("input {tmp_path:?} output {output:?}");
-        tokio::fs::rename(&tmp_path, &output).await?;
+        if output.exists() {
+            let input_md5 = get_md5sum(&tmp_path).await?;
+            let output_md5 = get_md5sum(&output).await?;
+            if input_md5 != output_md5 {
+                let result: Result<(), Error> = spawn_blocking(move || {
+                    merge_parquet_files(&tmp_path, &output)?;
+                    fs::remove_file(&tmp_path).map_err(Into::into)
+                })
+                .await?;
+                result?;
+            }
+        } else {
+            tokio::fs::rename(&tmp_path, &output).await?;
+        }
         etag
     }
 
