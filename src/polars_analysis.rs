@@ -1,7 +1,7 @@
 use anyhow::{format_err, Error};
 use chrono::NaiveDateTime;
 use futures::TryStreamExt;
-use log::debug;
+use log::{debug, info};
 use polars::{
     df as dataframe,
     io::SerReader,
@@ -15,7 +15,6 @@ use stack_string::{format_sstr, StackString};
 use std::{fs::File, path::Path};
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset};
 use uuid::Uuid;
-use log::info;
 
 use crate::{model::WeatherDataDB, pgpool::PgPool};
 
@@ -472,7 +471,7 @@ async fn get_by_name_dates_file(
         .sort(
             "created_at",
             SortOptions {
-                descending: true,
+                descending: false,
                 ..SortOptions::default()
             },
         )
