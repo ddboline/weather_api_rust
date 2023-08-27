@@ -7,7 +7,10 @@ use rweb::{get, post, Json, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
 use std::{collections::HashMap, convert::Infallible};
-use time::{Date, Duration, OffsetDateTime};
+use time::{
+    macros::{date, time},
+    Date, Duration, OffsetDateTime, PrimitiveDateTime,
+};
 use tokio::sync::RwLock;
 
 use rweb_helper::{
@@ -29,6 +32,7 @@ use crate::{
     errors::ServiceError as Error,
     logged_user::LoggedUser,
     model::WeatherDataDB,
+    polars_analysis::get_by_name_dates,
     GeoLocationWrapper, WeatherDataDBWrapper, WeatherDataWrapper, WeatherForecastWrapper,
 };
 
@@ -439,8 +443,33 @@ pub async fn history_plot(
     #[data] data: AppState,
     query: Query<HistoryPlotRequest>,
 ) -> WarpResult<HistoryPlotResponse> {
-    let history = if let Some(pool) = &data.pool {
-        let query = query.into_inner();
+    let now = OffsetDateTime::now_utc();
+    let first_of_month = PrimitiveDateTime::new(
+        Date::from_calendar_date(now.year(), now.month(), 1)
+            .unwrap_or_else(|_| date!(2023 - 01 - 01)),
+        time!(00:00),
+    )
+    .assume_utc()
+    .date();
+
+    let query = query.into_inner();
+    let start_date: Option<Date> = query.start_time.map(Into::into);
+    let end_date: Option<Date> = query.end_time.map(Into::into);
+
+    let history: Vec<WeatherData> = if start_date.is_none() || start_date < Some(first_of_month) {
+        get_by_name_dates(
+            &data.config.cache_dir,
+            Some(&query.name),
+            query.server.as_ref().map(StackString::as_str),
+            start_date,
+            end_date,
+        )
+        .await
+        .map_err(Into::<Error>::into)?
+        .into_iter()
+        .map(Into::<WeatherData>::into)
+        .collect()
+    } else if let Some(pool) = &data.pool {
         WeatherDataDB::get_by_name_dates(
             pool,
             Some(&query.name),
@@ -457,6 +486,7 @@ pub async fn history_plot(
     } else {
         Vec::new()
     };
+
     if history.is_empty() {
         return Ok(HtmlBase::new(String::new()).into());
     }
