@@ -172,7 +172,7 @@ impl S3Sync {
 
         let key_set = Arc::new(key_set);
 
-        println!("downloaded {downloaded_files:?}");
+        debug!("downloaded {downloaded_files:?}");
 
         // let uploaded: Vec<_> =
         let futures = file_list.into_iter().map(|(file, tmod, size)| {
@@ -207,7 +207,7 @@ impl S3Sync {
                 }
                 if do_upload {
                     if downloaded_files.contains(&file) {
-                        println!("{file_name} download and upload");
+                        debug!("{file_name} download and upload");
                     }
                     debug!("upload file {}", file_name);
                     Some((file, file_name))

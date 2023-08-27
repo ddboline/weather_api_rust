@@ -119,7 +119,7 @@ impl ParseOpts {
                 });
                 let results: Result<Vec<u64>, Error> = try_join_all(futures).await;
                 let written: u64 = results?.into_iter().sum();
-                println!("written {written}");
+                stdout().write_all(format_sstr!("written {written}\n").as_bytes()).await?;
             }
             Self::Export {
                 server,
