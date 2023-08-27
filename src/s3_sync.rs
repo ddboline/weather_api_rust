@@ -14,7 +14,7 @@ use s3_ext::S3Ext;
 use stack_string::{format_sstr, StackString};
 use std::{
     borrow::Borrow,
-    collections::{HashMap, HashSet, BTreeSet},
+    collections::{BTreeSet, HashMap, HashSet},
     convert::TryInto,
     fs,
     hash::{Hash, Hasher},
@@ -26,8 +26,7 @@ use sts_profile_auth::get_client_sts;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::task::spawn_blocking;
 
-use crate::{exponential_retry, get_md5sum};
-use crate::polars_analysis::merge_parquet_files;
+use crate::{exponential_retry, get_md5sum, polars_analysis::merge_parquet_files};
 
 #[must_use]
 fn get_s3_client() -> S3Client {
