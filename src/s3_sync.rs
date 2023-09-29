@@ -411,12 +411,18 @@ mod tests {
         let keys = s3_sync.get_list_of_keys(s3_bucket).await?;
         assert!(keys.len() > 0);
         let local_file = Path::new("/tmp/temp.tmp");
-        let tag = s3_sync.download_file(local_file, s3_bucket, s3_key).await?.replace("\"", "");
+        let tag = s3_sync
+            .download_file(local_file, s3_bucket, s3_key)
+            .await?
+            .replace("\"", "");
         assert_eq!(&tag, "af59a680bc9c39776f9657dba46e008f");
         remove_file("/tmp/temp.tmp").await?;
         let local_file = Path::new("/home/ddboline/movie_queue.sql.gz");
         let s3_bucket = "aws-athena-query-results-281914939654-us-east-1";
-        let tag = s3_sync.upload_file(local_file, s3_bucket, "movie_queue.sql.gz").await?.replace("\"", "");
+        let tag = s3_sync
+            .upload_file(local_file, s3_bucket, "movie_queue.sql.gz")
+            .await?
+            .replace("\"", "");
         assert_eq!(&tag, "3a9f98b81b5495b4a835b02d32e694de");
         Ok(())
     }
