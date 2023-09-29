@@ -1,16 +1,16 @@
-use anyhow::Error;
-use futures::{
-    future::{join_all, try_join_all},
-    stream::{StreamExt, TryStreamExt},
+use crate::{exponential_retry, get_md5sum, polars_analysis::merge_parquet_files};
+use anyhow::{format_err, Error};
+use aws_config::SdkConfig;
+use aws_sdk_s3::{
+    operation::list_objects::ListObjectsOutput, primitives::ByteStream, types::Object as S3Object,
+    Client as S3Client,
 };
+use futures::future::{join_all, try_join_all};
 use log::debug;
 use rand::{
     distributions::{Alphanumeric, DistString},
     thread_rng,
 };
-use rusoto_core::Region;
-use rusoto_s3::{GetObjectRequest, Object as S3Object, PutObjectRequest, S3Client};
-use s3_ext::S3Ext;
 use stack_string::{format_sstr, StackString};
 use std::{
     borrow::Borrow,
@@ -22,16 +22,8 @@ use std::{
     sync::Arc,
     time::SystemTime,
 };
-use sts_profile_auth::get_client_sts;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
-use tokio::task::spawn_blocking;
-
-use crate::{exponential_retry, get_md5sum, polars_analysis::merge_parquet_files};
-
-#[must_use]
-fn get_s3_client() -> S3Client {
-    get_client_sts!(S3Client, Region::UsEast1).expect("Failed to obtain client")
-}
+use time::OffsetDateTime;
+use tokio::{fs::File, task::spawn_blocking};
 
 #[derive(Clone)]
 pub struct S3Sync {
@@ -69,7 +61,8 @@ impl Borrow<str> for &KeyItem {
 
 impl Default for S3Sync {
     fn default() -> Self {
-        Self::new()
+        let config = SdkConfig::builder().build();
+        Self::new(&config)
     }
 }
 
@@ -77,13 +70,13 @@ fn process_s3_item(mut item: S3Object) -> Option<KeyItem> {
     item.key.take().and_then(|key| {
         item.e_tag.take().and_then(|etag| {
             item.last_modified.as_ref().and_then(|last_mod| {
-                OffsetDateTime::parse(last_mod, &Rfc3339)
+                OffsetDateTime::from_unix_timestamp(last_mod.as_secs_f64() as i64)
                     .ok()
                     .map(|lm| KeyItem {
                         key: key.into(),
                         etag: etag.trim_matches('"').into(),
                         timestamp: lm.unix_timestamp(),
-                        size: item.size.unwrap_or(0) as u64,
+                        size: item.size as u64,
                     })
             })
         })
@@ -92,25 +85,50 @@ fn process_s3_item(mut item: S3Object) -> Option<KeyItem> {
 
 impl S3Sync {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(config: &SdkConfig) -> Self {
         Self {
-            s3_client: get_s3_client(),
+            s3_client: S3Client::from_conf(config.into()),
         }
+    }
+
+    async fn _list_objects(
+        &self,
+        bucket: &str,
+        marker: Option<impl AsRef<str>>,
+    ) -> Result<ListObjectsOutput, Error> {
+        let mut builder = self.s3_client.list_objects().bucket(bucket);
+        if let Some(marker) = marker {
+            builder = builder.marker(marker.as_ref());
+        }
+        builder.send().await.map_err(Into::into)
+    }
+
+    async fn _get_list_of_keys(&self, bucket: &str) -> Result<Vec<KeyItem>, Error> {
+        let mut marker: Option<String> = None;
+        let mut list_of_keys = Vec::new();
+        loop {
+            let mut output = self._list_objects(bucket, marker.as_ref()).await?;
+            if let Some(contents) = output.contents.take() {
+                if let Some(last) = contents.last() {
+                    if let Some(key) = last.key() {
+                        marker.replace(key.into());
+                    }
+                }
+                list_of_keys.extend(contents.into_iter().filter_map(process_s3_item));
+            }
+            if !output.is_truncated {
+                break;
+            }
+        }
+        Ok(list_of_keys)
     }
 
     /// # Errors
     /// Return error if db query fails
     async fn get_list_of_keys(&self, bucket: &str) -> Result<Vec<KeyItem>, Error> {
-        let results: Result<Vec<_>, _> = exponential_retry(|| async move {
-            self.s3_client
-                .stream_objects(bucket)
-                .map(|res| res.map(process_s3_item))
-                .try_collect()
-                .await
-                .map_err(Into::into)
-        })
-        .await;
-        let list_of_keys = results?.into_iter().flatten().collect();
+        let results: Result<Vec<_>, _> =
+            exponential_retry(|| async move { self._get_list_of_keys(bucket).await }).await;
+        let list_of_keys = results?;
         Ok(list_of_keys)
     }
 
@@ -237,6 +255,26 @@ impl S3Sync {
         Ok(msg)
     }
 
+    async fn _download_to_file(
+        &self,
+        bucket: &str,
+        key: &str,
+        path: &Path,
+    ) -> Result<StackString, Error> {
+        let object = self
+            .s3_client
+            .get_object()
+            .bucket(bucket)
+            .key(key)
+            .send()
+            .await?;
+        let etag = object.e_tag().ok_or_else(|| format_err!("No etag"))?.into();
+        let body = object.body;
+        let mut f = File::create(path).await?;
+        tokio::io::copy(&mut body.into_async_read(), &mut f).await?;
+        Ok(etag)
+    }
+
     /// # Errors
     /// Return error if db query fails
     async fn download_file(
@@ -252,22 +290,7 @@ impl S3Sync {
         };
         let etag: Result<StackString, Error> = exponential_retry(|| {
             let tmp_path = tmp_path.clone();
-            async move {
-                let etag = self
-                    .s3_client
-                    .download_to_file(
-                        GetObjectRequest {
-                            bucket: s3_bucket.to_string(),
-                            key: s3_key.to_string(),
-                            ..GetObjectRequest::default()
-                        },
-                        &tmp_path,
-                    )
-                    .await?
-                    .e_tag
-                    .unwrap_or_default();
-                Ok(etag.into())
-            }
+            async move { self._download_to_file(s3_bucket, s3_key, &tmp_path).await }
         })
         .await;
         let output = local_file.to_path_buf();
@@ -289,6 +312,25 @@ impl S3Sync {
         etag
     }
 
+    async fn _upload_file(
+        &self,
+        bucket: &str,
+        key: &str,
+        path: &Path,
+    ) -> Result<StackString, Error> {
+        let body = ByteStream::read_from().path(path).build().await?;
+        let object = self
+            .s3_client
+            .put_object()
+            .bucket(bucket)
+            .key(key)
+            .body(body)
+            .send()
+            .await?;
+        let etag = object.e_tag.ok_or_else(|| format_err!("Missing etag"))?;
+        Ok(etag.into())
+    }
+
     /// # Errors
     /// Return error if db query fails
     async fn upload_file(
@@ -296,33 +338,9 @@ impl S3Sync {
         local_file: &Path,
         s3_bucket: &str,
         s3_key: &str,
-    ) -> Result<(), Error> {
-        self.upload_file_acl(local_file, s3_bucket, s3_key).await
-    }
-
-    /// # Errors
-    /// Return error if db query fails
-    async fn upload_file_acl(
-        &self,
-        local_file: &Path,
-        s3_bucket: &str,
-        s3_key: &str,
-    ) -> Result<(), Error> {
-        exponential_retry(|| async move {
-            self.s3_client
-                .upload_from_file(
-                    local_file,
-                    PutObjectRequest {
-                        bucket: s3_bucket.to_string(),
-                        key: s3_key.to_string(),
-                        ..PutObjectRequest::default()
-                    },
-                )
-                .await
-                .map_err(Into::into)
-                .map(|_| ())
-        })
-        .await
+    ) -> Result<StackString, Error> {
+        exponential_retry(|| async move { self._upload_file(s3_bucket, s3_key, local_file).await })
+            .await
     }
 }
 
@@ -373,4 +391,33 @@ async fn get_downloaded(
     });
     let result: Result<Vec<_>, Error> = try_join_all(futures).await;
     Ok(result?.into_iter().flatten().collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Error;
+    use std::path::Path;
+    use tokio::fs::remove_file;
+
+    use crate::s3_sync::S3Sync;
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_list_keys() -> Result<(), Error> {
+        let aws_config = aws_config::load_from_env().await;
+        let s3_sync = S3Sync::new(&aws_config);
+        let s3_bucket = "aws-athena-query-results-281914939654-us-east-1";
+        let s3_key = "064e0d20-19ef-46d7-a1fe-aab556ef2c7e.csv";
+        let keys = s3_sync.get_list_of_keys(s3_bucket).await?;
+        assert!(keys.len() > 0);
+        let local_file = Path::new("/tmp/temp.tmp");
+        let tag = s3_sync.download_file(local_file, s3_bucket, s3_key).await?.replace("\"", "");
+        assert_eq!(&tag, "af59a680bc9c39776f9657dba46e008f");
+        remove_file("/tmp/temp.tmp").await?;
+        let local_file = Path::new("/home/ddboline/movie_queue.sql.gz");
+        let s3_bucket = "aws-athena-query-results-281914939654-us-east-1";
+        let tag = s3_sync.upload_file(local_file, s3_bucket, "movie_queue.sql.gz").await?.replace("\"", "");
+        assert_eq!(&tag, "3a9f98b81b5495b4a835b02d32e694de");
+        Ok(())
+    }
 }

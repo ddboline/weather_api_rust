@@ -187,7 +187,8 @@ impl ParseOpts {
                     .await?;
             }
             Self::Sync { directory } => {
-                let sync = S3Sync::new();
+                let aws_config = aws_config::load_from_env().await;
+                let sync = S3Sync::new(&aws_config);
                 let directory = directory.unwrap_or_else(|| config.cache_dir.clone());
                 stdout()
                     .write_all(
