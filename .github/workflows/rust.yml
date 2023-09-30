@@ -56,6 +56,8 @@ jobs:
         cargo build && \
         ./target/debug/weather-api-rust run-migrations
       env:
+        API_KEY: ${{secrets.API_KEY}}
+        API_ENDPOINT: api.openweathermap.org
         DATABASE_URL: postgresql://postgres:2UtcMAAvNuBHPqK9@localhost:5432/weather_db
 
 
