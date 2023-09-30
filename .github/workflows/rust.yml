@@ -11,6 +11,16 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:12.4-alpine
+        env:
+          POSTGRES_DB: weather_db
+          POSTGRES_PASSWORD: 2UtcMAAvNuBHPqK9
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
     steps:
     - uses: actions/checkout@v2
     - name: Install deps
@@ -42,14 +52,22 @@ jobs:
         cd weather_api_wasm && cargo +nightly udeps && cd ../
 
     - name: Build
-      run: cargo build
+      run: |
+        cargo build && \
+        ./target/debug/weather-api-rust run-migrations
+      env:
+        DATABASE_URL: postgresql://postgres:2UtcMAAvNuBHPqK9@localhost:5432/weather_db
+
 
     - name: Run tests
       run: |
-        cargo test
+        cargo test && \
+        cargo install cargo-tarpaulin && \
+        cargo tarpaulin --all-features --out xml
       env:
         API_KEY: ${{secrets.API_KEY}}
         API_ENDPOINT: api.openweathermap.org
+        DATABASE_URL: postgresql://postgres:2UtcMAAvNuBHPqK9@localhost:5432/weather_db
 
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v2.1.0
