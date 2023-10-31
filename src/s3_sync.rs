@@ -14,13 +14,13 @@ use rand::{
 use stack_string::{format_sstr, StackString};
 use std::{
     borrow::Borrow,
-    convert::TryInto,
+    cmp::Ordering,
+    convert::{TryFrom, TryInto},
     fs,
     hash::{Hash, Hasher},
     path::Path,
-    time::SystemTime, cmp::Ordering,
+    time::SystemTime,
 };
-use time::OffsetDateTime;
 use tokio::{fs::File, task::spawn_blocking};
 
 use crate::{model::KeyItemCache, pgpool::PgPool};
@@ -40,19 +40,15 @@ pub struct KeyItem {
 
 impl KeyItem {
     fn from_s3_object(mut item: S3Object) -> Option<Self> {
-        item.key.take().and_then(|key| {
-            item.e_tag.take().and_then(|etag| {
-                item.last_modified.as_ref().and_then(|last_mod| {
-                    OffsetDateTime::from_unix_timestamp(last_mod.as_secs_f64() as i64)
-                        .ok()
-                        .map(|lm| Self {
-                            key: key.into(),
-                            etag: etag.trim_matches('"').into(),
-                            timestamp: lm.unix_timestamp(),
-                            size: item.size as u64,
-                        })
-                })
-            })
+        let key = item.key.take()?.into();
+        let etag = item.e_tag.take()?.trim_matches('"').into();
+        let timestamp = item.last_modified.as_ref()?.as_secs_f64() as i64;
+
+        Some(Self {
+            key,
+            etag,
+            timestamp,
+            size: item.size as u64,
         })
     }
 }
@@ -68,17 +64,17 @@ impl From<KeyItemCache> for KeyItem {
     }
 }
 
-#[allow(clippy::cast_possible_wrap)]
-impl From<KeyItem> for KeyItemCache {
-    fn from(value: KeyItem) -> Self {
-        Self {
+impl TryFrom<KeyItem> for KeyItemCache {
+    type Error = Error;
+    fn try_from(value: KeyItem) -> Result<Self, Self::Error> {
+        Ok(Self {
             s3_key: value.key,
             etag: value.etag,
             s3_timestamp: value.timestamp,
-            s3_size: value.size as i64,
+            s3_size: value.size.try_into()?,
             has_local: false,
             has_remote: false,
-        }
+        })
     }
 }
 
@@ -130,7 +126,6 @@ impl S3Sync {
         builder.send().await.map_err(Into::into)
     }
 
-    #[allow(clippy::cast_possible_wrap)]
     async fn _get_and_process_keys(&self, bucket: &str, pool: &PgPool) -> Result<usize, Error> {
         let mut marker: Option<String> = None;
         let mut nkeys = 0;
@@ -148,21 +143,21 @@ impl S3Sync {
                         {
                             key_item.has_remote = true;
                             if key.timestamp != key_item.s3_timestamp && key.etag != key_item.etag {
-                                let key_size = key.size as i64;
+                                let key_size: i64 = key.size.try_into()?;
                                 match key_size.cmp(&key_item.s3_size) {
                                     Ordering::Greater => {
-                                        key_item = key.into();
+                                        key_item = key.try_into()?;
                                         key_item.has_remote = true;
-                                    },
+                                    }
                                     Ordering::Less => {
                                         key_item.has_remote = false;
-                                    },
+                                    }
                                     Ordering::Equal => {}
                                 }
                             }
                             key_item.insert(pool).await?;
                         } else {
-                            let mut key_item: KeyItemCache = key.into();
+                            let mut key_item: KeyItemCache = key.try_into()?;
                             key_item.has_remote = true;
                             key_item.insert(pool).await?;
                         };
@@ -184,7 +179,6 @@ impl S3Sync {
         result.map_err(Into::into)
     }
 
-    #[allow(clippy::cast_possible_wrap)]
     async fn process_files(&self, local_dir: &Path, pool: &PgPool) -> Result<(), Error> {
         for dir_line in local_dir.read_dir()? {
             let entry = dir_line?;
@@ -195,11 +189,11 @@ impl S3Sync {
                 .duration_since(SystemTime::UNIX_EPOCH)?
                 .as_secs()
                 .try_into()?;
-            let size = metadata.len();
+            let size: i64 = metadata.len().try_into()?;
             if let Some(file_name) = f.file_name() {
                 let key: StackString = file_name.to_string_lossy().as_ref().into();
                 if let Some(mut key_item) = KeyItemCache::get_by_key(pool, &key).await? {
-                    if modified != key_item.s3_timestamp && size as i64 > key_item.s3_size {
+                    if modified != key_item.s3_timestamp && size > key_item.s3_size {
                         let etag = get_md5sum(&f).await?;
                         if etag != key_item.etag {
                             key_item.has_local = true;
@@ -213,7 +207,7 @@ impl S3Sync {
                         s3_key: key,
                         etag,
                         s3_timestamp: modified,
-                        s3_size: size as i64,
+                        s3_size: size,
                         has_local: true,
                         has_remote: false,
                     }
