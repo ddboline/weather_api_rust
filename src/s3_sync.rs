@@ -5,7 +5,7 @@ use aws_sdk_s3::{
     operation::list_objects::ListObjectsOutput, primitives::ByteStream, types::Object as S3Object,
     Client as S3Client,
 };
-use futures::future::{join_all, try_join_all};
+use futures::TryStreamExt;
 use log::debug;
 use rand::{
     distributions::{Alphanumeric, DistString},
@@ -14,16 +14,16 @@ use rand::{
 use stack_string::{format_sstr, StackString};
 use std::{
     borrow::Borrow,
-    collections::{BTreeSet, HashMap, HashSet},
     convert::TryInto,
     fs,
     hash::{Hash, Hasher},
-    path::{Path, PathBuf},
-    sync::Arc,
+    path::Path,
     time::SystemTime,
 };
 use time::OffsetDateTime;
 use tokio::{fs::File, task::spawn_blocking};
+
+use crate::{model::KeyItemCache, pgpool::PgPool};
 
 #[derive(Clone)]
 pub struct S3Sync {
@@ -31,11 +31,54 @@ pub struct S3Sync {
 }
 
 #[derive(Debug, Clone, Eq)]
-struct KeyItem {
+pub struct KeyItem {
     key: StackString,
     etag: StackString,
     timestamp: i64,
     size: u64,
+}
+
+impl KeyItem {
+    fn from_s3_object(mut item: S3Object) -> Option<Self> {
+        item.key.take().and_then(|key| {
+            item.e_tag.take().and_then(|etag| {
+                item.last_modified.as_ref().and_then(|last_mod| {
+                    OffsetDateTime::from_unix_timestamp(last_mod.as_secs_f64() as i64)
+                        .ok()
+                        .map(|lm| Self {
+                            key: key.into(),
+                            etag: etag.trim_matches('"').into(),
+                            timestamp: lm.unix_timestamp(),
+                            size: item.size as u64,
+                        })
+                })
+            })
+        })
+    }
+}
+
+impl From<KeyItemCache> for KeyItem {
+    fn from(value: KeyItemCache) -> Self {
+        Self {
+            key: value.s3_key,
+            etag: value.etag,
+            timestamp: value.s3_timestamp,
+            size: value.s3_size as u64,
+        }
+    }
+}
+
+impl From<KeyItem> for KeyItemCache {
+    fn from(value: KeyItem) -> Self {
+        Self {
+            s3_key: value.key,
+            etag: value.etag,
+            s3_timestamp: value.timestamp,
+            s3_size: value.size as i64,
+            has_local: false,
+            has_remote: false,
+        }
+    }
 }
 
 impl PartialEq for KeyItem {
@@ -64,23 +107,6 @@ impl Default for S3Sync {
         let config = SdkConfig::builder().build();
         Self::new(&config)
     }
-}
-
-fn process_s3_item(mut item: S3Object) -> Option<KeyItem> {
-    item.key.take().and_then(|key| {
-        item.e_tag.take().and_then(|etag| {
-            item.last_modified.as_ref().and_then(|last_mod| {
-                OffsetDateTime::from_unix_timestamp(last_mod.as_secs_f64() as i64)
-                    .ok()
-                    .map(|lm| KeyItem {
-                        key: key.into(),
-                        etag: etag.trim_matches('"').into(),
-                        timestamp: lm.unix_timestamp(),
-                        size: item.size as u64,
-                    })
-            })
-        })
-    })
 }
 
 impl S3Sync {
@@ -114,7 +140,7 @@ impl S3Sync {
                         marker.replace(key.into());
                     }
                 }
-                list_of_keys.extend(contents.into_iter().filter_map(process_s3_item));
+                list_of_keys.extend(contents.into_iter().filter_map(KeyItem::from_s3_object));
             }
             if !output.is_truncated {
                 break;
@@ -123,13 +149,102 @@ impl S3Sync {
         Ok(list_of_keys)
     }
 
+    async fn _get_and_process_keys(&self, bucket: &str, pool: &PgPool) -> Result<usize, Error> {
+        let mut marker: Option<String> = None;
+        let mut nkeys = 0;
+        loop {
+            let mut output = self._list_objects(bucket, marker.as_ref()).await?;
+            if let Some(contents) = output.contents.take() {
+                if let Some(last) = contents.last() {
+                    if let Some(key) = last.key() {
+                        marker.replace(key.into());
+                    }
+                }
+                for object in contents {
+                    if let Some(key) = KeyItem::from_s3_object(object) {
+                        if let Some(mut key_item) = KeyItemCache::get_by_key(pool, &key.key).await?
+                        {
+                            key_item.has_remote = true;
+                            if key.timestamp != key_item.s3_timestamp && key.etag != key_item.etag {
+                                let key_size = key.size as i64;
+                                if key_size as i64 > key_item.s3_size {
+                                    key_item = key.into();
+                                    key_item.has_remote = true;
+                                } else if key_size < key_item.s3_size {
+                                    key_item.has_remote = false;
+                                }
+                            }
+                            key_item.insert(pool).await?;
+                        } else {
+                            let mut key_item: KeyItemCache = key.into();
+                            key_item.has_remote = true;
+                            key_item.insert(pool).await?;
+                        };
+                        nkeys += 1;
+                    }
+                }
+            }
+            if !output.is_truncated {
+                break;
+            }
+        }
+        Ok(nkeys)
+    }
+
+    async fn get_and_process_keys(&self, bucket: &str, pool: &PgPool) -> Result<usize, Error> {
+        let result: Result<usize, _> =
+            exponential_retry(|| async move { self._get_and_process_keys(bucket, pool).await })
+                .await;
+        result.map_err(Into::into)
+    }
+
     /// # Errors
     /// Return error if db query fails
-    async fn get_list_of_keys(&self, bucket: &str) -> Result<Vec<KeyItem>, Error> {
+    pub async fn get_list_of_keys(&self, bucket: &str) -> Result<Vec<KeyItem>, Error> {
         let results: Result<Vec<_>, _> =
             exponential_retry(|| async move { self._get_list_of_keys(bucket).await }).await;
         let list_of_keys = results?;
         Ok(list_of_keys)
+    }
+
+    async fn process_files(&self, local_dir: &Path, pool: &PgPool) -> Result<(), Error> {
+        for dir_line in local_dir.read_dir()? {
+            let entry = dir_line?;
+            let f = entry.path();
+            let metadata = fs::metadata(&f)?;
+            let modified: i64 = metadata
+                .modified()?
+                .duration_since(SystemTime::UNIX_EPOCH)?
+                .as_secs()
+                .try_into()?;
+            let size = metadata.len();
+            if let Some(file_name) = f.file_name() {
+                let key: StackString = file_name.to_string_lossy().as_ref().into();
+                if let Some(mut key_item) = KeyItemCache::get_by_key(pool, &key).await? {
+                    if modified != key_item.s3_timestamp {
+                        if size as i64 > key_item.s3_size {
+                            let etag = get_md5sum(&f).await?;
+                            if etag != key_item.etag {
+                                key_item.has_local = true;
+                                key_item.has_remote = false;
+                                key_item.insert(pool).await?;
+                            }
+                        }
+                    }
+                } else {
+                    let etag = get_md5sum(&f).await?;
+                    KeyItemCache {
+                        s3_key: key,
+                        etag,
+                        s3_timestamp: modified,
+                        s3_size: size as i64,
+                        has_local: true,
+                        has_remote: false,
+                    }.insert(pool).await?;
+                };
+            }
+        }
+        Ok(())
     }
 
     /// # Errors
@@ -139,119 +254,47 @@ impl S3Sync {
         title: &str,
         local_dir: &Path,
         s3_bucket: &str,
-        check_md5sum: bool,
+        pool: &PgPool,
     ) -> Result<StackString, Error> {
-        let file_list: Result<Vec<_>, Error> = local_dir
-            .read_dir()?
-            .filter_map(|dir_line| {
-                dir_line.ok().map(|entry| entry.path()).map(|f| {
-                    let metadata = fs::metadata(&f)?;
-                    let modified: i64 = metadata
-                        .modified()?
-                        .duration_since(SystemTime::UNIX_EPOCH)?
-                        .as_secs()
-                        .try_into()?;
-                    let size = metadata.len();
-                    Ok((f, modified, size))
-                })
-            })
-            .collect();
-        let file_list = file_list?;
-        let file_set: HashMap<StackString, _> = file_list
-            .iter()
-            .filter_map(|(f, t, s)| {
-                f.file_name()
-                    .map(|x| (x.to_string_lossy().as_ref().into(), (*t, *s)))
-            })
-            .collect();
+        self.process_files(local_dir, pool).await?;
+        let n_keys = self.get_and_process_keys(s3_bucket, pool).await?;
 
-        let key_list = self.get_list_of_keys(s3_bucket).await?;
-        let n_keys = key_list.len();
+        let mut number_uploaded = 0;
+        let mut number_downloaded = 0;
 
-        let key_set: HashSet<&KeyItem> = key_list.iter().collect();
+        let mut stream = Box::pin(KeyItemCache::get_files(pool, true, false).await?);
 
-        let downloaded = {
-            let local_dir = local_dir.to_path_buf();
-            let s3_bucket: StackString = s3_bucket.into();
-            get_downloaded(&key_set, check_md5sum, &file_set, &local_dir, &s3_bucket).await?
-        };
-        debug!("downloaded {downloaded:?}");
-        let downloaded_files: BTreeSet<_> = downloaded
-            .iter()
-            .map(|(file_name, _)| file_name.clone())
-            .collect();
-        for (file_name, key) in downloaded {
-            debug!("file_name {file_name:?} key {key}");
-            self.download_file(&file_name, s3_bucket, &key).await?;
+        while let Some(mut key_item) = stream.try_next().await? {
+            let local_file = local_dir.join(&key_item.s3_key);
+            self.download_file(&local_file, s3_bucket, &key_item.s3_key).await?;
+            number_downloaded += 1;
+            key_item.has_local = true;
+            key_item.insert(pool).await?;
         }
-        debug!("downloaded {:?}", downloaded_files);
-        let downloaded_files = Arc::new(downloaded_files);
 
-        let key_set = Arc::new(key_set);
+        let mut stream = Box::pin(KeyItemCache::get_files(pool, false, true).await?);
 
-        debug!("downloaded {downloaded_files:?}");
-
-        // let uploaded: Vec<_> =
-        let futures = file_list.into_iter().map(|(file, tmod, size)| {
-            let key_set = key_set.clone();
-            let downloaded_files = downloaded_files.clone();
-            async move {
-                let file_name: StackString = file.file_name()?.to_string_lossy().as_ref().into();
-                let mut do_upload = false;
-                if let Some(item) = key_set.get(file_name.as_str()) {
-                    if tmod != item.timestamp {
-                        if check_md5sum {
-                            if let Ok(md5) = get_md5sum(&file).await {
-                                if item.etag != md5 {
-                                    debug!(
-                                        "upload md5 {} {} {} {} {}",
-                                        file_name, item.etag, md5, item.timestamp, tmod
-                                    );
-                                    do_upload = true;
-                                }
-                            }
-                        } else if size > item.size {
-                            debug!(
-                                "upload size {} {} {} {} {}",
-                                file_name, item.etag, size, item.timestamp, item.size
-                            );
-                            do_upload = true;
-                        }
-                    }
-                    if tmod != item.timestamp && check_md5sum {}
-                } else {
-                    do_upload = true;
-                }
-                if do_upload {
-                    if downloaded_files.contains(&file) {
-                        debug!("{file_name} download and upload");
-                    }
-                    debug!("upload file {}", file_name);
-                    Some((file, file_name))
-                } else {
-                    None
-                }
+        while let Some(mut key_item) = stream.try_next().await? {
+            let local_file = local_dir.join(&key_item.s3_key);
+            if !local_file.exists() {
+                key_item.has_local = false;
+                key_item.insert(pool).await?;
+                continue;
             }
-        });
-        let uploaded: Vec<_> = join_all(futures).await.into_iter().flatten().collect();
-        let uploaded_files: Vec<_> = uploaded
-            .iter()
-            .map(|(_, filename)| filename.clone())
-            .collect();
-        for (file, filename) in uploaded {
-            self.upload_file(&file, s3_bucket, &filename).await?;
+            self.upload_file(&local_file, s3_bucket, &key_item.s3_key).await?;
+            number_uploaded += 1;
+            key_item.has_remote = true;
+            key_item.insert(pool).await?;
         }
-        debug!("uploaded {:?}", uploaded_files);
 
         let msg = format_sstr!(
             "{} {} s3_bucketnkeys {} uploaded {} downloaded {}",
             title,
             s3_bucket,
             n_keys,
-            uploaded_files.len(),
-            downloaded_files.len()
+            number_uploaded,
+            number_downloaded,
         );
-
         Ok(msg)
     }
 
@@ -344,62 +387,46 @@ impl S3Sync {
     }
 }
 
-async fn get_downloaded(
-    key_list: &HashSet<&KeyItem>,
-    check_md5sum: bool,
-    file_set: &HashMap<StackString, (i64, u64)>,
-    local_dir: &Path,
-    s3_bucket: &str,
-) -> Result<Vec<(PathBuf, StackString)>, Error> {
-    let futures = key_list.iter().map(|item| async move {
-        {
-            let mut do_download = false;
-
-            if file_set.contains_key(&item.key) {
-                let (tmod_, size_) = file_set[&item.key];
-                if item.timestamp != tmod_ {
-                    if check_md5sum {
-                        let file_name = local_dir.join(item.key.as_str());
-                        let md5_ = get_md5sum(&file_name).await?;
-                        if md5_.as_str() != item.etag.as_str() {
-                            debug!(
-                                "download md5 {} {} {} {} {} ",
-                                item.key, md5_, item.etag, item.timestamp, tmod_
-                            );
-                            do_download = true;
-                        }
-                    } else if item.size != size_ {
-                        debug!(
-                            "download size {} {} {} {} {}",
-                            item.key, size_, item.size, item.timestamp, tmod_
-                        );
-                        do_download = true;
-                    }
-                }
-            } else {
-                do_download = true;
-            };
-
-            if do_download {
-                let file_name = local_dir.join(item.key.as_str());
-                debug!("download {} {}", s3_bucket, item.key);
-                Ok(Some((file_name, item.key.clone())))
-            } else {
-                Ok(None)
-            }
-        }
-    });
-    let result: Result<Vec<_>, Error> = try_join_all(futures).await;
-    Ok(result?.into_iter().flatten().collect())
-}
-
 #[cfg(test)]
 mod tests {
     use anyhow::Error;
+    use futures::TryStreamExt;
     use std::path::Path;
     use tokio::fs::remove_file;
 
-    use crate::s3_sync::S3Sync;
+    use crate::{config::Config, model::KeyItemCache, pgpool::PgPool, s3_sync::S3Sync};
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_process_files_and_keys() -> Result<(), Error> {
+        let aws_config = aws_config::load_from_env().await;
+        let s3_sync = S3Sync::new(&aws_config);
+        let config = Config::init_config(None)?;
+        let db_url = config.database_url.as_ref().unwrap();
+        let pool = PgPool::new(db_url);
+
+        s3_sync.process_files(&config.cache_dir, &pool).await?;
+        s3_sync
+            .get_and_process_keys(&config.s3_bucket, &pool)
+            .await?;
+
+        KeyItemCache::get_files(&pool, true, false)
+            .await?
+            .try_for_each(|key_item| async move {
+                println!("upload {}", key_item.s3_key);
+                Ok(())
+            })
+            .await?;
+
+        KeyItemCache::get_files(&pool, false, true)
+            .await?
+            .try_for_each(|key_item| async move {
+                println!("download {}", key_item.s3_key);
+                Ok(())
+            })
+            .await?;
+        Ok(())
+    }
 
     #[tokio::test]
     #[ignore]
