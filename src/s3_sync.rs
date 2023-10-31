@@ -18,7 +18,7 @@ use std::{
     fs,
     hash::{Hash, Hasher},
     path::Path,
-    time::SystemTime,
+    time::SystemTime, cmp::Ordering,
 };
 use time::OffsetDateTime;
 use tokio::{fs::File, task::spawn_blocking};
@@ -68,6 +68,7 @@ impl From<KeyItemCache> for KeyItem {
     }
 }
 
+#[allow(clippy::cast_possible_wrap)]
 impl From<KeyItem> for KeyItemCache {
     fn from(value: KeyItem) -> Self {
         Self {
@@ -129,26 +130,7 @@ impl S3Sync {
         builder.send().await.map_err(Into::into)
     }
 
-    async fn _get_list_of_keys(&self, bucket: &str) -> Result<Vec<KeyItem>, Error> {
-        let mut marker: Option<String> = None;
-        let mut list_of_keys = Vec::new();
-        loop {
-            let mut output = self._list_objects(bucket, marker.as_ref()).await?;
-            if let Some(contents) = output.contents.take() {
-                if let Some(last) = contents.last() {
-                    if let Some(key) = last.key() {
-                        marker.replace(key.into());
-                    }
-                }
-                list_of_keys.extend(contents.into_iter().filter_map(KeyItem::from_s3_object));
-            }
-            if !output.is_truncated {
-                break;
-            }
-        }
-        Ok(list_of_keys)
-    }
-
+    #[allow(clippy::cast_possible_wrap)]
     async fn _get_and_process_keys(&self, bucket: &str, pool: &PgPool) -> Result<usize, Error> {
         let mut marker: Option<String> = None;
         let mut nkeys = 0;
@@ -167,11 +149,15 @@ impl S3Sync {
                             key_item.has_remote = true;
                             if key.timestamp != key_item.s3_timestamp && key.etag != key_item.etag {
                                 let key_size = key.size as i64;
-                                if key_size as i64 > key_item.s3_size {
-                                    key_item = key.into();
-                                    key_item.has_remote = true;
-                                } else if key_size < key_item.s3_size {
-                                    key_item.has_remote = false;
+                                match key_size.cmp(&key_item.s3_size) {
+                                    Ordering::Greater => {
+                                        key_item = key.into();
+                                        key_item.has_remote = true;
+                                    },
+                                    Ordering::Less => {
+                                        key_item.has_remote = false;
+                                    },
+                                    Ordering::Equal => {}
                                 }
                             }
                             key_item.insert(pool).await?;
@@ -198,15 +184,7 @@ impl S3Sync {
         result.map_err(Into::into)
     }
 
-    /// # Errors
-    /// Return error if db query fails
-    pub async fn get_list_of_keys(&self, bucket: &str) -> Result<Vec<KeyItem>, Error> {
-        let results: Result<Vec<_>, _> =
-            exponential_retry(|| async move { self._get_list_of_keys(bucket).await }).await;
-        let list_of_keys = results?;
-        Ok(list_of_keys)
-    }
-
+    #[allow(clippy::cast_possible_wrap)]
     async fn process_files(&self, local_dir: &Path, pool: &PgPool) -> Result<(), Error> {
         for dir_line in local_dir.read_dir()? {
             let entry = dir_line?;
@@ -221,14 +199,12 @@ impl S3Sync {
             if let Some(file_name) = f.file_name() {
                 let key: StackString = file_name.to_string_lossy().as_ref().into();
                 if let Some(mut key_item) = KeyItemCache::get_by_key(pool, &key).await? {
-                    if modified != key_item.s3_timestamp {
-                        if size as i64 > key_item.s3_size {
-                            let etag = get_md5sum(&f).await?;
-                            if etag != key_item.etag {
-                                key_item.has_local = true;
-                                key_item.has_remote = false;
-                                key_item.insert(pool).await?;
-                            }
+                    if modified != key_item.s3_timestamp && size as i64 > key_item.s3_size {
+                        let etag = get_md5sum(&f).await?;
+                        if etag != key_item.etag {
+                            key_item.has_local = true;
+                            key_item.has_remote = false;
+                            key_item.insert(pool).await?;
                         }
                     }
                 } else {
@@ -240,7 +216,9 @@ impl S3Sync {
                         s3_size: size as i64,
                         has_local: true,
                         has_remote: false,
-                    }.insert(pool).await?;
+                    }
+                    .insert(pool)
+                    .await?;
                 };
             }
         }
@@ -266,7 +244,9 @@ impl S3Sync {
 
         while let Some(mut key_item) = stream.try_next().await? {
             let local_file = local_dir.join(&key_item.s3_key);
-            self.download_file(&local_file, s3_bucket, &key_item.s3_key).await?;
+            key_item.etag = self
+                .download_file(&local_file, s3_bucket, &key_item.s3_key)
+                .await?;
             number_downloaded += 1;
             key_item.has_local = true;
             key_item.insert(pool).await?;
@@ -281,7 +261,9 @@ impl S3Sync {
                 key_item.insert(pool).await?;
                 continue;
             }
-            self.upload_file(&local_file, s3_bucket, &key_item.s3_key).await?;
+            key_item.etag = self
+                .upload_file(&local_file, s3_bucket, &key_item.s3_key)
+                .await?;
             number_uploaded += 1;
             key_item.has_remote = true;
             key_item.insert(pool).await?;
@@ -311,7 +293,11 @@ impl S3Sync {
             .key(key)
             .send()
             .await?;
-        let etag = object.e_tag().ok_or_else(|| format_err!("No etag"))?.into();
+        let etag = object
+            .e_tag()
+            .ok_or_else(|| format_err!("No etag"))?
+            .trim_matches('"')
+            .into();
         let body = object.body;
         let mut f = File::create(path).await?;
         tokio::io::copy(&mut body.into_async_read(), &mut f).await?;
@@ -362,16 +348,19 @@ impl S3Sync {
         path: &Path,
     ) -> Result<StackString, Error> {
         let body = ByteStream::read_from().path(path).build().await?;
-        let object = self
+        let etag = self
             .s3_client
             .put_object()
             .bucket(bucket)
             .key(key)
             .body(body)
             .send()
-            .await?;
-        let etag = object.e_tag.ok_or_else(|| format_err!("Missing etag"))?;
-        Ok(etag.into())
+            .await?
+            .e_tag
+            .ok_or_else(|| format_err!("Missing etag"))?
+            .trim_matches('"')
+            .into();
+        Ok(etag)
     }
 
     /// # Errors
@@ -391,8 +380,6 @@ impl S3Sync {
 mod tests {
     use anyhow::Error;
     use futures::TryStreamExt;
-    use std::path::Path;
-    use tokio::fs::remove_file;
 
     use crate::{config::Config, model::KeyItemCache, pgpool::PgPool, s3_sync::S3Sync};
 
@@ -425,32 +412,6 @@ mod tests {
                 Ok(())
             })
             .await?;
-        Ok(())
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_list_keys() -> Result<(), Error> {
-        let aws_config = aws_config::load_from_env().await;
-        let s3_sync = S3Sync::new(&aws_config);
-        let s3_bucket = "aws-athena-query-results-281914939654-us-east-1";
-        let s3_key = "064e0d20-19ef-46d7-a1fe-aab556ef2c7e.csv";
-        let keys = s3_sync.get_list_of_keys(s3_bucket).await?;
-        assert!(keys.len() > 0);
-        let local_file = Path::new("/tmp/temp.tmp");
-        let tag = s3_sync
-            .download_file(local_file, s3_bucket, s3_key)
-            .await?
-            .replace("\"", "");
-        assert_eq!(&tag, "af59a680bc9c39776f9657dba46e008f");
-        remove_file("/tmp/temp.tmp").await?;
-        let local_file = Path::new("/home/ddboline/movie_queue.sql.gz");
-        let s3_bucket = "aws-athena-query-results-281914939654-us-east-1";
-        let tag = s3_sync
-            .upload_file(local_file, s3_bucket, "movie_queue.sql.gz")
-            .await?
-            .replace("\"", "");
-        assert_eq!(&tag, "3a9f98b81b5495b4a835b02d32e694de");
         Ok(())
     }
 }
