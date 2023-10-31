@@ -633,6 +633,85 @@ impl WeatherLocationCache {
     }
 }
 
+#[derive(FromSqlRow, Serialize, Deserialize, Debug, Clone)]
+pub struct KeyItemCache {
+    pub s3_key: StackString,
+    pub etag: StackString,
+    pub s3_timestamp: i64,
+    pub s3_size: i64,
+    pub has_local: bool,
+    pub has_remote: bool,
+}
+
+impl KeyItemCache {
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn get_by_key(pool: &PgPool, s3_key: &str) -> Result<Option<Self>, Error> {
+        let query = query!(
+            "SELECT * FROM key_item_cache WHERE s3_key = $s3_key",
+            s3_key = s3_key
+        );
+        let conn = pool.get().await?;
+        query.fetch_opt(&conn).await.map_err(Into::into)
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn get_files(
+        pool: &PgPool,
+        has_remote: bool,
+        has_local: bool,
+    ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
+        let query = query!(
+            r#"
+                SELECT * FROM key_item_cache
+                WHERE has_remote = $has_remote AND has_local = $has_local
+            "#,
+            has_remote = has_remote,
+            has_local = has_local,
+        );
+        let conn = pool.get().await?;
+        query.fetch_streaming(&conn).await.map_err(Into::into)
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn insert(&self, pool: &PgPool) -> Result<u64, Error> {
+        let query = query!(
+            r#"
+                INSERT INTO key_item_cache (
+                    s3_key,
+                    etag,
+                    s3_timestamp,
+                    s3_size,
+                    has_local,
+                    has_remote
+                ) VALUES (
+                    $s3_key,
+                    $etag,
+                    $s3_timestamp,
+                    $s3_size,
+                    $has_local,
+                    $has_remote
+                ) ON CONFLICT (s3_key) DO UPDATE
+                    SET etag=$etag,
+                        s3_timestamp=$s3_timestamp,
+                        s3_size=$s3_size,
+                        has_local=$has_local,
+                        has_remote=$has_remote
+            "#,
+            s3_key = self.s3_key,
+            etag = self.etag,
+            s3_timestamp = self.s3_timestamp,
+            s3_size = self.s3_size,
+            has_local = self.has_local,
+            has_remote = self.has_remote,
+        );
+        let conn = pool.get().await?;
+        query.execute(&conn).await.map_err(Into::into)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use anyhow::Error;
