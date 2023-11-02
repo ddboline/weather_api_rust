@@ -21,7 +21,10 @@ use std::{
     path::Path,
     time::SystemTime,
 };
-use tokio::{fs::File, task::spawn_blocking};
+use tokio::{
+    fs::File,
+    task::{spawn, spawn_blocking, JoinHandle},
+};
 
 use crate::{model::KeyItemCache, pgpool::PgPool};
 
@@ -179,7 +182,9 @@ impl S3Sync {
         result.map_err(Into::into)
     }
 
-    async fn process_files(&self, local_dir: &Path, pool: &PgPool) -> Result<(), Error> {
+    async fn process_files(&self, local_dir: &Path, pool: &PgPool) -> Result<usize, Error> {
+        let mut tasks = Vec::new();
+        let mut updates = 0;
         for dir_line in local_dir.read_dir()? {
             let entry = dir_line?;
             let f = entry.path();
@@ -194,29 +199,44 @@ impl S3Sync {
                 let key: StackString = file_name.to_string_lossy().as_ref().into();
                 if let Some(mut key_item) = KeyItemCache::get_by_key(pool, &key).await? {
                     if modified != key_item.s3_timestamp && size > key_item.s3_size {
-                        let etag = get_md5sum(&f).await?;
-                        if etag != key_item.etag {
-                            key_item.has_local = true;
-                            key_item.has_remote = false;
-                            key_item.insert(pool).await?;
-                        }
+                        let pool = pool.clone();
+                        let task: JoinHandle<Result<(), Error>> = spawn(async move {
+                            let etag = get_md5sum(&f).await?;
+                            if etag != key_item.etag {
+                                key_item.has_local = true;
+                                key_item.has_remote = false;
+                                key_item.insert(&pool).await?;
+                            }
+                            Ok(())
+                        });
+                        tasks.push(task);
+                        updates += 1;
                     }
                 } else {
-                    let etag = get_md5sum(&f).await?;
-                    KeyItemCache {
-                        s3_key: key,
-                        etag,
-                        s3_timestamp: modified,
-                        s3_size: size,
-                        has_local: true,
-                        has_remote: false,
-                    }
-                    .insert(pool)
-                    .await?;
+                    let pool = pool.clone();
+                    let task: JoinHandle<Result<(), Error>> = spawn(async move {
+                        let etag = get_md5sum(&f).await?;
+                        KeyItemCache {
+                            s3_key: key,
+                            etag,
+                            s3_timestamp: modified,
+                            s3_size: size,
+                            has_local: true,
+                            has_remote: false,
+                        }
+                        .insert(&pool)
+                        .await?;
+                        Ok(())
+                    });
+                    tasks.push(task);
+                    updates += 1;
                 };
             }
         }
-        Ok(())
+        for task in tasks {
+            let _ = task.await?;
+        }
+        Ok(updates)
     }
 
     /// # Errors
@@ -228,7 +248,7 @@ impl S3Sync {
         s3_bucket: &str,
         pool: &PgPool,
     ) -> Result<StackString, Error> {
-        self.process_files(local_dir, pool).await?;
+        let local_updates = self.process_files(local_dir, pool).await?;
         let n_keys = self.get_and_process_keys(s3_bucket, pool).await?;
 
         let mut number_uploaded = 0;
@@ -264,12 +284,8 @@ impl S3Sync {
         }
 
         let msg = format_sstr!(
-            "{} {} s3_bucketnkeys {} uploaded {} downloaded {}",
-            title,
-            s3_bucket,
-            n_keys,
-            number_uploaded,
-            number_downloaded,
+            "{title} {s3_bucket} s3_bucket nkeys {n_keys} updated files {local_updates} uploaded \
+             {number_uploaded} downloaded {number_downloaded}",
         );
         Ok(msg)
     }
