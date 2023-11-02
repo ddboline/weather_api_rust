@@ -184,7 +184,6 @@ impl S3Sync {
 
     async fn process_files(&self, local_dir: &Path, pool: &PgPool) -> Result<usize, Error> {
         let mut tasks = Vec::new();
-        let mut updates = 0;
         for dir_line in local_dir.read_dir()? {
             let entry = dir_line?;
             let f = entry.path();
@@ -210,7 +209,6 @@ impl S3Sync {
                             Ok(())
                         });
                         tasks.push(task);
-                        updates += 1;
                     }
                 } else {
                     let pool = pool.clone();
@@ -229,10 +227,10 @@ impl S3Sync {
                         Ok(())
                     });
                     tasks.push(task);
-                    updates += 1;
                 };
             }
         }
+        let updates = tasks.len();
         for task in tasks {
             let _ = task.await?;
         }
