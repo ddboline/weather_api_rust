@@ -1,6 +1,6 @@
 [package]
 name = "weather_app_wasm"
-version = "0.9.3"
+version = "0.9.4"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -21,6 +21,5 @@ web-sys = {version="0.3", features=["Geolocation", "Navigator", "Request", "Requ
 js-sys = "0.3"
 wasm-bindgen = {version="0.2", features=["serde-serialize"]}
 wasm-bindgen-futures = "0.4"
-http = "0.2"
 futures-channel = "0.3"
 futures-util = "0.3"

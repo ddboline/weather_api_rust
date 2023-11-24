@@ -5,7 +5,6 @@ use dioxus::prelude::{
 };
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use futures_util::lock::Mutex;
-use keyboard_types::Key;
 use std::{collections::HashMap, fmt, fmt::Write, sync::Arc};
 use time::{format_description::FormatItem, macros::format_description, Date, UtcOffset};
 use url::Url;
@@ -355,7 +354,8 @@ fn weather_app_element<'a>(
                                             set_forecast.needs_update();
                                         }
                                     }
-                                    if evt.key() == Key::Enter {
+                                    #[allow(deprecated)]
+                                    if &evt.key == "Enter" {
                                         set_draft.modify(|_| String::new());
                                         set_draft.needs_update();
                                         set_search_history.modify(|sh| {

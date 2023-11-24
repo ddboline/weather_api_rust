@@ -46,12 +46,13 @@ impl KeyItem {
         let key = item.key.take()?.into();
         let etag = item.e_tag.take()?.trim_matches('"').into();
         let timestamp = item.last_modified.as_ref()?.as_secs_f64() as i64;
+        let size = item.size? as u64;
 
         Some(Self {
             key,
             etag,
             timestamp,
-            size: item.size as u64,
+            size,
         })
     }
 }
@@ -168,7 +169,7 @@ impl S3Sync {
                     }
                 }
             }
-            if !output.is_truncated {
+            if output.is_truncated == Some(false) || output.is_truncated.is_none() {
                 break;
             }
         }

@@ -8,6 +8,7 @@
 #![allow(clippy::result_large_err)]
 #![allow(clippy::unused_async)]
 #![allow(clippy::unsafe_derive_deserialize)]
+#![allow(clippy::missing_errors_doc)]
 
 pub mod api_options;
 pub mod app;

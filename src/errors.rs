@@ -1,8 +1,8 @@
 use anyhow::Error as AnyhowError;
-use http::{Error as HTTPError, StatusCode};
 use log::error;
 use postgres_query::Error as PgError;
 use rweb::{
+    http::{Error as HTTPError, StatusCode},
     openapi::{
         ComponentDescriptor, ComponentOrInlineSchema, Entity, Response, ResponseEntity, Responses,
     },
@@ -19,14 +19,14 @@ use thiserror::Error;
 use time::error::Format as FormatError;
 use weather_util_rust::Error as WeatherUtilError;
 
-static LOGIN_HTML: &str = r#"
+static LOGIN_HTML: &str = r"
     <script>
     !function() {
         let final_url = location.href;
         location.replace('/auth/login.html?final_url=' + final_url);
     }()
     </script>
-"#;
+";
 
 fn login_html() -> impl Reply {
     rweb::reply::html(LOGIN_HTML)

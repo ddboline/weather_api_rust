@@ -71,6 +71,8 @@ pub async fn get_weather_data(
     Ok(weather_data)
 }
 
+/// # Errors
+/// Will return error if `WeatherApi::run_api` fails
 #[cached(
     type = "TimedSizedCache<StackString, WeatherForecast>",
     create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
