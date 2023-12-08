@@ -1,6 +1,6 @@
 use anyhow::Error;
 use dioxus::prelude::{
-    dioxus_elements, inline_props, rsx, use_future, use_state, Element, GlobalAttributes,
+    component, dioxus_elements, rsx, use_future, use_state, Element, GlobalAttributes, IntoDynNode,
     LazyNodes, Props, Scope, SvgAttributes, UseFuture, UseState,
 };
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -88,14 +88,14 @@ fn update_search_history(sh: &Vec<String>, s: &str) -> Vec<String> {
     v
 }
 
-#[inline_props]
+#[component(no_case_check)]
 pub fn weather_component(
     cx: Scope,
     weather: WeatherData,
     forecast: Option<WeatherForecast>,
     plot: Option<Vec<PlotData>>,
 ) -> Element {
-    cx.render(weather_element(weather, forecast, plot))
+    cx.render(weather_element(&weather, &forecast, &plot))
 }
 
 pub fn weather_element<'a>(
