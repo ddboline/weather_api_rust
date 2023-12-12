@@ -6,7 +6,7 @@ use std::net::Ipv4Addr;
 use url::Url;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{window, Request, RequestInit, Response};
+use web_sys::{window, RequestInit, Response};
 
 use weather_util_rust::{
     latitude::Latitude, longitude::Longitude, weather_api::WeatherLocation,
@@ -67,10 +67,9 @@ pub async fn js_fetch(url: &Url, method: Method) -> Result<JsValue, JsValue> {
     let mut opts = RequestInit::new();
     opts.method(method.as_str());
 
-    let request = Request::new_with_str_and_init(url.as_str(), &opts)?;
-    let window = web_sys::window().unwrap();
-    let resp = JsFuture::from(window.fetch_with_request(&request)).await?;
-    let resp: Response = resp.dyn_into().unwrap();
+    let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
+    let resp = JsFuture::from(window.fetch_with_str_and_init(url.as_str(), &opts)).await?;
+    let resp: Response = resp.dyn_into()?;
     JsFuture::from(resp.json()?).await
 }
 
@@ -78,10 +77,9 @@ pub async fn text_fetch(url: &Url, method: Method) -> Result<JsValue, JsValue> {
     let mut opts = RequestInit::new();
     opts.method(method.as_str());
 
-    let request = Request::new_with_str_and_init(url.as_str(), &opts)?;
-    let window = web_sys::window().unwrap();
-    let resp = JsFuture::from(window.fetch_with_request(&request)).await?;
-    let resp: Response = resp.dyn_into().unwrap();
+    let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
+    let resp = JsFuture::from(window.fetch_with_str_and_init(url.as_str(), &opts)).await?;
+    let resp: Response = resp.dyn_into()?;
     JsFuture::from(resp.text()?).await
 }
 

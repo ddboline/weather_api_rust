@@ -23,7 +23,7 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 serde-wasm-bindgen = "0.6"
 web-sys = {version="0.3", features=["Storage", "Window", "Request", "RequestInit", "Response", "Location"]}
+http = "1.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 reqwest = {version="0.11", features=["rustls-tls", "json"]}
-
