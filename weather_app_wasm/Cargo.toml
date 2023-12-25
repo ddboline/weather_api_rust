@@ -1,6 +1,6 @@
 [package]
 name = "weather_app_wasm"
-version = "0.9.6"
+version = "0.9.7"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,7 +11,6 @@ dioxus-web = "0.4"
 dioxus = "0.4"
 weather_util_rust = {version="0.16", default-features=false}
 anyhow = "1.0"
-lazy_static = "1.4"
 time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
 log = "0.4"
 wasm-logger = "0.2"

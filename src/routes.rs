@@ -2,7 +2,6 @@ use cached::Cached;
 use dioxus::prelude::VirtualDom;
 use futures::{future::try_join_all, TryStreamExt};
 use isocountry::CountryCode;
-use lazy_static::lazy_static;
 use rweb::{get, post, Json, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
@@ -12,6 +11,7 @@ use time::{
     Date, Duration, OffsetDateTime, PrimitiveDateTime,
 };
 use tokio::sync::RwLock;
+use once_cell::sync::Lazy;
 
 use rweb_helper::{
     html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, DateType,
@@ -39,9 +39,7 @@ use crate::{
 pub type WarpResult<T> = Result<T, Rejection>;
 pub type HttpResult<T> = Result<T, Error>;
 
-lazy_static! {
-    static ref WEATHER_STRING_LENGTH: StringLengthMap = StringLengthMap::new();
-}
+static WEATHER_STRING_LENGTH: Lazy<StringLengthMap> = Lazy::new(|| StringLengthMap::new());
 
 struct StringLengthMap(RwLock<HashMap<StackString, usize>>);
 
