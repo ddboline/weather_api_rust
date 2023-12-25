@@ -95,7 +95,7 @@ pub fn WeatherComponent(
     forecast: Option<WeatherForecast>,
     plot: Option<Vec<PlotData>>,
 ) -> Element {
-    cx.render(weather_element(&weather, &forecast, &plot))
+    cx.render(weather_element(weather, forecast, plot))
 }
 
 pub fn weather_element<'a>(

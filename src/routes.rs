@@ -39,7 +39,7 @@ use crate::{
 pub type WarpResult<T> = Result<T, Rejection>;
 pub type HttpResult<T> = Result<T, Error>;
 
-static WEATHER_STRING_LENGTH: Lazy<StringLengthMap> = Lazy::new(|| StringLengthMap::new());
+static WEATHER_STRING_LENGTH: Lazy<StringLengthMap> = Lazy::new(StringLengthMap::new);
 
 struct StringLengthMap(RwLock<HashMap<StackString, usize>>);
 
