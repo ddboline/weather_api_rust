@@ -18,7 +18,7 @@ use rweb_helper::{
     RwebResponse,
 };
 use weather_api_common::weather_element::{
-    get_forecast_plots, get_history_plots, weather_component, weather_componentProps,
+    get_forecast_plots, get_history_plots, WeatherComponent, WeatherComponentProps,
 };
 use weather_util_rust::{
     weather_api::WeatherLocation, weather_data::WeatherData, weather_forecast::WeatherForecast,
@@ -85,8 +85,8 @@ pub async fn frontpage(
 
     let body = {
         let mut app = VirtualDom::new_with_props(
-            weather_component,
-            weather_componentProps {
+            WeatherComponent,
+            WeatherComponentProps {
                 weather,
                 forecast: Some(forecast),
                 plot: None,
@@ -133,8 +133,8 @@ pub async fn forecast_plot(
 
     let body = {
         let mut app = VirtualDom::new_with_props(
-            weather_component,
-            weather_componentProps {
+            WeatherComponent,
+            WeatherComponentProps {
                 weather,
                 forecast: None,
                 plot: Some(plots),
@@ -151,11 +151,17 @@ pub async fn forecast_plot(
 }
 
 #[derive(Serialize, Deserialize, Schema, Clone)]
+#[schema(component="Statistics")]
 pub struct StatisticsObject {
+    #[schema(description="Weather Data Cache Hits")]
     pub data_cache_hits: u64,
+    #[schema(description="Weather Data Cache Misses")]
     pub data_cache_misses: u64,
+    #[schema(description="Forecast Cache Hits")]
     pub forecast_cache_hits: u64,
+    #[schema(description="Forecast Cache Misses")]
     pub forecast_cache_misses: u64,
+    #[schema(description="Weather String Length Map")]
     pub weather_string_length_map: HashMap<String, usize>,
 }
 
@@ -307,8 +313,11 @@ pub async fn geo_reverse(
 }
 
 #[derive(Debug, Serialize, Deserialize, Schema)]
+#[schema(component="LocationCount")]
 struct LocationCount {
+    #[schema(description="Location String")]
     location: StackString,
+    #[schema(description="Count")]
     count: i64,
 }
 
@@ -390,6 +399,7 @@ pub async fn history(
 }
 
 #[derive(Serialize, Deserialize, Schema)]
+#[schema(component="HistoryUpdateRequest")]
 struct HistoryUpdateRequest {
     updates: Vec<WeatherDataDBWrapper>,
 }
@@ -427,6 +437,7 @@ pub async fn history_update(
 }
 
 #[derive(Deserialize, Schema)]
+#[schema(component="HistoryPlotRequest")]
 struct HistoryPlotRequest {
     name: StackString,
     server: Option<StackString>,
@@ -495,8 +506,8 @@ pub async fn history_plot(
 
     let body = {
         let mut app = VirtualDom::new_with_props(
-            weather_component,
-            weather_componentProps {
+            WeatherComponent,
+            WeatherComponentProps {
                 weather,
                 forecast: None,
                 plot: Some(plots),

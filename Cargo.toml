@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.9.5"
+version = "0.9.6"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -27,7 +27,7 @@ exclude = [
 [dependencies]
 weather_api_common = {path = "weather_api_common/"}
 anyhow = "1.0"
-authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", tag="0.11.4"}
+authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", tag="0.11.8"}
 aws-config = {version="1.0", features=["behavior-version-latest"]}
 aws-sdk-s3 = "1.1"
 bytes = "1.1"
@@ -35,7 +35,7 @@ cached = {version="0.46", features=["async", "async_tokio_rt_multi_thread"]}
 chrono = "0.4"
 clap = {version="4.0", features=["derive"]}
 deadpool = {version = "0.10", features=["serde", "rt_tokio_1"]}
-deadpool-postgres = {version="0.11", features=["serde"]}
+deadpool-postgres = {version="0.12", features=["serde"]}
 derive_more = "0.99"
 dioxus = "0.4"
 dioxus-ssr = "0.4"
@@ -50,12 +50,12 @@ log = "0.4"
 maplit = "1.0"
 parking_lot = "0.12"
 polars = {version="0.35", features=["temporal", "parquet", "lazy"]}
-postgres_query = {git = "https://github.com/ddboline/rust-postgres-query", tag = "0.3.5", features=["deadpool"]}
+postgres_query = {git = "https://github.com/ddboline/rust-postgres-query", tag = "0.3.6", features=["deadpool"]}
 postgres-types = {version="0.2", features=["with-time-0_3", "with-uuid-1", "with-serde_json-1"]}
 rand = "0.8"
 refinery = {version="0.8", features=["tokio-postgres"]}
 rweb = {git = "https://github.com/ddboline/rweb.git", features=["openapi"], tag="0.15.1-1"}
-rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", features=["time"], tag="0.5.0-1"}
+rweb-helper = {git = "https://github.com/ddboline/rweb_helper.git", features=["time"], tag="0.5.1"}
 serde = {version="1.0", features=["derive"]}
 serde_json = "1.0"
 serde_yaml = "0.9"

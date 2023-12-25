@@ -56,6 +56,7 @@ derive_rweb_schema!(CoordWrapper, _CoordWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="Coordinates")]
 struct _CoordWrapper {
     #[schema(description = "Longitude")]
     lon: f64,
@@ -70,28 +71,51 @@ derive_rweb_schema!(WeatherDataDBWrapper, _WeatherDataDBWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="WeatherDataDB")]
 struct _WeatherDataDBWrapper {
+    #[schema(description="ID")]
     id: UuidWrapper,
+    #[schema(description="Unix Timestamp")]
     dt: i32,
+    #[schema(description="Created At Datetime")]
     created_at: DateTimeType,
+    #[schema(description="Location Name")]
     location_name: StringType,
+    #[schema(description="Latitude")]
     latitude: f64,
+    #[schema(description="Longitude")]
     longitude: f64,
+    #[schema(description="Condition")]
     condition: StringType,
+    #[schema(description="Temperature (K)")]
     temperature: f64,
+    #[schema(description="Minimum Temperature (K)")]
     temperature_minimum: f64,
+    #[schema(description="Maximum Temperature (K)")]
     temperature_maximum: f64,
+    #[schema(description="Pressure (kPa)")]
     pressure: f64,
+    #[schema(description="Humidity (percent x 100)")]
     humidity: i32,
+    #[schema(description="Visibility (meters)")]
     visibility: Option<f64>,
+    #[schema(description="Rain (mm per hour)")]
     rain: Option<f64>,
+    #[schema(description="Snow (mm per hour)")]
     snow: Option<f64>,
+    #[schema(description="Wind Speed (m/s)")]
     wind_speed: f64,
+    #[schema(description="Wind Direction (degrees)")]
     wind_direction: Option<f64>,
+    #[schema(description="Country Code (ISO 3166-1 alpha-2)")]
     country: StringType,
+    #[schema(description="Sunrise Datetime")]
     sunrise: DateTimeType,
+    #[schema(description="Sunset Datetime")]
     sunset: DateTimeType,
+    #[schema(description="Timezone UTC Offset (seconds)")]
     timezone: i32,
+    #[schema(description="Server (dilepton-tower/dilepton-cloud)")]
     server: StringType,
 }
 
@@ -103,6 +127,7 @@ derive_rweb_schema!(WeatherDataWrapper, _WeatherDataWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="WeatherData")]
 struct _WeatherDataWrapper {
     #[schema(description = "Coordinates")]
     coord: CoordWrapper,
@@ -131,6 +156,7 @@ derive_rweb_schema!(WeatherCondWrapper, _WeatherCondWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="WeatherConditions")]
 struct _WeatherCondWrapper {
     id: usize,
     main: StringType,
@@ -145,6 +171,7 @@ derive_rweb_schema!(WeatherMainWrapper, _WeatherMainWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="WeatherMain")]
 struct _WeatherMainWrapper {
     #[schema(description = "Temperature (K)")]
     temp: f64,
@@ -167,6 +194,7 @@ derive_rweb_schema!(WindWrapper, _WindWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="Wind")]
 struct _WindWrapper {
     #[schema(description = "Speed (m/s)")]
     speed: f64,
@@ -175,6 +203,7 @@ struct _WindWrapper {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
+#[schema(component="Rain")]
 pub struct RainWrapper {
     #[serde(alias = "3h", skip_serializing_if = "Option::is_none")]
     #[schema(description = "Rain (mm over previous 3 hours)")]
@@ -194,6 +223,7 @@ impl From<Rain> for RainWrapper {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Schema, Copy)]
+#[schema(component="Snow")]
 pub struct SnowWrapper {
     #[serde(alias = "3h", skip_serializing_if = "Option::is_none")]
     #[schema(description = "Snow (mm over previous 3 hours)")]
@@ -219,6 +249,7 @@ derive_rweb_schema!(SysWrapper, _SysWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="SystemData")]
 struct _SysWrapper {
     country: Option<StringType>,
     #[schema(description = "Sunrise (Unix Timestamp)")]
@@ -234,6 +265,7 @@ derive_rweb_schema!(WeatherForecastWrapper, _WeatherForecastWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="WeatherForecast")]
 struct _WeatherForecastWrapper {
     #[schema(description = "Main Forecast Entries")]
     list: Vec<ForecastEntryWrapper>,
@@ -248,6 +280,7 @@ derive_rweb_schema!(GeoLocationWrapper, _GeoLocationWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="GeoLocation")]
 struct _GeoLocationWrapper {
     name: StringType,
     lat: f64,
@@ -263,6 +296,7 @@ derive_rweb_schema!(ForecastEntryWrapper, _ForecastEntryWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="ForecastEntry")]
 struct _ForecastEntryWrapper {
     #[schema(description = "Forecasted DateTime (Unix Timestamp)")]
     dt: DateTimeType,
@@ -279,6 +313,7 @@ derive_rweb_schema!(CityEntryWrapper, _CityEntryWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="CityEntry")]
 struct _CityEntryWrapper {
     #[schema(description = "Timezone (seconds offset from UTC)")]
     timezone: i32,
@@ -295,6 +330,7 @@ derive_rweb_schema!(ForecastMainWrapper, _ForecastMainWrapper);
 
 #[allow(dead_code)]
 #[derive(Schema)]
+#[schema(component="ForecastMain")]
 struct _ForecastMainWrapper {
     #[schema(description = "Temperature (K)")]
     temp: f64,

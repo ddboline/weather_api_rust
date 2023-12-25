@@ -88,8 +88,8 @@ fn update_search_history(sh: &Vec<String>, s: &str) -> Vec<String> {
     v
 }
 
-#[component(no_case_check)]
-pub fn weather_component(
+#[component]
+pub fn WeatherComponent(
     cx: Scope,
     weather: WeatherData,
     forecast: Option<WeatherForecast>,

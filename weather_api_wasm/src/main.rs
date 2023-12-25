@@ -34,7 +34,7 @@ fn main() {
     dioxus_web::launch(index_component);
 }
 
-pub fn index_component(cx: Scope) -> Element {
+fn index_component(cx: Scope) -> Element {
     let (url_path, set_url_path) = use_state(cx, || WeatherPage::Index).split();
     let (draft, set_draft) = use_state(cx, String::new).split();
     let (current_loc, set_current_loc) = use_state(cx, || None).split();

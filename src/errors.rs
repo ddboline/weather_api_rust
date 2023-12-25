@@ -19,14 +19,7 @@ use thiserror::Error;
 use time::error::Format as FormatError;
 use weather_util_rust::Error as WeatherUtilError;
 
-static LOGIN_HTML: &str = r"
-    <script>
-    !function() {
-        let final_url = location.href;
-        location.replace('/auth/login.html?final_url=' + final_url);
-    }()
-    </script>
-";
+use crate::logged_user::LOGIN_HTML;
 
 fn login_html() -> impl Reply {
     rweb::reply::html(LOGIN_HTML)
