@@ -8,7 +8,7 @@ use log::debug;
 use std::sync::Arc;
 
 use weather_api_common::{
-    weather_element::{weather_app_component, AppProps},
+    weather_element::{AppProps, WeatherAppComponent},
     WeatherEntry,
 };
 use weather_util_rust::{
@@ -48,7 +48,7 @@ fn main() -> Result<(), Error> {
     });
 
     dioxus_desktop::launch_with_props(
-        weather_app_component,
+        WeatherAppComponent,
         AppProps {
             send: Arc::new(Mutex::new(send_loc)),
             recv: Arc::new(Mutex::new(recv_result)),

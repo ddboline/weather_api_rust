@@ -4,7 +4,7 @@ use futures_channel::mpsc::unbounded;
 
 use weather_util_rust::weather_api::WeatherLocation;
 
-use weather_api_common::weather_element::weather_app_component;
+use weather_api_common::weather_element::WeatherAppComponent;
 use weather_api_common::weather_element::AppProps;
 use weather_api_common::WeatherEntry;
 
@@ -14,7 +14,7 @@ fn main() {
 
     wasm_logger::init(wasm_logger::Config::default());
     dioxus_web::launch_with_props(
-        weather_app_component,
+        WeatherAppComponent,
         AppProps {
             send: Arc::new(Mutex::new(send_loc)),
             recv: Arc::new(Mutex::new(recv_result)),
