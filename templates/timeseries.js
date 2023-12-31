@@ -5,7 +5,7 @@ function create_plot(data, title, xaxis, yaxis) {
     let height = 270 - margin.top - margin.bottom;
 
     // Parse the date / time
-    let parseDateTime = d3.timeParse("%Y-%m-%dT%H:%M:%S");
+    let parseDateTime = d3.timeParse("%Y-%m-%dT%H:%M:%S%Z");
 
     // Set the ranges
     let x = d3.scaleTime().range([0, width]);
