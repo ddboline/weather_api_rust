@@ -27,8 +27,9 @@ use super::{
     model::{WeatherDataDB, WeatherLocationCache},
     pgpool::PgPool,
     routes::{
-        forecast, forecast_plot, frontpage, geo_direct, geo_reverse, geo_zip, history,
-        history_plot, history_update, locations, statistics, timeseries_js, user, weather,
+        forecast, forecast_plot, forecast_plots, frontpage, geo_direct, geo_reverse, geo_zip,
+        history, history_plot, history_plots, history_update, locations, statistics, timeseries_js,
+        user, weather,
     },
 };
 
@@ -118,6 +119,8 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
     let geo_zip_path = geo_zip(app.clone()).boxed();
     let geo_reverse_path = geo_reverse(app.clone()).boxed();
     let user_path = user().boxed();
+    let forecast_plots_path = forecast_plots(app.clone()).boxed();
+    let history_plots_path = history_plots(app.clone()).boxed();
 
     frontpage_path
         .or(forecast_plot_path)
@@ -133,6 +136,8 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
         .or(geo_zip_path)
         .or(geo_reverse_path)
         .or(user_path)
+        .or(forecast_plots_path)
+        .or(history_plots_path)
         .boxed()
 }
 
