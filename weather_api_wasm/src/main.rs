@@ -143,7 +143,7 @@ fn index_component(cx: Scope) -> Element {
         }
     }
 
-    let location_future = use_future(cx, (), |_| async move {
+    let location_future = use_future(cx, (), |()| async move {
         #[cfg(target_arch = "wasm32")]
         if let Ok(ip) = get_ip_address().await {
             if let Ok(loc) = get_location_from_ip(ip).await {
@@ -153,7 +153,7 @@ fn index_component(cx: Scope) -> Element {
         None
     });
 
-    let history_locaton_future = use_future(cx, (), |_| async move {
+    let history_locaton_future = use_future(cx, (), |()| async move {
         #[cfg(target_arch = "wasm32")]
         if let Ok(locations) = get_locations().await {
             return Some(locations);
