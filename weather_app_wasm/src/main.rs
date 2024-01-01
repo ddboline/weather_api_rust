@@ -1,24 +1,12 @@
-use std::sync::Arc;
-use futures_util::lock::Mutex;
-use futures_channel::mpsc::unbounded;
-
-use weather_util_rust::weather_api::WeatherLocation;
-
 use weather_api_common::weather_element::WeatherAppComponent;
 use weather_api_common::weather_element::AppProps;
-use weather_api_common::WeatherEntry;
 
+#[cfg(target_arch = "wasm32")]
 fn main() {
-    let (send_loc, _) = unbounded::<WeatherLocation>();
-    let (_, recv_result) = unbounded::<(WeatherLocation, WeatherEntry)>();
-
     wasm_logger::init(wasm_logger::Config::default());
     dioxus_web::launch_with_props(
         WeatherAppComponent,
-        AppProps {
-            send: Arc::new(Mutex::new(send_loc)),
-            recv: Arc::new(Mutex::new(recv_result)),
-        },
+        AppProps,
         dioxus_web::Config::default()
     );
 }

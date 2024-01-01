@@ -3,10 +3,8 @@ use dioxus::prelude::{
     component, dioxus_elements, rsx, use_future, use_state, Element, GlobalAttributes, IntoDynNode,
     LazyNodes, Props, Scope, SvgAttributes, UseFuture, UseState,
 };
-use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
-use futures_util::lock::Mutex;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt, fmt::Write, sync::Arc};
+use std::{collections::HashMap, fmt, fmt::Write};
 use time::{
     format_description::FormatItem, macros::format_description, Date, OffsetDateTime, UtcOffset,
 };
@@ -14,6 +12,15 @@ use url::Url;
 
 #[cfg(not(target_arch = "wasm32"))]
 use futures_util::{sink::SinkExt, StreamExt};
+
+#[cfg(not(target_arch = "wasm32"))]
+use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
+
+#[cfg(not(target_arch = "wasm32"))]
+use futures_util::lock::Mutex;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Arc;
 
 use weather_util_rust::{
     format_string, precipitation::Precipitation, weather_api::WeatherLocation,
@@ -489,10 +496,14 @@ fn weather_app_element<'a>(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub struct AppProps {
     pub send: Arc<Mutex<UnboundedSender<WeatherLocation>>>,
     pub recv: Arc<Mutex<UnboundedReceiver<(WeatherLocation, WeatherEntry)>>>,
 }
+
+#[cfg(target_arch = "wasm32")]
+pub struct AppProps;
 
 #[component]
 pub fn WeatherAppComponent(cx: Scope<AppProps>) -> Element {
