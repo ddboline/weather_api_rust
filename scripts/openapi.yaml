@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: Weather App
   description: Web App to disply weather from openweatherapi
-  version: 0.7.26
+  version: 0.9.8
 paths:
   /weather/index.html:
     get:
@@ -175,148 +175,7 @@ paths:
           content:
             application/json:
               schema:
-                properties:
-                  coord:
-                    description: Coordinates
-                    properties:
-                      lon:
-                        description: Longitude
-                        type: number
-                      lat:
-                        description: Latitude
-                        type: number
-                    type: object
-                    required:
-                    - lon
-                    - lat
-                  weather:
-                    description: Weather Conditions
-                    items:
-                      properties:
-                        id:
-                          type: integer
-                          minimum: 0
-                        main:
-                          type: string
-                        description:
-                          type: string
-                        icon:
-                          type: string
-                      type: object
-                      required:
-                      - id
-                      - main
-                      - description
-                      - icon
-                    type: array
-                  base:
-                    type: string
-                  main:
-                    properties:
-                      temp:
-                        description: Temperature (K)
-                        type: number
-                      feels_like:
-                        description: Feels Like Temperature (K)
-                        type: number
-                      temp_min:
-                        description: Minimum Temperature (K)
-                        type: number
-                      temp_max:
-                        description: Maximum Temperature (K)
-                        type: number
-                      pressure:
-                        description: Atmospheric Pressure (hPa, h=10^2)
-                        type: number
-                      humidity:
-                        description: Humidity %
-                        type: integer
-                    type: object
-                    required:
-                    - temp
-                    - feels_like
-                    - temp_min
-                    - temp_max
-                    - pressure
-                    - humidity
-                  visibility:
-                    description: Visibility (m)
-                    nullable: true
-                    type: number
-                  wind:
-                    properties:
-                      speed:
-                        description: Speed (m/s)
-                        type: number
-                      deg:
-                        description: Direction (degrees)
-                        nullable: true
-                        type: number
-                    type: object
-                    required:
-                    - speed
-                  rain:
-                    properties:
-                      three_hour:
-                        description: Rain (mm over previous 3 hours)
-                        nullable: true
-                        type: number
-                      one_hour:
-                        description: Rain (mm over previous hour)
-                        nullable: true
-                        type: number
-                    nullable: true
-                    type: object
-                  snow:
-                    properties:
-                      three_hour:
-                        description: Snow (mm over previous 3 hours)
-                        nullable: true
-                        type: number
-                      one_hour:
-                        description: Rain (mm over previous hour)
-                        nullable: true
-                        type: number
-                    nullable: true
-                    type: object
-                  dt:
-                    description: Current Datetime (Unix Timestamp)
-                    format: date-time
-                    type: string
-                  sys:
-                    properties:
-                      country:
-                        nullable: true
-                        type: string
-                      sunrise:
-                        description: Sunrise (Unix Timestamp)
-                        format: date-time
-                        type: string
-                      sunset:
-                        description: Sunset (Unix Timestamp)
-                        format: date-time
-                        type: string
-                    type: object
-                    required:
-                    - sunrise
-                    - sunset
-                  timezone:
-                    description: Timezone (seconds offset from UTC)
-                    type: integer
-                  name:
-                    description: Location Name
-                    type: string
-                type: object
-                required:
-                - coord
-                - weather
-                - base
-                - main
-                - wind
-                - dt
-                - sys
-                - timezone
-                - name
+                $ref: '#/components/schemas/WeatherData'
         '400':
           description: Bad Request
         '404':
@@ -373,123 +232,7 @@ paths:
           content:
             application/json:
               schema:
-                properties:
-                  list:
-                    description: Main Forecast Entries
-                    items:
-                      properties:
-                        dt:
-                          description: Forecasted DateTime (Unix Timestamp)
-                          format: date-time
-                          type: string
-                        main:
-                          properties:
-                            temp:
-                              description: Temperature (K)
-                              type: number
-                            feels_like:
-                              description: Feels Like Temperature (K)
-                              type: number
-                            temp_min:
-                              description: Minimum Temperature (K)
-                              type: number
-                            temp_max:
-                              description: Maximum Temperature (K)
-                              type: number
-                            pressure:
-                              description: Atmospheric Pressure (hPa, h=10^2)
-                              type: number
-                            sea_level:
-                              description: Pressure at Sea Level (hPa, h=10^2)
-                              type: number
-                            grnd_level:
-                              description: Pressure at Ground Level (hPa, h=10^2)
-                              type: number
-                            humidity:
-                              description: Humidity %
-                              type: integer
-                          type: object
-                          required:
-                          - temp
-                          - feels_like
-                          - temp_min
-                          - temp_max
-                          - pressure
-                          - sea_level
-                          - grnd_level
-                          - humidity
-                        weather:
-                          items:
-                            properties:
-                              id:
-                                type: integer
-                                minimum: 0
-                              main:
-                                type: string
-                              description:
-                                type: string
-                              icon:
-                                type: string
-                            type: object
-                            required:
-                            - id
-                            - main
-                            - description
-                            - icon
-                          type: array
-                        rain:
-                          properties:
-                            three_hour:
-                              description: Rain (mm over previous 3 hours)
-                              nullable: true
-                              type: number
-                            one_hour:
-                              description: Rain (mm over previous hour)
-                              nullable: true
-                              type: number
-                          nullable: true
-                          type: object
-                        snow:
-                          properties:
-                            three_hour:
-                              description: Snow (mm over previous 3 hours)
-                              nullable: true
-                              type: number
-                            one_hour:
-                              description: Rain (mm over previous hour)
-                              nullable: true
-                              type: number
-                          nullable: true
-                          type: object
-                      type: object
-                      required:
-                      - dt
-                      - main
-                      - weather
-                    type: array
-                  city:
-                    description: City Information
-                    properties:
-                      timezone:
-                        description: Timezone (seconds offset from UTC)
-                        type: integer
-                      sunrise:
-                        description: Sunrise (Unix Timestamp)
-                        format: date-time
-                        type: string
-                      sunset:
-                        description: Sunset (Unix Timestamp)
-                        format: date-time
-                        type: string
-                    type: object
-                    required:
-                    - timezone
-                    - sunrise
-                    - sunset
-                type: object
-                required:
-                - list
-                - city
+                $ref: '#/components/schemas/WeatherForecast'
         '400':
           description: Bad Request
         '404':
@@ -506,31 +249,7 @@ paths:
           content:
             application/json:
               schema:
-                properties:
-                  data_cache_hits:
-                    type: integer
-                    minimum: 0
-                  data_cache_misses:
-                    type: integer
-                    minimum: 0
-                  forecast_cache_hits:
-                    type: integer
-                    minimum: 0
-                  forecast_cache_misses:
-                    type: integer
-                    minimum: 0
-                  weather_string_length_map:
-                    additionalProperties:
-                      type: integer
-                      minimum: 0
-                    type: object
-                type: object
-                required:
-                - data_cache_hits
-                - data_cache_misses
-                - forecast_cache_hits
-                - forecast_cache_misses
-                - weather_string_length_map
+                $ref: '#/components/schemas/Statistics'
         '400':
           description: Bad Request
         '404':
@@ -563,15 +282,7 @@ paths:
             application/json:
               schema:
                 items:
-                  properties:
-                    location:
-                      type: string
-                    count:
-                      type: integer
-                  type: object
-                  required:
-                  - location
-                  - count
+                  $ref: '#/components/schemas/LocationCount'
                 type: array
         '400':
           description: Bad Request
@@ -602,6 +313,7 @@ paths:
         schema:
           format: date
           nullable: true
+          example: 2023-01-01
           type: string
       - name: end_time
         in: query
@@ -609,6 +321,7 @@ paths:
         schema:
           format: date
           nullable: true
+          example: 2023-01-01
           type: string
       responses:
         '200':
@@ -617,79 +330,7 @@ paths:
             application/json:
               schema:
                 items:
-                  properties:
-                    id:
-                      format: uuid
-                      type: string
-                    dt:
-                      type: integer
-                    created_at:
-                      format: date-time
-                      type: string
-                    location_name:
-                      type: string
-                    latitude:
-                      type: number
-                    longitude:
-                      type: number
-                    condition:
-                      type: string
-                    temperature:
-                      type: number
-                    temperature_minimum:
-                      type: number
-                    temperature_maximum:
-                      type: number
-                    pressure:
-                      type: number
-                    humidity:
-                      type: integer
-                    visibility:
-                      nullable: true
-                      type: number
-                    rain:
-                      nullable: true
-                      type: number
-                    snow:
-                      nullable: true
-                      type: number
-                    wind_speed:
-                      type: number
-                    wind_direction:
-                      nullable: true
-                      type: number
-                    country:
-                      type: string
-                    sunrise:
-                      format: date-time
-                      type: string
-                    sunset:
-                      format: date-time
-                      type: string
-                    timezone:
-                      type: integer
-                    server:
-                      type: string
-                  type: object
-                  required:
-                  - id
-                  - dt
-                  - created_at
-                  - location_name
-                  - latitude
-                  - longitude
-                  - condition
-                  - temperature
-                  - temperature_minimum
-                  - temperature_maximum
-                  - pressure
-                  - humidity
-                  - wind_speed
-                  - country
-                  - sunrise
-                  - sunset
-                  - timezone
-                  - server
+                  $ref: '#/components/schemas/WeatherDataDB'
                 type: array
         '400':
           description: Bad Request
@@ -744,86 +385,7 @@ paths:
         content:
           application/json:
             schema:
-              properties:
-                updates:
-                  items:
-                    properties:
-                      id:
-                        format: uuid
-                        type: string
-                      dt:
-                        type: integer
-                      created_at:
-                        format: date-time
-                        type: string
-                      location_name:
-                        type: string
-                      latitude:
-                        type: number
-                      longitude:
-                        type: number
-                      condition:
-                        type: string
-                      temperature:
-                        type: number
-                      temperature_minimum:
-                        type: number
-                      temperature_maximum:
-                        type: number
-                      pressure:
-                        type: number
-                      humidity:
-                        type: integer
-                      visibility:
-                        nullable: true
-                        type: number
-                      rain:
-                        nullable: true
-                        type: number
-                      snow:
-                        nullable: true
-                        type: number
-                      wind_speed:
-                        type: number
-                      wind_direction:
-                        nullable: true
-                        type: number
-                      country:
-                        type: string
-                      sunrise:
-                        format: date-time
-                        type: string
-                      sunset:
-                        format: date-time
-                        type: string
-                      timezone:
-                        type: integer
-                      server:
-                        type: string
-                    type: object
-                    required:
-                    - id
-                    - dt
-                    - created_at
-                    - location_name
-                    - latitude
-                    - longitude
-                    - condition
-                    - temperature
-                    - temperature_minimum
-                    - temperature_maximum
-                    - pressure
-                    - humidity
-                    - wind_speed
-                    - country
-                    - sunrise
-                    - sunset
-                    - timezone
-                    - server
-                  type: array
-              type: object
-              required:
-              - updates
+              $ref: '#/components/schemas/HistoryUpdateRequest'
         required: true
       responses:
         '201':
@@ -861,6 +423,7 @@ paths:
         schema:
           format: date
           nullable: true
+          example: 2023-01-01
           type: string
       - name: end_time
         in: query
@@ -868,6 +431,7 @@ paths:
         schema:
           format: date
           nullable: true
+          example: 2023-01-01
           type: string
       responses:
         '200':
@@ -933,24 +497,7 @@ paths:
             application/json:
               schema:
                 items:
-                  properties:
-                    name:
-                      type: string
-                    lat:
-                      type: number
-                    lon:
-                      type: number
-                    country:
-                      type: string
-                    zip:
-                      nullable: true
-                      type: string
-                  type: object
-                  required:
-                  - name
-                  - lat
-                  - lon
-                  - country
+                  $ref: '#/components/schemas/GeoLocation'
                 type: array
         '400':
           description: Bad Request
@@ -974,24 +521,7 @@ paths:
           content:
             application/json:
               schema:
-                properties:
-                  name:
-                    type: string
-                  lat:
-                    type: number
-                  lon:
-                    type: number
-                  country:
-                    type: string
-                  zip:
-                    nullable: true
-                    type: string
-                type: object
-                required:
-                - name
-                - lat
-                - lon
-                - country
+                $ref: '#/components/schemas/GeoLocation'
         '400':
           description: Bad Request
         '404':
@@ -1049,24 +579,7 @@ paths:
             application/json:
               schema:
                 items:
-                  properties:
-                    name:
-                      type: string
-                    lat:
-                      type: number
-                    lon:
-                      type: number
-                    country:
-                      type: string
-                    zip:
-                      nullable: true
-                      type: string
-                  type: object
-                  required:
-                  - name
-                  - lat
-                  - lon
-                  - country
+                  $ref: '#/components/schemas/GeoLocation'
                 type: array
         '400':
           description: Bad Request
@@ -1084,22 +597,7 @@ paths:
           content:
             application/json:
               schema:
-                properties:
-                  email:
-                    description: Email Address
-                    type: string
-                  session:
-                    description: Session Id
-                    format: uuid
-                    type: string
-                  secret_key:
-                    description: Secret Key
-                    type: string
-                type: object
-                required:
-                - email
-                - session
-                - secret_key
+                $ref: '#/components/schemas/LoggedUser'
         '400':
           description: Bad Request
         '404':
@@ -1108,4 +606,619 @@ paths:
           description: Method not allowed
         '500':
           description: Internal Server Error
-components: {}
+  /weather/forecast-plots:
+    get:
+      parameters:
+      - name: zip
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: integer
+          minimum: 0
+      - name: country_code
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: lat
+        in: query
+        required: false
+        schema:
+          format: latitude
+          nullable: true
+          type: number
+      - name: lon
+        in: query
+        required: false
+        schema:
+          format: longitude
+          nullable: true
+          type: number
+      - name: appid
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      responses:
+        '200':
+          description: Forecast Plot Data
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/PlotData'
+                type: array
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal Server Error
+  /weather/history-plots:
+    get:
+      parameters:
+      - name: name
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: server
+        in: query
+        required: false
+        schema:
+          nullable: true
+          type: string
+      - name: start_time
+        in: query
+        required: false
+        schema:
+          format: date
+          nullable: true
+          example: 2023-01-01
+          type: string
+      - name: end_time
+        in: query
+        required: false
+        schema:
+          format: date
+          nullable: true
+          example: 2023-01-01
+          type: string
+      responses:
+        '200':
+          description: Historical Plot Data
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/PlotData'
+                type: array
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '405':
+          description: Method not allowed
+        '500':
+          description: Internal Server Error
+components:
+  schemas:
+    WeatherData:
+      properties:
+        coord:
+          $ref: '#/components/schemas/Coordinates'
+        weather:
+          description: Weather Conditions
+          items:
+            $ref: '#/components/schemas/WeatherConditions'
+          type: array
+        base:
+          type: string
+        main:
+          $ref: '#/components/schemas/WeatherMain'
+        visibility:
+          description: Visibility (m)
+          nullable: true
+          type: number
+        wind:
+          $ref: '#/components/schemas/Wind'
+        rain:
+          $ref: '#/components/schemas/Rain_Opt'
+        snow:
+          $ref: '#/components/schemas/Snow_Opt'
+        dt:
+          description: Current Datetime (Unix Timestamp)
+          format: date-time
+          type: string
+        sys:
+          $ref: '#/components/schemas/SystemData'
+        timezone:
+          description: Timezone (seconds offset from UTC)
+          type: integer
+        name:
+          description: Location Name
+          type: string
+      type: object
+      required:
+      - coord
+      - weather
+      - base
+      - main
+      - wind
+      - dt
+      - sys
+      - timezone
+      - name
+    Coordinates:
+      properties:
+        lon:
+          description: Longitude
+          type: number
+        lat:
+          description: Latitude
+          type: number
+      type: object
+      required:
+      - lon
+      - lat
+    WeatherConditions:
+      properties:
+        id:
+          type: integer
+          minimum: 0
+        main:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+      type: object
+      required:
+      - id
+      - main
+      - description
+      - icon
+    WeatherMain:
+      properties:
+        temp:
+          description: Temperature (K)
+          type: number
+        feels_like:
+          description: Feels Like Temperature (K)
+          type: number
+        temp_min:
+          description: Minimum Temperature (K)
+          type: number
+        temp_max:
+          description: Maximum Temperature (K)
+          type: number
+        pressure:
+          description: Atmospheric Pressure (hPa, h=10^2)
+          type: number
+        humidity:
+          description: Humidity %
+          type: integer
+      type: object
+      required:
+      - temp
+      - feels_like
+      - temp_min
+      - temp_max
+      - pressure
+      - humidity
+    Wind:
+      properties:
+        speed:
+          description: Speed (m/s)
+          type: number
+        deg:
+          description: Direction (degrees)
+          nullable: true
+          type: number
+      type: object
+      required:
+      - speed
+    Rain:
+      properties:
+        three_hour:
+          description: Rain (mm over previous 3 hours)
+          nullable: true
+          type: number
+        one_hour:
+          description: Rain (mm over previous hour)
+          nullable: true
+          type: number
+      type: object
+    Rain_Opt:
+      properties:
+        three_hour:
+          description: Rain (mm over previous 3 hours)
+          nullable: true
+          type: number
+        one_hour:
+          description: Rain (mm over previous hour)
+          nullable: true
+          type: number
+      nullable: true
+      type: object
+    Snow:
+      properties:
+        three_hour:
+          description: Snow (mm over previous 3 hours)
+          nullable: true
+          type: number
+        one_hour:
+          description: Rain (mm over previous hour)
+          nullable: true
+          type: number
+      type: object
+    Snow_Opt:
+      properties:
+        three_hour:
+          description: Snow (mm over previous 3 hours)
+          nullable: true
+          type: number
+        one_hour:
+          description: Rain (mm over previous hour)
+          nullable: true
+          type: number
+      nullable: true
+      type: object
+    SystemData:
+      properties:
+        country:
+          nullable: true
+          type: string
+        sunrise:
+          description: Sunrise (Unix Timestamp)
+          format: date-time
+          type: string
+        sunset:
+          description: Sunset (Unix Timestamp)
+          format: date-time
+          type: string
+      type: object
+      required:
+      - sunrise
+      - sunset
+    WeatherForecast:
+      properties:
+        list:
+          description: Main Forecast Entries
+          items:
+            $ref: '#/components/schemas/ForecastEntry'
+          type: array
+        city:
+          $ref: '#/components/schemas/CityEntry'
+      type: object
+      required:
+      - list
+      - city
+    ForecastEntry:
+      properties:
+        dt:
+          description: Forecasted DateTime (Unix Timestamp)
+          format: date-time
+          type: string
+        main:
+          $ref: '#/components/schemas/ForecastMain'
+        weather:
+          items:
+            $ref: '#/components/schemas/WeatherConditions'
+          type: array
+        rain:
+          $ref: '#/components/schemas/Rain_Opt'
+        snow:
+          $ref: '#/components/schemas/Snow_Opt'
+      type: object
+      required:
+      - dt
+      - main
+      - weather
+    ForecastMain:
+      properties:
+        temp:
+          description: Temperature (K)
+          type: number
+        feels_like:
+          description: Feels Like Temperature (K)
+          type: number
+        temp_min:
+          description: Minimum Temperature (K)
+          type: number
+        temp_max:
+          description: Maximum Temperature (K)
+          type: number
+        pressure:
+          description: Atmospheric Pressure (hPa, h=10^2)
+          type: number
+        sea_level:
+          description: Pressure at Sea Level (hPa, h=10^2)
+          type: number
+        grnd_level:
+          description: Pressure at Ground Level (hPa, h=10^2)
+          type: number
+        humidity:
+          description: Humidity %
+          type: integer
+      type: object
+      required:
+      - temp
+      - feels_like
+      - temp_min
+      - temp_max
+      - pressure
+      - sea_level
+      - grnd_level
+      - humidity
+    CityEntry:
+      properties:
+        timezone:
+          description: Timezone (seconds offset from UTC)
+          type: integer
+        sunrise:
+          description: Sunrise (Unix Timestamp)
+          format: date-time
+          type: string
+        sunset:
+          description: Sunset (Unix Timestamp)
+          format: date-time
+          type: string
+      type: object
+      required:
+      - timezone
+      - sunrise
+      - sunset
+    Statistics:
+      properties:
+        data_cache_hits:
+          description: Weather Data Cache Hits
+          type: integer
+          minimum: 0
+        data_cache_misses:
+          description: Weather Data Cache Misses
+          type: integer
+          minimum: 0
+        forecast_cache_hits:
+          description: Forecast Cache Hits
+          type: integer
+          minimum: 0
+        forecast_cache_misses:
+          description: Forecast Cache Misses
+          type: integer
+          minimum: 0
+        weather_string_length_map:
+          description: Weather String Length Map
+          additionalProperties:
+            type: integer
+            minimum: 0
+          type: object
+      type: object
+      required:
+      - data_cache_hits
+      - data_cache_misses
+      - forecast_cache_hits
+      - forecast_cache_misses
+      - weather_string_length_map
+    LocationCount:
+      properties:
+        location:
+          description: Location String
+          type: string
+        count:
+          description: Count
+          type: integer
+      type: object
+      required:
+      - location
+      - count
+    WeatherDataDB:
+      properties:
+        id:
+          description: ID
+          format: uuid
+          example: 334518f4-1bfd-4f20-9978-bfad0dc033e1
+          type: string
+        dt:
+          description: Unix Timestamp
+          type: integer
+        created_at:
+          description: Created At Datetime
+          format: date-time
+          type: string
+        location_name:
+          description: Location Name
+          type: string
+        latitude:
+          description: Latitude
+          type: number
+        longitude:
+          description: Longitude
+          type: number
+        condition:
+          description: Condition
+          type: string
+        temperature:
+          description: Temperature (K)
+          type: number
+        temperature_minimum:
+          description: Minimum Temperature (K)
+          type: number
+        temperature_maximum:
+          description: Maximum Temperature (K)
+          type: number
+        pressure:
+          description: Pressure (kPa)
+          type: number
+        humidity:
+          description: Humidity (percent x 100)
+          type: integer
+        visibility:
+          description: Visibility (meters)
+          nullable: true
+          type: number
+        rain:
+          description: Rain (mm per hour)
+          nullable: true
+          type: number
+        snow:
+          description: Snow (mm per hour)
+          nullable: true
+          type: number
+        wind_speed:
+          description: Wind Speed (m/s)
+          type: number
+        wind_direction:
+          description: Wind Direction (degrees)
+          nullable: true
+          type: number
+        country:
+          description: Country Code (ISO 3166-1 alpha-2)
+          type: string
+        sunrise:
+          description: Sunrise Datetime
+          format: date-time
+          type: string
+        sunset:
+          description: Sunset Datetime
+          format: date-time
+          type: string
+        timezone:
+          description: Timezone UTC Offset (seconds)
+          type: integer
+        server:
+          description: Server (dilepton-tower/dilepton-cloud)
+          type: string
+      type: object
+      required:
+      - id
+      - dt
+      - created_at
+      - location_name
+      - latitude
+      - longitude
+      - condition
+      - temperature
+      - temperature_minimum
+      - temperature_maximum
+      - pressure
+      - humidity
+      - wind_speed
+      - country
+      - sunrise
+      - sunset
+      - timezone
+      - server
+    HistoryUpdateRequest:
+      properties:
+        updates:
+          items:
+            $ref: '#/components/schemas/WeatherDataDB'
+          type: array
+      type: object
+      required:
+      - updates
+    HistoryPlotRequest:
+      properties:
+        name:
+          type: string
+        server:
+          nullable: true
+          type: string
+        start_time:
+          format: date
+          nullable: true
+          example: 2023-01-01
+          type: string
+        end_time:
+          format: date
+          nullable: true
+          example: 2023-01-01
+          type: string
+      type: object
+      required:
+      - name
+    GeoLocation:
+      properties:
+        name:
+          type: string
+        lat:
+          type: number
+        lon:
+          type: number
+        country:
+          type: string
+        zip:
+          nullable: true
+          type: string
+      type: object
+      required:
+      - name
+      - lat
+      - lon
+      - country
+    LoggedUser:
+      properties:
+        email:
+          description: Email Address
+          example: user@example.com
+          type: string
+        session:
+          description: Session Id
+          format: uuid
+          example: 334518f4-1bfd-4f20-9978-bfad0dc033e1
+          type: string
+        secret_key:
+          description: Secret Key
+          type: string
+      type: object
+      required:
+      - email
+      - session
+      - secret_key
+    PlotData:
+      properties:
+        plot_data:
+          description: Plot Data
+          items:
+            $ref: '#/components/schemas/PlotPoint'
+          type: array
+        title:
+          description: Plot Title
+          type: string
+        xaxis:
+          description: Plot X-axis Label
+          type: string
+        yaxis:
+          description: Plot Y-axis Label
+          type: string
+      type: object
+      required:
+      - plot_data
+      - title
+      - xaxis
+      - yaxis
+    PlotPoint:
+      properties:
+        datetime:
+          description: Datetime
+          format: date-time
+          type: string
+        value:
+          description: Value
+          type: number
+      type: object
+      required:
+      - datetime
+      - value
