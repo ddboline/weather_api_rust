@@ -2,6 +2,7 @@ use cached::Cached;
 use dioxus::prelude::VirtualDom;
 use futures::{future::try_join_all, TryStreamExt};
 use isocountry::CountryCode;
+use once_cell::sync::Lazy;
 use rweb::{get, post, Json, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
@@ -11,14 +12,14 @@ use time::{
     Date, Duration, OffsetDateTime, PrimitiveDateTime,
 };
 use tokio::sync::RwLock;
-use once_cell::sync::Lazy;
 
 use rweb_helper::{
     html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, DateType,
     RwebResponse,
 };
 use weather_api_common::weather_element::{
-    get_forecast_plots, get_history_plots, WeatherComponent, WeatherComponentProps,
+    get_forecast_plots, get_history_plots, ForecastComponent, ForecastComponentProps,
+    WeatherComponent, WeatherComponentProps,
 };
 use weather_util_rust::{
     weather_api::WeatherLocation, weather_data::WeatherData, weather_forecast::WeatherForecast,
@@ -33,7 +34,8 @@ use crate::{
     logged_user::LoggedUser,
     model::WeatherDataDB,
     polars_analysis::get_by_name_dates,
-    GeoLocationWrapper, WeatherDataDBWrapper, WeatherDataWrapper, WeatherForecastWrapper,
+    GeoLocationWrapper, PlotDataWrapper, WeatherDataDBWrapper, WeatherDataWrapper,
+    WeatherForecastWrapper,
 };
 
 pub type WarpResult<T> = Result<T, Rejection>;
@@ -87,7 +89,6 @@ pub async fn frontpage(
             WeatherComponentProps {
                 weather,
                 forecast: Some(forecast),
-                plot: None,
             },
         );
         drop(app.rebuild());
@@ -131,12 +132,8 @@ pub async fn forecast_plot(
 
     let body = {
         let mut app = VirtualDom::new_with_props(
-            WeatherComponent,
-            WeatherComponentProps {
-                weather,
-                forecast: None,
-                plot: Some(plots),
-            },
+            ForecastComponent,
+            ForecastComponentProps { weather, plots },
         );
         drop(app.rebuild());
         dioxus_ssr::render(&app)
@@ -149,17 +146,17 @@ pub async fn forecast_plot(
 }
 
 #[derive(Serialize, Deserialize, Schema, Clone)]
-#[schema(component="Statistics")]
+#[schema(component = "Statistics")]
 pub struct StatisticsObject {
-    #[schema(description="Weather Data Cache Hits")]
+    #[schema(description = "Weather Data Cache Hits")]
     pub data_cache_hits: u64,
-    #[schema(description="Weather Data Cache Misses")]
+    #[schema(description = "Weather Data Cache Misses")]
     pub data_cache_misses: u64,
-    #[schema(description="Forecast Cache Hits")]
+    #[schema(description = "Forecast Cache Hits")]
     pub forecast_cache_hits: u64,
-    #[schema(description="Forecast Cache Misses")]
+    #[schema(description = "Forecast Cache Misses")]
     pub forecast_cache_misses: u64,
-    #[schema(description="Weather String Length Map")]
+    #[schema(description = "Weather String Length Map")]
     pub weather_string_length_map: HashMap<String, usize>,
 }
 
@@ -311,11 +308,11 @@ pub async fn geo_reverse(
 }
 
 #[derive(Debug, Serialize, Deserialize, Schema)]
-#[schema(component="LocationCount")]
+#[schema(component = "LocationCount")]
 struct LocationCount {
-    #[schema(description="Location String")]
+    #[schema(description = "Location String")]
     location: StackString,
-    #[schema(description="Count")]
+    #[schema(description = "Count")]
     count: i64,
 }
 
@@ -397,7 +394,7 @@ pub async fn history(
 }
 
 #[derive(Serialize, Deserialize, Schema)]
-#[schema(component="HistoryUpdateRequest")]
+#[schema(component = "HistoryUpdateRequest")]
 struct HistoryUpdateRequest {
     updates: Vec<WeatherDataDBWrapper>,
 }
@@ -435,7 +432,7 @@ pub async fn history_update(
 }
 
 #[derive(Deserialize, Schema)]
-#[schema(component="HistoryPlotRequest")]
+#[schema(component = "HistoryPlotRequest")]
 struct HistoryPlotRequest {
     name: StackString,
     server: Option<StackString>,
@@ -499,17 +496,13 @@ pub async fn history_plot(
     if history.is_empty() {
         return Ok(HtmlBase::new(String::new()).into());
     }
-    let weather = history.get(0).unwrap().clone();
+    let weather = history.first().unwrap().clone();
     let plots = get_history_plots(&history).map_err(Into::<Error>::into)?;
 
     let body = {
         let mut app = VirtualDom::new_with_props(
-            WeatherComponent,
-            WeatherComponentProps {
-                weather,
-                forecast: None,
-                plot: Some(plots),
-            },
+            ForecastComponent,
+            ForecastComponentProps { weather, plots },
         );
         drop(app.rebuild());
         dioxus_ssr::render(&app)
@@ -528,4 +521,89 @@ struct UserResponse(JsonBase<LoggedUser, Error>);
 #[get("/weather/user")]
 pub async fn user(user: LoggedUser) -> WarpResult<UserResponse> {
     Ok(JsonBase::new(user).into())
+}
+
+#[derive(RwebResponse)]
+#[response(description = "Forecast Plot Data")]
+struct ForecastPlotsResponse(JsonBase<Vec<PlotDataWrapper>, Error>);
+
+#[get("/weather/forecast-plots")]
+pub async fn forecast_plots(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+) -> WarpResult<ForecastPlotsResponse> {
+    let query = query.into_inner();
+    let api = query.get_weather_api(&data.api);
+    let loc = query.get_weather_location(&data.config)?;
+
+    let weather = get_weather_data(data.pool.as_ref(), &data.config, &api, &loc).await?;
+    let forecast = get_weather_forecast(&api, &loc).await?;
+
+    let plots = get_forecast_plots(&weather, &forecast)
+        .map_err(Into::<Error>::into)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    Ok(JsonBase::new(plots).into())
+}
+
+#[derive(RwebResponse)]
+#[response(description = "Historical Plot Data")]
+struct HistoryPlotsResponse(JsonBase<Vec<PlotDataWrapper>, Error>);
+
+#[get("/weather/history-plots")]
+pub async fn history_plots(
+    #[data] data: AppState,
+    query: Query<HistoryPlotRequest>,
+) -> WarpResult<HistoryPlotsResponse> {
+    let now = OffsetDateTime::now_utc();
+    let first_of_month = PrimitiveDateTime::new(
+        Date::from_calendar_date(now.year(), now.month(), 1)
+            .unwrap_or_else(|_| date!(2023 - 01 - 01)),
+        time!(00:00),
+    )
+    .assume_utc()
+    .date();
+
+    let query = query.into_inner();
+    let start_date: Option<Date> = query.start_time.map(Into::into);
+    let end_date: Option<Date> = query.end_time.map(Into::into);
+
+    let history: Vec<WeatherData> = if start_date.is_none() || start_date < Some(first_of_month) {
+        get_by_name_dates(
+            &data.config.cache_dir,
+            Some(&query.name),
+            query.server.as_ref().map(StackString::as_str),
+            start_date,
+            end_date,
+        )
+        .await
+        .map_err(Into::<Error>::into)?
+        .into_iter()
+        .map(Into::<WeatherData>::into)
+        .collect()
+    } else if let Some(pool) = &data.pool {
+        WeatherDataDB::get_by_name_dates(
+            pool,
+            Some(&query.name),
+            query.server.as_ref().map(StackString::as_str),
+            query.start_time.map(Into::into),
+            query.end_time.map(Into::into),
+        )
+        .await
+        .map_err(Into::<Error>::into)?
+        .map_ok(Into::<WeatherData>::into)
+        .try_collect()
+        .await
+        .map_err(Into::<Error>::into)?
+    } else {
+        Vec::new()
+    };
+
+    let plots = get_history_plots(&history)
+        .map_err(Into::<Error>::into)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    Ok(JsonBase::new(plots).into())
 }

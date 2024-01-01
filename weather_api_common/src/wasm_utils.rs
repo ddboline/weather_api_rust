@@ -3,17 +3,18 @@ use http::Method;
 use log::error;
 use serde::{Deserialize, Serialize};
 use std::net::Ipv4Addr;
+use time::Date;
 use url::Url;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{window, RequestInit, Response};
 
 use weather_util_rust::{
-    latitude::Latitude, longitude::Longitude, weather_api::WeatherLocation,
+    format_string, latitude::Latitude, longitude::Longitude, weather_api::WeatherLocation,
     weather_data::WeatherData, weather_forecast::WeatherForecast, ApiStringType,
 };
 
-use crate::{LocationCount, WeatherEntry};
+use crate::{weather_element::PlotData, LocationCount, WeatherEntry};
 
 static API_ENDPOINT: &str = "https://cloud.ddboline.net/weather/";
 
@@ -97,6 +98,30 @@ pub async fn get_weather_data(loc: &WeatherLocation) -> Result<WeatherData, Erro
 pub async fn get_weather_forecast(loc: &WeatherLocation) -> Result<WeatherForecast, Error> {
     let options = loc.get_options();
     run_api("forecast", &options).await
+}
+
+pub async fn get_forecast_plots(loc: &WeatherLocation) -> Result<Vec<PlotData>, Error> {
+    let options = loc.get_options();
+    run_api("forecast-plots", &options).await
+}
+
+pub async fn get_history_plots(
+    name: &str,
+    server: Option<&str>,
+    start_time: Option<Date>,
+    end_time: Option<Date>,
+) -> Result<Vec<PlotData>, Error> {
+    let mut options = vec![("name", name.into())];
+    if let Some(server) = server {
+        options.push(("server", server.into()))
+    };
+    if let Some(start_time) = start_time {
+        options.push(("start_time", format_string!("{start_time}")))
+    };
+    if let Some(end_time) = end_time {
+        options.push(("end_time", format_string!("{end_time}")))
+    };
+    run_api("history-plots", &options).await
 }
 
 pub async fn run_api<T: serde::de::DeserializeOwned>(

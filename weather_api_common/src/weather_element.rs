@@ -5,8 +5,11 @@ use dioxus::prelude::{
 };
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use futures_util::lock::Mutex;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt, fmt::Write, sync::Arc};
-use time::{format_description::FormatItem, macros::format_description, Date, UtcOffset};
+use time::{
+    format_description::FormatItem, macros::format_description, Date, OffsetDateTime, UtcOffset,
+};
 use url::Url;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -35,8 +38,9 @@ static BASE_URL: Option<&str> = Some(DEFAULT_URL);
 #[cfg(not(debug_assertions))]
 static BASE_URL: Option<&str> = None;
 
-static DATETIME_FORMAT: &[FormatItem<'static>] =
-    format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]");
+static DATETIME_FORMAT: &[FormatItem<'static>] = format_description!(
+    "[year]-[month]-[day]T[hour]:[minute]:[second][offset_hour]:[offset_minute]"
+);
 static DATE_FORMAT: &[FormatItem<'static>] = format_description!("[year]-[month]-[day]");
 
 #[derive(Debug, Clone, Copy)]
@@ -64,12 +68,17 @@ impl fmt::Display for WeatherPage {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Deserialize, Serialize, Debug, Clone, Copy)]
+pub struct PlotPoint {
+    pub datetime: OffsetDateTime,
+    pub value: f64,
+}
+#[derive(PartialEq, Deserialize, Serialize, Debug, Clone)]
 pub struct PlotData {
-    forecast_data: String,
-    title: String,
-    xaxis: String,
-    yaxis: String,
+    pub plot_data: Vec<PlotPoint>,
+    pub title: String,
+    pub xaxis: String,
+    pub yaxis: String,
 }
 
 fn update_search_history(sh: &Vec<String>, s: &str) -> Vec<String> {
@@ -93,15 +102,13 @@ pub fn WeatherComponent(
     cx: Scope,
     weather: WeatherData,
     forecast: Option<WeatherForecast>,
-    plot: Option<Vec<PlotData>>,
 ) -> Element {
-    cx.render(weather_element(weather, forecast, plot))
+    cx.render(weather_element(weather, forecast))
 }
 
 pub fn weather_element<'a>(
     weather: &'a WeatherData,
     forecast: &'a Option<WeatherForecast>,
-    plot: &'a Option<Vec<PlotData>>,
 ) -> LazyNodes<'a, 'a> {
     let weather_data = weather.get_current_conditions();
     let weather_lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
@@ -130,17 +137,13 @@ pub fn weather_element<'a>(
         }
     };
 
-    let weather_element = if plot.is_none() {
-        Some(rsx! {
-            textarea {
-                readonly: "true",
-                rows: "{weather_rows}",
-                cols: "{weather_cols}",
-                "{weather_lines}"
-            },
-        })
-    } else {
-        None
+    let weather_element = rsx! {
+        textarea {
+            readonly: "true",
+            rows: "{weather_rows}",
+            cols: "{weather_cols}",
+            "{weather_lines}"
+        },
     };
 
     let forecast_lines = forecast.as_ref().map(|forecast| {
@@ -173,9 +176,45 @@ pub fn weather_element<'a>(
                     })
                 }
             },
-            plot.as_ref().map(|plots| plot_element(plots)),
         }
     }
+}
+
+#[component]
+pub fn ForecastComponent(cx: Scope, weather: WeatherData, plots: Vec<PlotData>) -> Element {
+    let name = &weather.name;
+    let lat = weather.coord.lat;
+    let lon = weather.coord.lon;
+    let mut title = format_string!("{name}");
+    if let Some(country) = &weather.sys.country {
+        write!(&mut title, " {country}").unwrap();
+    }
+    write!(&mut title, " {lat:0.5}N {lon:0.5}E").unwrap();
+    let url = format_string!("https://www.google.com/maps?ll={lat},{lon}&q={lat},{lon}");
+
+    let location_element = rsx! {
+        div {
+            style: "text-anchor: middle; font-size: 16px;",
+            a {
+                href: "{url}",
+                target: "_blank",
+                "{title}",
+            }
+        }
+    };
+
+    cx.render(rsx! {
+        head {
+            title: "Weather Plots",
+            style {
+                include_str!("../../templates/style.css")
+            }
+        },
+        body {
+            location_element,
+            plot_element(plots),
+        }
+    })
 }
 
 fn plot_element(plots: &[PlotData]) -> LazyNodes {
@@ -187,23 +226,28 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
             "src": "/weather/timeseries.js",
         },
         br {},
-        plots.iter().enumerate().map(|(idx, pd)| {
-            let forecast_data = &pd.forecast_data;
+        plots.iter().enumerate().filter_map(|(idx, pd)| {
+            let plot_data: Vec<_> = pd.plot_data.iter().filter_map(|p| {
+                let date_str = p.datetime.format(DATETIME_FORMAT).ok()?;
+                Some((date_str, p.value))
+            }).collect();
+            let plot_data = serde_json::to_string(&plot_data).ok()?;
             let title = &pd.title;
             let xaxis = &pd.xaxis;
             let yaxis = &pd.yaxis;
             let mut script_body = String::new();
             script_body.push_str("\n!function(){\n");
-            writeln!(&mut script_body, "\tlet forecast_data = {forecast_data};").unwrap();
-            writeln!(&mut script_body, "\tcreate_plot(forecast_data, '{title}', '{xaxis}', '{yaxis}');").unwrap();
+
+            writeln!(&mut script_body, "\tlet plot_data = {plot_data};").unwrap();
+            writeln!(&mut script_body, "\tcreate_plot(plot_data, '{title}', '{xaxis}', '{yaxis}');").unwrap();
             script_body.push_str("}();\n");
 
-            rsx! {
+            Some(rsx! {
                 script {
                     key: "forecast-plot-key-{idx}",
                     dangerous_inner_html: "{script_body}",
                 }
-            }
+            })
         }),
     }
 }
@@ -217,20 +261,20 @@ pub fn get_forecast_plots(
     let mut plots = Vec::new();
 
     let fo: UtcOffset = forecast.city.timezone.into();
-    let forecast_data = forecast
+    let plot_data = forecast
         .list
         .iter()
         .map(|entry| {
-            let date_str = entry.dt.to_offset(fo).format(DATETIME_FORMAT)?;
             let temp = entry.main.temp.fahrenheit();
-            Ok((date_str, temp))
+            Ok(PlotPoint {
+                datetime: entry.dt.to_offset(fo),
+                value: temp,
+            })
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let forecast_data = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
-
     plots.push(PlotData {
-        forecast_data,
+        plot_data,
         title: format!(
             "Temperature Forecast {:0.1} F / {:0.1} C",
             weather.main.temp.fahrenheit(),
@@ -240,7 +284,7 @@ pub fn get_forecast_plots(
         yaxis: "F".into(),
     });
 
-    let forecast_data = forecast
+    let plot_data = forecast
         .list
         .iter()
         .map(|entry| {
@@ -254,15 +298,15 @@ pub fn get_forecast_plots(
             } else {
                 Precipitation::default()
             };
-            let dt_str = entry.dt.to_offset(fo).format(DATETIME_FORMAT)?;
-            Ok((dt_str, (rain + snow).inches()))
+            Ok(PlotPoint {
+                datetime: entry.dt.to_offset(fo),
+                value: (rain + snow).inches(),
+            })
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let forecast_data = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
-
     plots.push(PlotData {
-        forecast_data,
+        plot_data,
         title: "Precipitation Forecast".into(),
         xaxis: "".into(),
         yaxis: "in".into(),
@@ -450,7 +494,8 @@ pub struct AppProps {
     pub recv: Arc<Mutex<UnboundedReceiver<(WeatherLocation, WeatherEntry)>>>,
 }
 
-pub fn weather_app_component(cx: Scope<AppProps>) -> Element {
+#[component]
+pub fn WeatherAppComponent(cx: Scope<AppProps>) -> Element {
     let default_cache: HashMap<WeatherLocation, WeatherEntry> = HashMap::new();
     let mut default_location_cache: HashMap<String, WeatherLocation> = HashMap::new();
     default_location_cache.insert(DEFAULT_STR.into(), get_parameters(DEFAULT_STR));
@@ -643,7 +688,7 @@ fn country_info(weather: &WeatherData) -> LazyNodes {
     let mut main = String::new();
     let mut desc = String::new();
     let mut icon = String::new();
-    if let Some(weather) = weather.weather.get(0) {
+    if let Some(weather) = weather.weather.first() {
         main.push_str(&weather.main);
         desc.push_str(&weather.description);
         icon.push_str(&weather.icon);
@@ -1025,18 +1070,19 @@ pub fn get_history_plots(history: &[WeatherData]) -> Result<Vec<PlotData>, Error
     }
     let weather = history.last().unwrap();
     let fo: UtcOffset = weather.timezone.into();
-    let forecast_data = history
+    let plot_data = history
         .iter()
         .map(|w| {
-            let date_str = w.dt.to_offset(fo).format(DATETIME_FORMAT)?;
             let temp = w.main.temp.fahrenheit();
-            Ok((date_str, temp))
+            Ok(PlotPoint {
+                datetime: w.dt.to_offset(fo),
+                value: temp,
+            })
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let forecast_data = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
     plots.push(PlotData {
-        forecast_data,
+        plot_data,
         title: format!(
             "Temperature Forecast {:0.1} F / {:0.1} C",
             weather.main.temp.fahrenheit(),
@@ -1046,7 +1092,7 @@ pub fn get_history_plots(history: &[WeatherData]) -> Result<Vec<PlotData>, Error
         yaxis: "F".into(),
     });
 
-    let forecast_data = history
+    let plot_data = history
         .iter()
         .map(|w| {
             let rain = if let Some(rain) = &w.rain {
@@ -1059,15 +1105,15 @@ pub fn get_history_plots(history: &[WeatherData]) -> Result<Vec<PlotData>, Error
             } else {
                 Precipitation::default()
             };
-            let dt_str = w.dt.to_offset(fo).format(DATETIME_FORMAT)?;
-            Ok((dt_str, (rain + snow).inches()))
+            Ok(PlotPoint {
+                datetime: w.dt.to_offset(fo),
+                value: (rain + snow).inches(),
+            })
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let forecast_data = serde_json::to_string(&forecast_data).map_err(Into::<Error>::into)?;
-
     plots.push(PlotData {
-        forecast_data,
+        plot_data,
         title: "Precipitation Forecast".into(),
         xaxis: "".into(),
         yaxis: "in".into(),
