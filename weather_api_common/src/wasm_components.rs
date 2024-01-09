@@ -1,7 +1,6 @@
 use dioxus::prelude::{
     component, use_future, use_state, Element, Scope, UseFuture, UseFutureState,
 };
-use log::debug;
 use std::collections::HashMap;
 use time::{Date, Duration, Month, PrimitiveDateTime, Time};
 
@@ -127,7 +126,6 @@ pub fn IndexComponent(cx: Scope) -> Element {
     cx.render({
         let mut is_complete = false;
         if let UseFutureState::Complete(Some(loc)) = location_future.state() {
-            debug!("enter location future");
             if loc != ip_location {
                 set_ip_location.set(loc.clone());
                 set_ip_location.needs_update();
@@ -139,7 +137,6 @@ pub fn IndexComponent(cx: Scope) -> Element {
         }
 
         if let UseFutureState::Complete((loc, entry)) = weather_future.state() {
-            debug!("enter future");
             if !cache.contains_key(loc) || cache.is_empty() {
                 set_cache.modify(|c| {
                     let mut new_cache = c.clone();
@@ -162,7 +159,6 @@ pub fn IndexComponent(cx: Scope) -> Element {
 
         is_complete = false;
         if let UseFutureState::Complete(Some(locations)) = history_location_future.state() {
-            debug!("enter history location future");
             if history_location_cache.is_empty() {
                 set_history_location_cache.set(locations.clone());
                 set_history_location_cache.needs_update();
@@ -172,8 +168,6 @@ pub fn IndexComponent(cx: Scope) -> Element {
         if is_complete {
             history_location_future.set(None);
         }
-
-        debug!("{location:?}");
 
         index_element(
             height,

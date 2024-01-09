@@ -315,7 +315,7 @@ pub async fn get_by_name_dates(
         let columns = WeatherDataColumns {
             id: df
                 .column("id")?
-                .utf8()?
+                .str()?
                 .into_iter()
                 .filter_map(|i| i.map(Into::into))
                 .collect(),
@@ -328,7 +328,7 @@ pub async fn get_by_name_dates(
                 .collect(),
             location_name: df
                 .column("location_name")?
-                .utf8()?
+                .str()?
                 .into_iter()
                 .filter_map(|i| i.map(Into::into))
                 .collect(),
@@ -346,7 +346,7 @@ pub async fn get_by_name_dates(
                 .collect(),
             condition: df
                 .column("condition")?
-                .utf8()?
+                .str()?
                 .into_iter()
                 .filter_map(|i| i.map(Into::into))
                 .collect(),
@@ -392,7 +392,7 @@ pub async fn get_by_name_dates(
             wind_direction: df.column("wind_direction")?.f64()?.into_iter().collect(),
             country: df
                 .column("country")?
-                .utf8()?
+                .str()?
                 .into_iter()
                 .filter_map(|i| i.map(Into::into))
                 .collect(),
@@ -416,7 +416,7 @@ pub async fn get_by_name_dates(
                 .collect(),
             server: df
                 .column("server")?
-                .utf8()?
+                .str()?
                 .into_iter()
                 .filter_map(|i| i.map(Into::into))
                 .collect(),
