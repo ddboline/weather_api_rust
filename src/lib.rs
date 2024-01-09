@@ -27,6 +27,8 @@ pub mod routes;
 pub mod s3_sync;
 
 use anyhow::{format_err, Error};
+use api_options::ApiOptions;
+use date_time_wrapper::DateTimeWrapper;
 use derive_more::{From, Into};
 use rand::{
     distributions::{Distribution, Uniform},
@@ -37,6 +39,7 @@ use rweb_helper::{derive_rweb_schema, DateTimeType, UuidWrapper};
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
 use std::{future::Future, path::Path, time::Duration};
+use time::UtcOffset;
 use tokio::{process::Command, time::sleep};
 
 use weather_api_common::weather_element::{PlotData, PlotPoint};
@@ -351,8 +354,29 @@ struct _ForecastMainWrapper {
     humidity: i64,
 }
 
-#[derive(Into, From, Deserialize, Serialize, Debug, Clone)]
-struct PlotPointWrapper(PlotPoint);
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+struct PlotPointWrapper {
+    datetime: DateTimeWrapper,
+    value: f64,
+}
+
+impl From<PlotPoint> for PlotPointWrapper {
+    fn from(v: PlotPoint) -> Self {
+        Self {
+            datetime: v.datetime.into(),
+            value: v.value,
+        }
+    }
+}
+
+impl From<PlotPointWrapper> for PlotPoint {
+    fn from(v: PlotPointWrapper) -> Self {
+        Self {
+            datetime: v.datetime.into(),
+            value: v.value,
+        }
+    }
+}
 
 derive_rweb_schema!(PlotPointWrapper, _PlotPointWrapper);
 
@@ -429,6 +453,152 @@ pub async fn get_md5sum(filename: &Path) -> Result<StackString, Error> {
         }
     }
     Err(format_err!("Command failed"))
+}
+
+/// # Errors
+/// Returns error if there is a syntax or parsing error
+pub fn get_forecast_plots(
+    options: &ApiOptions,
+    weather: &WeatherData,
+) -> Result<Vec<PlotData>, Error> {
+    let mut plots = Vec::new();
+
+    let options = serde_urlencoded::to_string(options)?;
+    let plot_url = format!("/weather/forecast-plots/temperature?{options}");
+
+    plots.push(PlotData {
+        plot_url,
+        title: format!(
+            "Temperature Forecast {:0.1} F / {:0.1} C",
+            weather.main.temp.fahrenheit(),
+            weather.main.temp.celcius()
+        ),
+        xaxis: "".into(),
+        yaxis: "F".into(),
+    });
+
+    let plot_url = format!("/weather/forecast-plots/precipitation?{options}");
+
+    plots.push(PlotData {
+        plot_url,
+        title: "Precipitation Forecast".into(),
+        xaxis: "".into(),
+        yaxis: "in".into(),
+    });
+
+    Ok(plots)
+}
+
+pub fn get_forecast_temp_plot(forecast: &WeatherForecast) -> Result<Vec<PlotPoint>, Error> {
+    let fo: UtcOffset = forecast.city.timezone.into();
+    forecast
+        .list
+        .iter()
+        .map(|entry| {
+            let temp = entry.main.temp.fahrenheit();
+            Ok(PlotPoint {
+                datetime: entry.dt.to_offset(fo),
+                value: temp,
+            })
+        })
+        .collect()
+}
+
+pub fn get_forecast_precip_plot(forecast: &WeatherForecast) -> Result<Vec<PlotPoint>, Error> {
+    let fo: UtcOffset = forecast.city.timezone.into();
+    forecast
+        .list
+        .iter()
+        .map(|entry| {
+            let rain = if let Some(rain) = &entry.rain {
+                rain.three_hour.unwrap_or_default()
+            } else {
+                Precipitation::default()
+            };
+            let snow = if let Some(snow) = &entry.snow {
+                snow.three_hour.unwrap_or_default()
+            } else {
+                Precipitation::default()
+            };
+            Ok(PlotPoint {
+                datetime: entry.dt.to_offset(fo),
+                value: (rain + snow).inches(),
+            })
+        })
+        .collect()
+}
+
+pub fn get_history_plots(query: &str, weather: &WeatherData) -> Result<Vec<PlotData>, Error> {
+    let mut plots = Vec::new();
+
+    let plot_url = format!("/weather/history-plots/temperature?{query}");
+
+    plots.push(PlotData {
+        plot_url,
+        title: format!(
+            "Temperature Forecast {:0.1} F / {:0.1} C",
+            weather.main.temp.fahrenheit(),
+            weather.main.temp.celcius()
+        ),
+        xaxis: "".into(),
+        yaxis: "F".into(),
+    });
+
+    let plot_url = format!("/weather/history-plots/precipitation?{query}");
+
+    plots.push(PlotData {
+        plot_url,
+        title: "Precipitation Forecast".into(),
+        xaxis: "".into(),
+        yaxis: "in".into(),
+    });
+
+    Ok(plots)
+}
+
+pub fn get_history_temperature_plot(history: &[WeatherData]) -> Result<Vec<PlotPoint>, Error> {
+    if history.is_empty() {
+        return Ok(Vec::new());
+    }
+    let weather = history.last().unwrap();
+    let fo: UtcOffset = weather.timezone.into();
+    history
+        .iter()
+        .map(|w| {
+            let temp = w.main.temp.fahrenheit();
+            Ok(PlotPoint {
+                datetime: w.dt.to_offset(fo),
+                value: temp,
+            })
+        })
+        .collect()
+}
+
+pub fn get_history_precip_plot(history: &[WeatherData]) -> Result<Vec<PlotPoint>, Error> {
+    if history.is_empty() {
+        return Ok(Vec::new());
+    }
+    let weather = history.last().unwrap();
+    let fo: UtcOffset = weather.timezone.into();
+    history
+        .iter()
+        .map(|w| {
+            let rain = if let Some(rain) = &w.rain {
+                rain.one_hour.unwrap_or_default()
+            } else {
+                Precipitation::default()
+            };
+            let snow = if let Some(snow) = &w.snow {
+                snow.one_hour.unwrap_or_default()
+            } else {
+                Precipitation::default()
+            };
+            Ok(PlotPoint {
+                datetime: w.dt.to_offset(fo),
+                value: (rain + snow).inches(),
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]
