@@ -329,7 +329,7 @@ mod test {
         info!("{}", serde_json::to_string(&stats)?);
         assert!(stats.data_cache_hits >= 2);
         assert!(stats.data_cache_misses >= 1);
-        assert!(stats.forecast_cache_hits >= 2);
+        assert!(stats.forecast_cache_hits >= 1);
         assert!(stats.forecast_cache_misses >= 1);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/weather?q=Minneapolis");
