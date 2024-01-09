@@ -11,6 +11,7 @@ use rweb::{
 };
 use serde::Serialize;
 use serde_json::Error as SerdeJsonError;
+use serde_urlencoded::ser::Error as UrlEncodedError;
 use stack_string::StackString;
 use std::{
     borrow::Cow, convert::Infallible, fmt::Debug, num::ParseIntError, string::FromUtf8Error,
@@ -51,6 +52,8 @@ pub enum ServiceError {
     PgError(#[from] PgError),
     #[error("ParseIntError {0}")]
     ParseIntError(#[from] ParseIntError),
+    #[error("UrlEncodedError {0}")]
+    UrlEncodedError(#[from] UrlEncodedError),
 }
 
 impl Reject for ServiceError {}

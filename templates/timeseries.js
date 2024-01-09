@@ -5,7 +5,7 @@ function create_plot(data, title, xaxis, yaxis) {
     let height = 270 - margin.top - margin.bottom;
 
     // Parse the date / time
-    let parseDateTime = d3.timeParse("%Y-%m-%dT%H:%M:%S%Z");
+    let parseDateTime = d3.timeParse("%Y-%m-%dT%H:%M:%S.%L%Z");
 
     // Set the ranges
     let x = d3.scaleTime().range([0, width]);
@@ -18,8 +18,8 @@ function create_plot(data, title, xaxis, yaxis) {
 
     // Define the line
     let valueline = d3.line()
-        .x(function(d) { return x(d[0]); })
-        .y(function(d) { return y(d[1]); });
+        .x(function(d) { return x(d.datetime); })
+        .y(function(d) { return y(d.value); });
         
     // Adds the svg canvas
     let svg = d3.select("body")
@@ -55,18 +55,18 @@ function create_plot(data, title, xaxis, yaxis) {
 
     // Get the data
     data.forEach(function(d) {
-        d[0] = parseDateTime(d[0]);
+        d.datetime = parseDateTime(d.datetime);
     });
 
-    let xmax = d3.max(data, function(d) {return d[0]});
-    let xmin = d3.min(data, function(d) {return d[0]});
-    let ymax = d3.max(data, function(d) {return d[1]});
-    let ymin = d3.min(data, function(d) {return d[1]});
+    let xmax = d3.max(data, function(d) {return d.datetime});
+    let xmin = d3.min(data, function(d) {return d.datetime});
+    let ymax = d3.max(data, function(d) {return d.value});
+    let ymin = d3.min(data, function(d) {return d.value});
 
     ymax = ymax + 0.1 * Math.abs(ymax);
     ymin = ymin - 0.1 * Math.abs(ymin);
 
-    x.domain(d3.extent(data, function(d) {return d[0]; }));
+    x.domain(d3.extent(data, function(d) {return d.datetime; }));
     y.domain([ymin, ymax]);
 
     svg.append("path").attr("class", "line").attr("d", valueline(data));
@@ -113,7 +113,7 @@ function create_plot(data, title, xaxis, yaxis) {
     function handleMouseOverData() {
         let d = d3.mouse(this)
         let date = x.invert(d[0]);
-        let heartrate = y.invert(d[1]);
+        let heartrate = y.invert(d[1]).toFixed(1);
 
         rule.attr("transform", `translate(${d[0]}, 0)`);
 

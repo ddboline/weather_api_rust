@@ -1,12 +1,9 @@
-use anyhow::Error;
 use dioxus::prelude::{
     component, dioxus_elements, rsx, use_future, use_state, Element, GlobalAttributes, IntoDynNode,
     LazyNodes, Props, Scope, SvgAttributes, UseFuture, UseState,
 };
-use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
-use futures_util::lock::Mutex;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt, fmt::Write, sync::Arc};
+use std::{collections::HashMap, fmt::Write};
 use time::{
     format_description::FormatItem, macros::format_description, Date, OffsetDateTime, UtcOffset,
 };
@@ -15,22 +12,29 @@ use url::Url;
 #[cfg(not(target_arch = "wasm32"))]
 use futures_util::{sink::SinkExt, StreamExt};
 
-use weather_util_rust::{
-    format_string, precipitation::Precipitation, weather_api::WeatherLocation,
-    weather_data::WeatherData, weather_forecast::WeatherForecast,
-};
+#[cfg(not(target_arch = "wasm32"))]
+use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::{LocationCount, WeatherEntry};
+#[cfg(not(target_arch = "wasm32"))]
+use futures_util::lock::Mutex;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Arc;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_utils::{
     get_ip_address, get_location_from_ip, get_weather_data_forecast, set_history,
 };
 
-pub static DEFAULT_STR: &str = "11106";
-pub static DEFAULT_URL: &str = "https://www.ddboline.net";
+use weather_util_rust::{
+    format_string, weather_api::WeatherLocation, weather_data::WeatherData,
+    weather_forecast::WeatherForecast,
+};
 
-pub static DEFAULT_LOCATION: &str = "10001";
+use crate::{
+    get_parameters, LocationCount, WeatherEntry, WeatherPage, DEFAULT_LOCATION, DEFAULT_STR,
+    DEFAULT_URL,
+};
 
 #[cfg(debug_assertions)]
 static BASE_URL: Option<&str> = Some(DEFAULT_URL);
@@ -38,35 +42,7 @@ static BASE_URL: Option<&str> = Some(DEFAULT_URL);
 #[cfg(not(debug_assertions))]
 static BASE_URL: Option<&str> = None;
 
-static DATETIME_FORMAT: &[FormatItem<'static>] = format_description!(
-    "[year]-[month]-[day]T[hour]:[minute]:[second][offset_hour]:[offset_minute]"
-);
 static DATE_FORMAT: &[FormatItem<'static>] = format_description!("[year]-[month]-[day]");
-
-#[derive(Debug, Clone, Copy)]
-pub enum WeatherPage {
-    Index,
-    Plot,
-    HistoryPlot,
-    Wasm,
-}
-
-impl WeatherPage {
-    fn to_str(self) -> &'static str {
-        match self {
-            Self::Index => "weather/index.html",
-            Self::Plot => "weather/plot.html",
-            Self::HistoryPlot => "weather/history_plot.html",
-            Self::Wasm => "wasm_weather/index.html",
-        }
-    }
-}
-
-impl fmt::Display for WeatherPage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_str())
-    }
-}
 
 #[derive(PartialEq, Deserialize, Serialize, Debug, Clone, Copy)]
 pub struct PlotPoint {
@@ -75,7 +51,7 @@ pub struct PlotPoint {
 }
 #[derive(PartialEq, Deserialize, Serialize, Debug, Clone)]
 pub struct PlotData {
-    pub plot_data: Vec<PlotPoint>,
+    pub plot_url: String,
     pub title: String,
     pub xaxis: String,
     pub yaxis: String,
@@ -98,17 +74,13 @@ fn update_search_history(sh: &Vec<String>, s: &str) -> Vec<String> {
 }
 
 #[component]
-pub fn WeatherComponent(
-    cx: Scope,
-    weather: WeatherData,
-    forecast: Option<WeatherForecast>,
-) -> Element {
+pub fn WeatherComponent(cx: Scope, weather: WeatherData, forecast: WeatherForecast) -> Element {
     cx.render(weather_element(weather, forecast))
 }
 
 pub fn weather_element<'a>(
     weather: &'a WeatherData,
-    forecast: &'a Option<WeatherForecast>,
+    forecast: &'a WeatherForecast,
 ) -> LazyNodes<'a, 'a> {
     let weather_data = weather.get_current_conditions();
     let weather_lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
@@ -146,13 +118,22 @@ pub fn weather_element<'a>(
         },
     };
 
-    let forecast_lines = forecast.as_ref().map(|forecast| {
+    let forecast_element = {
         let weather_forecast = forecast.get_forecast();
         let forecast_lines: Vec<_> = weather_forecast.iter().map(|s| s.trim_end()).collect();
         let forecast_cols = forecast_lines.iter().map(|x| x.len()).max().unwrap_or(0) + 2;
         let forecast_rows = forecast_lines.len() + 2;
-        (forecast_rows, forecast_cols, forecast_lines.join("\n"))
-    });
+        let forecast_lines = forecast_lines.join("\n");
+
+        rsx! {
+            textarea {
+                readonly: "true",
+                rows: "{forecast_rows}",
+                cols: "{forecast_cols}",
+                "{forecast_lines}"
+            }
+        }
+    };
 
     rsx! {
         head {
@@ -165,16 +146,7 @@ pub fn weather_element<'a>(
             location_element,
             div {
                 weather_element,
-                {
-                    forecast_lines.map(|(forecast_rows, forecast_cols, forecast_lines)| rsx! {
-                        textarea {
-                            readonly: "true",
-                            rows: "{forecast_rows}",
-                            cols: "{forecast_cols}",
-                            "{forecast_lines}"
-                        }
-                    })
-                }
+                forecast_element,
             },
         }
     }
@@ -218,101 +190,68 @@ pub fn ForecastComponent(cx: Scope, weather: WeatherData, plots: Vec<PlotData>) 
 }
 
 fn plot_element(plots: &[PlotData]) -> LazyNodes {
+    let timeseries_url = if let Some(base_url) = BASE_URL {
+        format!("{base_url}/weather/timeseries.js")
+    } else {
+        "/weather/timeseries.js".into()
+    };
+    let plot_elements = plots.iter().enumerate().map(|(idx, pd)| {
+        let plot_url = &pd.plot_url;
+        let title = &pd.title;
+        let xaxis = &pd.xaxis;
+        let yaxis = &pd.yaxis;
+        let mut script_body = String::new();
+        writeln!(&mut script_body, "\nfunction forecast_plot_fn_{idx}(){{\n").unwrap();
+        writeln!(&mut script_body, "\t let xmlhttp = new XMLHttpRequest();").unwrap();
+        writeln!(
+            &mut script_body,
+            "\t xmlhttp.open('GET', '{plot_url}', false);"
+        )
+        .unwrap();
+        writeln!(&mut script_body, "\t xmlhttp.onload = function() {{").unwrap();
+        writeln!(
+            &mut script_body,
+            "\t let data = JSON.parse(xmlhttp.responseText);"
+        )
+        .unwrap();
+        writeln!(
+            &mut script_body,
+            "\t create_plot(data, '{title}', '{xaxis}', '{yaxis}');"
+        )
+        .unwrap();
+        writeln!(&mut script_body, "\t }}").unwrap();
+        writeln!(&mut script_body, "\t xmlhttp.send(null);").unwrap();
+        script_body.push_str("};\n");
+
+        rsx! {
+            script {
+                key: "forecast-plot-key-{idx}",
+                dangerous_inner_html: "{script_body}",
+            }
+        }
+    });
+    let mut final_plot_script = String::new();
+    final_plot_script.push_str("\n!function() {\n");
+    for (idx, _) in plots.iter().enumerate() {
+        writeln!(&mut final_plot_script, "\t forecast_plot_fn_{idx}();\n").unwrap();
+    }
+    final_plot_script.push_str("}();\n");
+    let final_plot_element = rsx! {
+        script {
+            dangerous_inner_html: "{final_plot_script}",
+        }
+    };
     rsx! {
         script {
             src: "https://d3js.org/d3.v4.min.js",
         },
         script {
-            "src": "/weather/timeseries.js",
+            "src": "{timeseries_url}",
         },
         br {},
-        plots.iter().enumerate().filter_map(|(idx, pd)| {
-            let plot_data: Vec<_> = pd.plot_data.iter().filter_map(|p| {
-                let date_str = p.datetime.format(DATETIME_FORMAT).ok()?;
-                Some((date_str, p.value))
-            }).collect();
-            let plot_data = serde_json::to_string(&plot_data).ok()?;
-            let title = &pd.title;
-            let xaxis = &pd.xaxis;
-            let yaxis = &pd.yaxis;
-            let mut script_body = String::new();
-            script_body.push_str("\n!function(){\n");
-
-            writeln!(&mut script_body, "\tlet plot_data = {plot_data};").unwrap();
-            writeln!(&mut script_body, "\tcreate_plot(plot_data, '{title}', '{xaxis}', '{yaxis}');").unwrap();
-            script_body.push_str("}();\n");
-
-            Some(rsx! {
-                script {
-                    key: "forecast-plot-key-{idx}",
-                    dangerous_inner_html: "{script_body}",
-                }
-            })
-        }),
+        plot_elements,
+        final_plot_element,
     }
-}
-
-/// # Errors
-/// Returns error if there is a syntax or parsing error
-pub fn get_forecast_plots(
-    weather: &WeatherData,
-    forecast: &WeatherForecast,
-) -> Result<Vec<PlotData>, Error> {
-    let mut plots = Vec::new();
-
-    let fo: UtcOffset = forecast.city.timezone.into();
-    let plot_data = forecast
-        .list
-        .iter()
-        .map(|entry| {
-            let temp = entry.main.temp.fahrenheit();
-            Ok(PlotPoint {
-                datetime: entry.dt.to_offset(fo),
-                value: temp,
-            })
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    plots.push(PlotData {
-        plot_data,
-        title: format!(
-            "Temperature Forecast {:0.1} F / {:0.1} C",
-            weather.main.temp.fahrenheit(),
-            weather.main.temp.celcius()
-        ),
-        xaxis: "".into(),
-        yaxis: "F".into(),
-    });
-
-    let plot_data = forecast
-        .list
-        .iter()
-        .map(|entry| {
-            let rain = if let Some(rain) = &entry.rain {
-                rain.three_hour.unwrap_or_default()
-            } else {
-                Precipitation::default()
-            };
-            let snow = if let Some(snow) = &entry.snow {
-                snow.three_hour.unwrap_or_default()
-            } else {
-                Precipitation::default()
-            };
-            Ok(PlotPoint {
-                datetime: entry.dt.to_offset(fo),
-                value: (rain + snow).inches(),
-            })
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    plots.push(PlotData {
-        plot_data,
-        title: "Precipitation Forecast".into(),
-        xaxis: "".into(),
-        yaxis: "in".into(),
-    });
-
-    Ok(plots)
 }
 
 fn weather_app_element<'a>(
@@ -489,10 +428,14 @@ fn weather_app_element<'a>(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub struct AppProps {
     pub send: Arc<Mutex<UnboundedSender<WeatherLocation>>>,
     pub recv: Arc<Mutex<UnboundedReceiver<(WeatherLocation, WeatherEntry)>>>,
 }
+
+#[cfg(target_arch = "wasm32")]
+pub struct AppProps;
 
 #[component]
 pub fn WeatherAppComponent(cx: Scope<AppProps>) -> Element {
@@ -625,25 +568,6 @@ pub fn WeatherAppComponent(cx: Scope<AppProps>) -> Element {
             set_search_history,
         )
     })
-}
-
-pub fn get_parameters(search_str: &str) -> WeatherLocation {
-    let mut opts = WeatherLocation::from_city_name(search_str);
-    if let Ok(zip) = search_str.parse::<u64>() {
-        opts = WeatherLocation::from_zipcode(zip);
-    } else if search_str.contains(',') {
-        let mut iter = search_str.split(',');
-        if let Some(lat) = iter.next() {
-            if let Ok(lat) = lat.parse() {
-                if let Some(lon) = iter.next() {
-                    if let Ok(lon) = lon.parse() {
-                        opts = WeatherLocation::from_lat_lon(lat, lon);
-                    }
-                }
-            }
-        }
-    }
-    opts
 }
 
 fn country_data(weather: &WeatherData) -> LazyNodes {
@@ -782,31 +706,31 @@ pub fn index_element<'a>(
     height: u64,
     width: u64,
     origin: String,
-    url_path: &WeatherPage,
-    set_url_path: &'a UseState<WeatherPage>,
+    page_type: &WeatherPage,
+    set_page_type: &'a UseState<WeatherPage>,
     draft: &'a str,
     set_draft: &'a UseState<String>,
     location: &'a WeatherLocation,
     set_location: &'a UseState<WeatherLocation>,
     ip_location: &'a WeatherLocation,
-    set_ip_location: &'a UseState<WeatherLocation>,
     search_history: &'a [String],
     set_search_history: &'a UseState<Vec<String>>,
-    location_future: &'a UseFuture<Option<WeatherLocation>>,
     history_location: &'a str,
     set_history_location: &'a UseState<String>,
-    history_location_future: &'a UseFuture<Option<Vec<LocationCount>>>,
-    set_current_loc: &'a UseState<Option<String>>,
+    history_location_cache: &'a [LocationCount],
+    location_future: &'a UseFuture<Option<WeatherLocation>>,
+    weather: &'a Option<WeatherData>,
+    forecast: &'a Option<WeatherForecast>,
     start_date: &'a Option<Date>,
     set_start_date: &'a UseState<Option<Date>>,
     end_date: &'a Option<Date>,
     set_end_date: &'a UseState<Option<Date>>,
 ) -> LazyNodes<'a, 'a> {
     let base_url = BASE_URL.unwrap_or(&origin);
-    let url: Url = format!("{base_url}/{url_path}")
+    let url: Url = format!("{base_url}/{page_type}")
         .parse()
         .expect("Failed to parse base url");
-    let url = match url_path {
+    let url = match page_type {
         WeatherPage::Index | WeatherPage::Plot => {
             Url::parse_with_params(url.as_str(), location.get_options()).unwrap_or(url)
         }
@@ -824,12 +748,7 @@ pub fn index_element<'a>(
             Url::parse_with_params(url.as_str(), &options).unwrap_or(url)
         }
     };
-    if let Some(Some(loc)) = location_future.value() {
-        if loc != ip_location {
-            set_ip_location.set(loc.clone());
-        }
-    }
-    let location_selector = match url_path {
+    let location_selector = match page_type {
         WeatherPage::Index | WeatherPage::Plot => Some(rsx! {
             button {
                 id: "current-value",
@@ -889,11 +808,10 @@ pub fn index_element<'a>(
             },
         }),
         WeatherPage::HistoryPlot => {
-            let locations: Vec<_> = if let Some(Some(loc)) = history_location_future.value() {
-                loc.iter().map(|lc| lc.location.as_str()).collect()
-            } else {
-                Vec::new()
-            };
+            let locations: Vec<_> = history_location_cache
+                .iter()
+                .map(|lc| lc.location.as_str())
+                .collect();
             if !locations.contains(&history_location) {
                 if let Some(loc) = locations.first() {
                     set_history_location.modify(|_| loc.to_string());
@@ -966,6 +884,28 @@ pub fn index_element<'a>(
         WeatherPage::Wasm => None,
     };
 
+    let page_element = match page_type {
+        WeatherPage::Index => {
+            if let Some((weather, forecast)) = weather
+                .as_ref()
+                .and_then(|w| forecast.as_ref().map(|f| (w, f)))
+            {
+                Some(weather_element(weather, forecast))
+            } else {
+                None
+            }
+        }
+        _ => Some(rsx! {
+            iframe {
+                src: "{url}",
+                id: "weather-frame",
+                height: "{height}",
+                width: "{width}",
+                align: "center",
+            }
+        }),
+    };
+
     rsx! {
         div {
             input {
@@ -990,7 +930,7 @@ pub fn index_element<'a>(
                 name: "text",
                 value: "Text",
                 onclick: move |_| {
-                    set_url_path.modify(|_| WeatherPage::Index);
+                    set_page_type.modify(|_| WeatherPage::Index);
                 },
             },
             input {
@@ -998,7 +938,7 @@ pub fn index_element<'a>(
                 name: "plot",
                 value: "Plot",
                 onclick: move |_| {
-                    set_url_path.modify(|_| WeatherPage::Plot);
+                    set_page_type.modify(|_| WeatherPage::Plot);
                 },
             },
             input {
@@ -1006,7 +946,7 @@ pub fn index_element<'a>(
                 name: "history",
                 value: "History",
                 onclick: move |_| {
-                    set_url_path.modify(|_| WeatherPage::HistoryPlot);
+                    set_page_type.modify(|_| WeatherPage::HistoryPlot);
                 },
             }
             input {
@@ -1014,7 +954,7 @@ pub fn index_element<'a>(
                 name: "wasm",
                 value: "Wasm",
                 onclick: move |_| {
-                    set_url_path.modify(|_| WeatherPage::Wasm);
+                    set_page_type.modify(|_| WeatherPage::Wasm);
                 },
             },
             form {
@@ -1042,8 +982,6 @@ pub fn index_element<'a>(
                             }
                             set_location.modify(|_| loc);
                             set_location.needs_update();
-                            set_current_loc.set(Some(draft.to_string()));
-                            set_current_loc.needs_update();
                             set_draft.set(String::new());
                             set_draft.needs_update();
                         }
@@ -1052,72 +990,6 @@ pub fn index_element<'a>(
             },
             location_selector,
         },
-        iframe {
-            src: "{url}",
-            id: "weather-frame",
-            height: "{height}",
-            width: "{width}",
-            align: "center",
-        },
+        page_element,
     }
-}
-
-pub fn get_history_plots(history: &[WeatherData]) -> Result<Vec<PlotData>, Error> {
-    let mut plots = Vec::new();
-
-    if history.is_empty() {
-        return Ok(plots);
-    }
-    let weather = history.last().unwrap();
-    let fo: UtcOffset = weather.timezone.into();
-    let plot_data = history
-        .iter()
-        .map(|w| {
-            let temp = w.main.temp.fahrenheit();
-            Ok(PlotPoint {
-                datetime: w.dt.to_offset(fo),
-                value: temp,
-            })
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    plots.push(PlotData {
-        plot_data,
-        title: format!(
-            "Temperature Forecast {:0.1} F / {:0.1} C",
-            weather.main.temp.fahrenheit(),
-            weather.main.temp.celcius()
-        ),
-        xaxis: "".into(),
-        yaxis: "F".into(),
-    });
-
-    let plot_data = history
-        .iter()
-        .map(|w| {
-            let rain = if let Some(rain) = &w.rain {
-                rain.one_hour.unwrap_or_default()
-            } else {
-                Precipitation::default()
-            };
-            let snow = if let Some(snow) = &w.snow {
-                snow.one_hour.unwrap_or_default()
-            } else {
-                Precipitation::default()
-            };
-            Ok(PlotPoint {
-                datetime: w.dt.to_offset(fo),
-                value: (rain + snow).inches(),
-            })
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    plots.push(PlotData {
-        plot_data,
-        title: "Precipitation Forecast".into(),
-        xaxis: "".into(),
-        yaxis: "in".into(),
-    });
-
-    Ok(plots)
 }
