@@ -18,8 +18,7 @@ use rweb_helper::{
     RwebResponse,
 };
 use weather_api_common::weather_element::{
-    get_forecast_plots, get_history_plots, ForecastComponent, ForecastComponentProps,
-    WeatherComponent, WeatherComponentProps,
+    ForecastComponent, ForecastComponentProps, WeatherComponent, WeatherComponentProps,
 };
 use weather_util_rust::{
     weather_api::WeatherLocation, weather_data::WeatherData, weather_forecast::WeatherForecast,
@@ -30,12 +29,16 @@ use crate::{
     app::{
         get_weather_data, get_weather_forecast, AppState, GET_WEATHER_DATA, GET_WEATHER_FORECAST,
     },
+    config::Config,
     errors::ServiceError as Error,
+    get_forecast_plots, get_forecast_precip_plot, get_forecast_temp_plot, get_history_plots,
+    get_history_precip_plot, get_history_temperature_plot,
     logged_user::LoggedUser,
     model::WeatherDataDB,
+    pgpool::PgPool,
     polars_analysis::get_by_name_dates,
-    GeoLocationWrapper, PlotDataWrapper, WeatherDataDBWrapper, WeatherDataWrapper,
-    WeatherForecastWrapper,
+    GeoLocationWrapper, PlotDataWrapper, PlotPointWrapper, WeatherDataDBWrapper,
+    WeatherDataWrapper, WeatherForecastWrapper,
 };
 
 pub type WarpResult<T> = Result<T, Rejection>;
@@ -86,10 +89,7 @@ pub async fn frontpage(
     let body = {
         let mut app = VirtualDom::new_with_props(
             WeatherComponent,
-            WeatherComponentProps {
-                weather,
-                forecast: Some(forecast),
-            },
+            WeatherComponentProps { weather, forecast },
         );
         drop(app.rebuild());
         dioxus_ssr::render(&app)
@@ -124,11 +124,9 @@ pub async fn forecast_plot(
     let query = query.into_inner();
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
-
     let weather = get_weather_data(data.pool.as_ref(), &data.config, &api, &loc).await?;
-    let forecast = get_weather_forecast(&api, &loc).await?;
 
-    let plots = get_forecast_plots(&weather, &forecast).map_err(Into::<Error>::into)?;
+    let plots = get_forecast_plots(&query, &weather).map_err(Into::<Error>::into)?;
 
     let body = {
         let mut app = VirtualDom::new_with_props(
@@ -431,7 +429,7 @@ pub async fn history_update(
     Ok(JsonBase::new(inserts).into())
 }
 
-#[derive(Deserialize, Schema)]
+#[derive(Deserialize, Schema, Serialize)]
 #[schema(component = "HistoryPlotRequest")]
 struct HistoryPlotRequest {
     name: StackString,
@@ -497,7 +495,8 @@ pub async fn history_plot(
         return Ok(HtmlBase::new(String::new()).into());
     }
     let weather = history.first().unwrap().clone();
-    let plots = get_history_plots(&history).map_err(Into::<Error>::into)?;
+    let query_string = serde_urlencoded::to_string(&query).map_err(Into::<Error>::into)?;
+    let plots = get_history_plots(&query_string, &weather).map_err(Into::<Error>::into)?;
 
     let body = {
         let mut app = VirtualDom::new_with_props(
@@ -509,7 +508,7 @@ pub async fn history_plot(
     };
 
     WEATHER_STRING_LENGTH
-        .insert_lenth("/weather/plot.html", body.len())
+        .insert_lenth("/weather/history_plot.html", body.len())
         .await;
     Ok(HtmlBase::new(body).into())
 }
@@ -537,9 +536,48 @@ pub async fn forecast_plots(
     let loc = query.get_weather_location(&data.config)?;
 
     let weather = get_weather_data(data.pool.as_ref(), &data.config, &api, &loc).await?;
-    let forecast = get_weather_forecast(&api, &loc).await?;
 
-    let plots = get_forecast_plots(&weather, &forecast)
+    let plots = get_forecast_plots(&query, &weather)
+        .map_err(Into::<Error>::into)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    Ok(JsonBase::new(plots).into())
+}
+
+#[derive(RwebResponse)]
+#[response(description = "Plot Data")]
+struct PlotDataResponse(JsonBase<Vec<PlotPointWrapper>, Error>);
+
+#[get("/weather/forecast-plots/temperature")]
+pub async fn forecast_temp_plot(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+) -> WarpResult<PlotDataResponse> {
+    let query = query.into_inner();
+    let api = query.get_weather_api(&data.api);
+    let loc = query.get_weather_location(&data.config)?;
+
+    let forecast = get_weather_forecast(&api, &loc).await?;
+    let plots = get_forecast_temp_plot(&forecast)
+        .map_err(Into::<Error>::into)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    Ok(JsonBase::new(plots).into())
+}
+
+#[get("/weather/forecast-plots/precipitation")]
+pub async fn forecast_precip_plot(
+    #[data] data: AppState,
+    query: Query<ApiOptions>,
+) -> WarpResult<PlotDataResponse> {
+    let query = query.into_inner();
+    let api = query.get_weather_api(&data.api);
+    let loc = query.get_weather_location(&data.config)?;
+
+    let forecast = get_weather_forecast(&api, &loc).await?;
+    let plots = get_forecast_precip_plot(&forecast)
         .map_err(Into::<Error>::into)?
         .into_iter()
         .map(Into::into)
@@ -551,11 +589,11 @@ pub async fn forecast_plots(
 #[response(description = "Historical Plot Data")]
 struct HistoryPlotsResponse(JsonBase<Vec<PlotDataWrapper>, Error>);
 
-#[get("/weather/history-plots")]
-pub async fn history_plots(
-    #[data] data: AppState,
-    query: Query<HistoryPlotRequest>,
-) -> WarpResult<HistoryPlotsResponse> {
+async fn get_history_data(
+    query: &HistoryPlotRequest,
+    config: &Config,
+    pool: Option<&PgPool>,
+) -> Result<Vec<WeatherData>, Error> {
     let now = OffsetDateTime::now_utc();
     let first_of_month = PrimitiveDateTime::new(
         Date::from_calendar_date(now.year(), now.month(), 1)
@@ -565,13 +603,12 @@ pub async fn history_plots(
     .assume_utc()
     .date();
 
-    let query = query.into_inner();
     let start_date: Option<Date> = query.start_time.map(Into::into);
     let end_date: Option<Date> = query.end_time.map(Into::into);
 
     let history: Vec<WeatherData> = if start_date.is_none() || start_date < Some(first_of_month) {
         get_by_name_dates(
-            &data.config.cache_dir,
+            &config.cache_dir,
             Some(&query.name),
             query.server.as_ref().map(StackString::as_str),
             start_date,
@@ -582,7 +619,7 @@ pub async fn history_plots(
         .into_iter()
         .map(Into::<WeatherData>::into)
         .collect()
-    } else if let Some(pool) = &data.pool {
+    } else if let Some(pool) = &pool {
         WeatherDataDB::get_by_name_dates(
             pool,
             Some(&query.name),
@@ -599,8 +636,54 @@ pub async fn history_plots(
     } else {
         Vec::new()
     };
+    Ok(history)
+}
 
-    let plots = get_history_plots(&history)
+#[get("/weather/history-plots")]
+pub async fn history_plots(
+    #[data] data: AppState,
+    query: Query<HistoryPlotRequest>,
+) -> WarpResult<HistoryPlotsResponse> {
+    let query = query.into_inner();
+    let query_string = serde_urlencoded::to_string(&query).map_err(Into::<Error>::into)?;
+    let history = get_history_data(&query, &data.config, data.pool.as_ref()).await?;
+
+    let plots = if let Some(weather) = history.first() {
+        get_history_plots(&query_string, weather)
+            .map_err(Into::<Error>::into)?
+            .into_iter()
+            .map(Into::into)
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    Ok(JsonBase::new(plots).into())
+}
+
+#[get("/weather/history-plots/temperature")]
+pub async fn history_temp_plot(
+    #[data] data: AppState,
+    query: Query<HistoryPlotRequest>,
+) -> WarpResult<PlotDataResponse> {
+    let query = query.into_inner();
+    let history = get_history_data(&query, &data.config, data.pool.as_ref()).await?;
+    let plots = get_history_temperature_plot(&history)
+        .map_err(Into::<Error>::into)?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    Ok(JsonBase::new(plots).into())
+}
+
+#[get("/weather/history-plots/precipitation")]
+pub async fn history_precip_plot(
+    #[data] data: AppState,
+    query: Query<HistoryPlotRequest>,
+) -> WarpResult<PlotDataResponse> {
+    let query = query.into_inner();
+    let history = get_history_data(&query, &data.config, data.pool.as_ref()).await?;
+    let plots = get_history_precip_plot(&history)
         .map_err(Into::<Error>::into)?
         .into_iter()
         .map(Into::into)
