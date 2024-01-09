@@ -1,6 +1,5 @@
 use dioxus::prelude::{
-    component, use_future, use_state, Element,
-    Scope, UseFuture, UseFutureState,
+    component, use_future, use_state, Element, Scope, UseFuture, UseFutureState,
 };
 use log::debug;
 use std::collections::HashMap;
@@ -12,14 +11,12 @@ use web_sys::window;
 use weather_util_rust::weather_api::WeatherLocation;
 
 use crate::{
-    get_parameters, LocationCount, WeatherEntry, WeatherPage, DEFAULT_LOCATION,
-    DEFAULT_URL,
+    get_parameters, LocationCount, WeatherEntry, WeatherPage, DEFAULT_LOCATION, DEFAULT_URL,
 };
 
 use crate::{
     wasm_utils::{
-        get_history, get_ip_address, get_location_from_ip, get_locations,
-        get_weather_data_forecast,
+        get_history, get_ip_address, get_location_from_ip, get_locations, get_weather_data_forecast,
     },
     weather_element::index_element,
 };

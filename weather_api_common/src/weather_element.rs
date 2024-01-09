@@ -195,7 +195,7 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
     } else {
         "/weather/timeseries.js".into()
     };
-    let plot_elements = plots.iter().enumerate().filter_map(|(idx, pd)| {
+    let plot_elements = plots.iter().enumerate().map(|(idx, pd)| {
         let plot_url = &pd.plot_url;
         let title = &pd.title;
         let xaxis = &pd.xaxis;
@@ -203,20 +203,32 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
         let mut script_body = String::new();
         writeln!(&mut script_body, "\nfunction forecast_plot_fn_{idx}(){{\n").unwrap();
         writeln!(&mut script_body, "\t let xmlhttp = new XMLHttpRequest();").unwrap();
-        writeln!(&mut script_body, "\t xmlhttp.open('GET', '{plot_url}', false);").unwrap();
+        writeln!(
+            &mut script_body,
+            "\t xmlhttp.open('GET', '{plot_url}', false);"
+        )
+        .unwrap();
         writeln!(&mut script_body, "\t xmlhttp.onload = function() {{").unwrap();
-        writeln!(&mut script_body, "\t let data = JSON.parse(xmlhttp.responseText);").unwrap();
-        writeln!(&mut script_body, "\t create_plot(data, '{title}', '{xaxis}', '{yaxis}');").unwrap();
+        writeln!(
+            &mut script_body,
+            "\t let data = JSON.parse(xmlhttp.responseText);"
+        )
+        .unwrap();
+        writeln!(
+            &mut script_body,
+            "\t create_plot(data, '{title}', '{xaxis}', '{yaxis}');"
+        )
+        .unwrap();
         writeln!(&mut script_body, "\t }}").unwrap();
         writeln!(&mut script_body, "\t xmlhttp.send(null);").unwrap();
         script_body.push_str("};\n");
 
-        Some(rsx! {
+        rsx! {
             script {
                 key: "forecast-plot-key-{idx}",
                 dangerous_inner_html: "{script_body}",
             }
-        })
+        }
     });
     let mut final_plot_script = String::new();
     final_plot_script.push_str("\n!function() {\n");
@@ -705,7 +717,7 @@ pub fn index_element<'a>(
     set_search_history: &'a UseState<Vec<String>>,
     history_location: &'a str,
     set_history_location: &'a UseState<String>,
-    history_location_cache: &'a Vec<LocationCount>,
+    history_location_cache: &'a [LocationCount],
     location_future: &'a UseFuture<Option<WeatherLocation>>,
     weather: &'a Option<WeatherData>,
     forecast: &'a Option<WeatherForecast>,
@@ -876,7 +888,7 @@ pub fn index_element<'a>(
         WeatherPage::Index => {
             if let Some((weather, forecast)) = weather
                 .as_ref()
-                .and_then(|w| forecast.as_ref().and_then(|f| Some((w, f))))
+                .and_then(|w| forecast.as_ref().map(|f| (w, f)))
             {
                 Some(weather_element(weather, forecast))
             } else {
