@@ -33,8 +33,10 @@ use weather_util_rust::{
 
 use crate::{
     get_parameters, LocationCount, WeatherEntry, WeatherPage, DEFAULT_LOCATION, DEFAULT_STR,
-    DEFAULT_URL,
 };
+
+#[cfg(debug_assertions)]
+use crate::DEFAULT_URL;
 
 #[cfg(debug_assertions)]
 static BASE_URL: Option<&str> = Some(DEFAULT_URL);
