@@ -1,7 +1,7 @@
 use dioxus::prelude::{
     component, use_future, use_state, Element, Scope, UseFuture, UseFutureState,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use time::{Date, Duration, Month, PrimitiveDateTime, Time};
 
 use js_sys::Date as JsDate;
@@ -36,9 +36,9 @@ pub fn IndexComponent(cx: Scope) -> Element {
     .split();
     let (ip_location, set_ip_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
     let (location, set_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
-    let (history_location, set_history_location) =
-        use_state(cx, || String::from("Astoria")).split();
-    let (history_location_cache, set_history_location_cache) = use_state(cx, || Vec::new()).split();
+    let (history_location, set_history_location) = use_state(cx, || String::from("11106")).split();
+    let (history_location_cache, set_history_location_cache) =
+        use_state(cx, || HashSet::new()).split();
     let (start_date, set_start_date) = use_state(cx, || {
         let js_date = JsDate::new_0();
         let month: Month = (js_date.get_utc_month() as u8 + 1).try_into().ok()?;
@@ -160,7 +160,9 @@ pub fn IndexComponent(cx: Scope) -> Element {
         is_complete = false;
         if let UseFutureState::Complete(Some(locations)) = history_location_future.state() {
             if history_location_cache.is_empty() {
-                set_history_location_cache.set(locations.clone());
+                let cache: HashSet<String> =
+                    locations.iter().map(|lc| lc.location.clone()).collect();
+                set_history_location_cache.set(cache);
                 set_history_location_cache.needs_update();
             }
             is_complete = true;
