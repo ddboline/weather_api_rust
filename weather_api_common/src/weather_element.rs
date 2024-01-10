@@ -3,7 +3,10 @@ use dioxus::prelude::{
     LazyNodes, Props, Scope, SvgAttributes, UseFuture, UseState,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Write};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Write,
+};
 use time::{
     format_description::FormatItem, macros::format_description, Date, OffsetDateTime, UtcOffset,
 };
@@ -31,9 +34,7 @@ use weather_util_rust::{
     weather_forecast::WeatherForecast,
 };
 
-use crate::{
-    get_parameters, LocationCount, WeatherEntry, WeatherPage, DEFAULT_LOCATION, DEFAULT_STR,
-};
+use crate::{get_parameters, WeatherEntry, WeatherPage, DEFAULT_LOCATION, DEFAULT_STR};
 
 #[cfg(debug_assertions)]
 use crate::DEFAULT_URL;
@@ -197,52 +198,31 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
     } else {
         "/weather/timeseries.js".into()
     };
-    let plot_elements = plots.iter().enumerate().map(|(idx, pd)| {
+    let mut script_body = String::new();
+    writeln!(&mut script_body, "\n async function forecast_plots(){{\n").unwrap();
+    for (idx, pd) in plots.iter().enumerate() {
         let plot_url = &pd.plot_url;
         let title = &pd.title;
         let xaxis = &pd.xaxis;
         let yaxis = &pd.yaxis;
-        let mut script_body = String::new();
-        writeln!(&mut script_body, "\nfunction forecast_plot_fn_{idx}(){{\n").unwrap();
-        writeln!(&mut script_body, "\t let xmlhttp = new XMLHttpRequest();").unwrap();
         writeln!(
             &mut script_body,
-            "\t xmlhttp.open('GET', '{plot_url}', false);"
-        )
-        .unwrap();
-        writeln!(&mut script_body, "\t xmlhttp.onload = function() {{").unwrap();
-        writeln!(
-            &mut script_body,
-            "\t let data = JSON.parse(xmlhttp.responseText);"
+            "\t let response_{idx} = await fetch('{plot_url}');"
         )
         .unwrap();
         writeln!(
             &mut script_body,
-            "\t create_plot(data, '{title}', '{xaxis}', '{yaxis}');"
+            "\t let data_{idx} = await response_{idx}.json();"
         )
         .unwrap();
-        writeln!(&mut script_body, "\t }}").unwrap();
-        writeln!(&mut script_body, "\t xmlhttp.send(null);").unwrap();
-        script_body.push_str("};\n");
-
-        rsx! {
-            script {
-                key: "forecast-plot-key-{idx}",
-                dangerous_inner_html: "{script_body}",
-            }
-        }
-    });
-    let mut final_plot_script = String::new();
-    final_plot_script.push_str("\n!function() {\n");
-    for (idx, _) in plots.iter().enumerate() {
-        writeln!(&mut final_plot_script, "\t forecast_plot_fn_{idx}();\n").unwrap();
+        writeln!(
+            &mut script_body,
+            "\t create_plot(data_{idx}, '{title}', '{xaxis}', '{yaxis}');"
+        )
+        .unwrap();
     }
-    final_plot_script.push_str("}();\n");
-    let final_plot_element = rsx! {
-        script {
-            dangerous_inner_html: "{final_plot_script}",
-        }
-    };
+    script_body.push_str("};\n");
+    writeln!(&mut script_body, "forecast_plots();").unwrap();
     rsx! {
         script {
             src: "https://d3js.org/d3.v4.min.js",
@@ -251,8 +231,10 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
             "src": "{timeseries_url}",
         },
         br {},
-        plot_elements,
-        final_plot_element,
+        script {
+            key: "forecast-plot",
+            dangerous_inner_html: "{script_body}",
+        }
     }
 }
 
@@ -719,7 +701,7 @@ pub fn index_element<'a>(
     set_search_history: &'a UseState<Vec<String>>,
     history_location: &'a str,
     set_history_location: &'a UseState<String>,
-    history_location_cache: &'a [LocationCount],
+    history_location_cache: &'a HashSet<String>,
     location_future: &'a UseFuture<Option<WeatherLocation>>,
     weather: &'a Option<WeatherData>,
     forecast: &'a Option<WeatherForecast>,
@@ -770,6 +752,10 @@ pub fn index_element<'a>(
                         set_search_history.modify(|sh| update_search_history(sh, &s));
                         set_search_history.needs_update();
                     }
+                    if history_location_cache.contains(&s) {
+                        set_history_location.modify(|_| s.clone());
+                        set_history_location.needs_update();
+                    }
                     set_location.modify(|_| loc);
                     set_location.needs_update();
                 },
@@ -810,10 +796,7 @@ pub fn index_element<'a>(
             },
         }),
         WeatherPage::HistoryPlot => {
-            let locations: Vec<_> = history_location_cache
-                .iter()
-                .map(|lc| lc.location.as_str())
-                .collect();
+            let locations: Vec<_> = history_location_cache.iter().map(|l| l.as_str()).collect();
             if !locations.contains(&history_location) {
                 if let Some(loc) = locations.first() {
                     set_history_location.modify(|_| loc.to_string());
@@ -836,8 +819,10 @@ pub fn index_element<'a>(
                             return;
                         }
                         let s = x.data.value.as_str().to_string();
-                        set_history_location.modify(|_| s);
+                        set_history_location.modify(|_| s.clone());
                         set_history_location.needs_update();
+                        set_location.modify(|_| get_parameters(&s));
+                        set_location.needs_update();
                     },
                     option {
                         value: "",
