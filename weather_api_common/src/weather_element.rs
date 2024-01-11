@@ -199,25 +199,15 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
         "/weather/timeseries.js".into()
     };
     let mut script_body = String::new();
-    writeln!(&mut script_body, "\n async function forecast_plots(){{\n").unwrap();
-    for (idx, pd) in plots.iter().enumerate() {
+    writeln!(&mut script_body, "\n function forecast_plots(){{\n").unwrap();
+    for pd in plots {
         let plot_url = &pd.plot_url;
         let title = &pd.title;
         let xaxis = &pd.xaxis;
         let yaxis = &pd.yaxis;
         writeln!(
             &mut script_body,
-            "\t let response_{idx} = await fetch('{plot_url}');"
-        )
-        .unwrap();
-        writeln!(
-            &mut script_body,
-            "\t let data_{idx} = await response_{idx}.json();"
-        )
-        .unwrap();
-        writeln!(
-            &mut script_body,
-            "\t create_plot(data_{idx}, '{title}', '{xaxis}', '{yaxis}');"
+            "\t create_plot('{plot_url}', '{title}', '{xaxis}', '{yaxis}');"
         )
         .unwrap();
     }

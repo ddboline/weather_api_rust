@@ -1,4 +1,7 @@
-function create_plot(data, title, xaxis, yaxis) {
+async function create_plot(url, title, xaxis, yaxis) {
+    let response = await fetch(url);
+    let data = await response.json();
+
     // Set the dimensions of the canvas / graph
     let margin = {top: 30, right: 20, bottom: 30, left: 50};
     let width = 600 - margin.left - margin.right;
