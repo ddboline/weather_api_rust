@@ -314,9 +314,27 @@ struct LocationCount {
     count: i64,
 }
 
+#[derive(Debug, Serialize, Deserialize, Schema)]
+#[schema(component = "Pagination")]
+struct Pagination {
+    #[schema(description="Number of Entries Returned")]
+    limit: usize,
+    #[schema(description="Number of Entries to Skip")]
+    offset: usize,
+    #[schema(description="Total Number of Entries")]
+    total: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+#[schema(component = "PaginatedLocationCount")]
+struct PaginatedLocationCount {
+    pagination: Pagination,
+    data: Vec<LocationCount>,
+}
+
 #[derive(RwebResponse)]
 #[response(description = "Get Weather History Locations")]
-struct HistoryLocationsResponse(JsonBase<Vec<LocationCount>, Error>);
+struct HistoryLocationsResponse(JsonBase<PaginatedLocationCount, Error>);
 
 #[derive(Deserialize, Schema)]
 struct OffsetLocation {
@@ -329,19 +347,30 @@ pub async fn locations(
     #[data] data: AppState,
     query: Query<OffsetLocation>,
 ) -> WarpResult<HistoryLocationsResponse> {
-    let history = if let Some(pool) = &data.pool {
-        let query = query.into_inner();
-        WeatherDataDB::get_locations(pool, query.offset, query.limit)
+    let query = query.into_inner();
+    let offset = query.offset.unwrap_or(0);
+    let limit = query.limit.unwrap_or(10);
+
+    let (total, data) = if let Some(pool) = &data.pool {
+        let total = WeatherDataDB::get_total_locations(pool).await.map_err(Into::<Error>::into)?;
+        let history: Vec<_> = WeatherDataDB::get_locations(pool, Some(offset), Some(limit))
             .await
             .map_err(Into::<Error>::into)?
             .map_ok(|(location, count)| LocationCount { location, count })
             .try_collect()
             .await
-            .map_err(Into::<Error>::into)?
+            .map_err(Into::<Error>::into)?;
+        (total, history)
     } else {
-        Vec::new()
+        (0, Vec::new())
     };
-    Ok(JsonBase::new(history).into())
+    let pagination = Pagination {
+        limit,
+        offset,
+        total,
+    };
+    let result = PaginatedLocationCount {pagination, data};
+    Ok(JsonBase::new(result).into())
 }
 
 #[derive(Deserialize, Schema)]
