@@ -14,7 +14,10 @@ use weather_util_rust::{
     weather_data::WeatherData, weather_forecast::WeatherForecast, ApiStringType,
 };
 
-use crate::{weather_element::PlotData, LocationCount, WeatherEntry};
+use crate::{
+    weather_element::PlotData, LocationCount, WeatherEntry,
+    PaginatedLocationCount,
+};
 
 static API_ENDPOINT: &str = "https://cloud.ddboline.net/weather/";
 
@@ -163,6 +166,23 @@ pub fn get_history() -> Result<Vec<String>, JsValue> {
     }
 }
 
+async fn _get_location(
+    url: &str,
+    offset: usize,
+    limit: usize
+) -> Result<PaginatedLocationCount, JsValue> {
+    let offset = format!("{offset}");
+    let limit = format!("{limit}");
+    let options = vec![("offset", offset), ("limit", limit)];
+    let url = Url::parse_with_params(&url, &options).map_err(|e| {
+        error!("error {e}");
+        let e: JsValue = format!("{e}").into();
+        e
+    })?;
+    let json = js_fetch(&url, Method::GET).await?;
+    serde_wasm_bindgen::from_value(json).map_err(Into::into)
+}
+
 pub async fn get_locations() -> Result<Vec<LocationCount>, JsValue> {
     let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
     let location = window.location();
@@ -173,12 +193,21 @@ pub async fn get_locations() -> Result<Vec<LocationCount>, JsValue> {
     } else {
         format!("https://{host}/weather/locations")
     };
-    let options = vec![("offset", "0"), ("limit", "10")];
-    let url = Url::parse_with_params(&url, &options).map_err(|e| {
-        error!("error {e}");
-        let e: JsValue = format!("{e}").into();
-        e
-    })?;
-    let json = js_fetch(&url, Method::GET).await?;
-    serde_wasm_bindgen::from_value(json).map_err(Into::into)
+
+    let mut counts = Vec::new();
+    let mut offset = 0;
+    let limit = 10;
+    let mut total = None;
+
+    loop {
+        let mut result = _get_location(&url, offset, limit).await?;
+        if total.is_none() {
+            total.replace(result.pagination.total);
+        }
+        if result.data.len() == 0 || result.data.len() < limit {
+            return Ok(counts);
+        }
+        offset += result.data.len();
+        counts.append(&mut result.data);
+    }
 }
