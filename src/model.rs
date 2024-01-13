@@ -264,6 +264,20 @@ impl WeatherDataDB {
         query.fetch_streaming(&conn).await.map_err(Into::into)
     }
 
+    pub async fn get_total_locations(
+        pool: &PgPool,
+    ) -> Result<usize, Error> {
+        #[derive(FromSqlRow)]
+        struct Count {
+            count: i64,
+        }
+
+        let query = query!("SELECT count(distinct location_name) as count FROM weather_data");
+        let conn = pool.get().await?;
+        let count: Count = query.fetch_one(&conn).await?;
+        Ok(count.count.try_into()?)
+    }
+
     /// # Errors
     /// Return error if db query fails
     pub async fn get_locations(
