@@ -14,10 +14,7 @@ use weather_util_rust::{
     weather_data::WeatherData, weather_forecast::WeatherForecast, ApiStringType,
 };
 
-use crate::{
-    weather_element::PlotData, LocationCount, WeatherEntry,
-    PaginatedLocationCount,
-};
+use crate::{weather_element::PlotData, LocationCount, PaginatedLocationCount, WeatherEntry};
 
 static API_ENDPOINT: &str = "https://cloud.ddboline.net/weather/";
 
@@ -169,7 +166,7 @@ pub fn get_history() -> Result<Vec<String>, JsValue> {
 async fn _get_location(
     url: &str,
     offset: usize,
-    limit: usize
+    limit: usize,
 ) -> Result<PaginatedLocationCount, JsValue> {
     let offset = format!("{offset}");
     let limit = format!("{limit}");
