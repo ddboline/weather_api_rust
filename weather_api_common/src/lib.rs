@@ -31,6 +31,19 @@ pub struct LocationCount {
     pub count: i64,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub struct Pagination {
+    pub limit: usize,
+    pub offset: usize,
+    pub total: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PaginatedLocationCount {
+    pagination: Pagination,
+    data: Vec<LocationCount>,
+}
+
 pub static DEFAULT_STR: &str = "11106";
 pub static DEFAULT_URL: &str = "https://www.ddboline.net";
 
