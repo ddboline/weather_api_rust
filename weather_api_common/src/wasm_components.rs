@@ -160,8 +160,16 @@ pub fn IndexComponent(cx: Scope) -> Element {
         is_complete = false;
         if let UseFutureState::Complete(Some(locations)) = history_location_future.state() {
             if history_location_cache.is_empty() {
-                let cache: HashSet<String> =
-                    locations.iter().map(|lc| lc.location.clone()).collect();
+                let cache: HashSet<String> = locations
+                    .iter()
+                    .filter_map(|lc| {
+                        if lc.count > 100 {
+                            Some(lc.location.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
                 set_history_location_cache.set(cache);
                 set_history_location_cache.needs_update();
             }

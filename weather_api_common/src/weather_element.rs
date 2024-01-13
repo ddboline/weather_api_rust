@@ -199,7 +199,7 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
         "/weather/timeseries.js".into()
     };
     let mut script_body = String::new();
-    writeln!(&mut script_body, "\n function forecast_plots(){{\n").unwrap();
+    writeln!(&mut script_body, "\n async function forecast_plots(){{\n").unwrap();
     for pd in plots {
         let plot_url = &pd.plot_url;
         let title = &pd.title;
@@ -207,7 +207,7 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
         let yaxis = &pd.yaxis;
         writeln!(
             &mut script_body,
-            "\t create_plot('{plot_url}', '{title}', '{xaxis}', '{yaxis}');"
+            "\t await create_plot('{plot_url}', '{title}', '{xaxis}', '{yaxis}');"
         )
         .unwrap();
     }
