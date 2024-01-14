@@ -57,6 +57,10 @@ pub enum ParseOpts {
         filepath: Option<PathBuf>,
         #[clap(short, long)]
         table: Option<StackString>,
+        #[clap(short='o', long="offset")]
+        offset: Option<usize>,
+        #[clap(short='l', long="limit")]
+        limit: Option<usize>,
     },
     /// Export DB data into parquet files
     Db {
@@ -74,6 +78,10 @@ pub enum ParseOpts {
         start_date: Option<DateType>,
         #[clap(short='e', long="end_date", value_parser=parse_date_from_str)]
         end_date: Option<DateType>,
+        #[clap(short='o', long="offset")]
+        offset: Option<usize>,
+        #[clap(short='l', long="limit")]
+        limit: Option<usize>,
     },
     Sync {
         #[clap(short = 'd', long = "directory")]
@@ -129,6 +137,8 @@ impl ParseOpts {
                 end_time,
                 filepath,
                 table: _,
+                offset,
+                limit,
             } => {
                 let db_url = config.database_url.as_ref().unwrap();
                 let pool = PgPool::new(db_url);
@@ -138,6 +148,8 @@ impl ParseOpts {
                     server.as_ref().map(StackString::as_str),
                     start_time.map(Into::into),
                     end_time.map(Into::into),
+                    offset,
+                    limit,
                 )
                 .await?
                 .try_collect()
@@ -172,6 +184,8 @@ impl ParseOpts {
                 server,
                 start_date,
                 end_date,
+                offset,
+                limit,
             } => {
                 let directory = directory.unwrap_or_else(|| config.cache_dir.clone());
                 let rows = get_by_name_dates(
@@ -180,6 +194,8 @@ impl ParseOpts {
                     server.as_ref().map(Into::into),
                     start_date.map(Into::into),
                     end_date.map(Into::into),
+                    offset,
+                    limit,
                 )
                 .await?;
                 stdout()
