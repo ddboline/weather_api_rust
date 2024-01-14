@@ -170,7 +170,7 @@ async fn _get_location(
 ) -> Result<PaginatedLocationCount, JsValue> {
     let offset = format!("{offset}");
     let limit = format!("{limit}");
-    let options = vec![("offset", offset), ("limit", limit)];
+    let options = [("offset", offset), ("limit", limit)];
     let url = Url::parse_with_params(&url, &options).map_err(|e| {
         error!("error {e}");
         let e: JsValue = format!("{e}").into();
@@ -197,14 +197,14 @@ pub async fn get_locations() -> Result<Vec<LocationCount>, JsValue> {
     let mut total = None;
 
     loop {
-        let mut result = _get_location(&url, offset, limit).await?;
+        let mut response = _get_location(&url, offset, limit).await?;
         if total.is_none() {
-            total.replace(result.pagination.total);
+            total.replace(response.pagination.total);
         }
-        if result.data.len() == 0 || result.data.len() < limit {
+        if response.data.len() == 0 {
             return Ok(counts);
         }
-        offset += result.data.len();
-        counts.append(&mut result.data);
+        offset += response.data.len();
+        counts.append(&mut response.data);
     }
 }
