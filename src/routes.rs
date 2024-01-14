@@ -379,11 +379,20 @@ struct HistoryRequest {
     server: Option<StackString>,
     start_time: Option<DateType>,
     end_time: Option<DateType>,
+    offset: Option<usize>,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+#[schema(component = "PaginatedWeatherDataDB")]
+struct PaginatedWeatherDataDB {
+    pagination: Pagination,
+    data: Vec<WeatherDataDBWrapper>,
 }
 
 #[derive(RwebResponse)]
 #[response(description = "Get Weather History")]
-struct HistoryResponse(JsonBase<Vec<WeatherDataDBWrapper>, Error>);
+struct HistoryResponse(JsonBase<PaginatedWeatherDataDB, Error>);
 
 #[get("/weather/history")]
 pub async fn history(
@@ -391,33 +400,49 @@ pub async fn history(
     query: Query<HistoryRequest>,
     _: LoggedUser,
 ) -> WarpResult<HistoryResponse> {
-    let history = if let Some(pool) = &data.pool {
-        let query = query.into_inner();
+    let query = query.into_inner();
+    let offset = query.offset.unwrap_or(0);
+    let limit = query.limit.unwrap_or(0);
+    let (total, data) = if let Some(pool) = &data.pool {
         let server = query
             .server
             .as_ref()
             .map_or(data.config.server.as_str(), StackString::as_str);
+        let name = query.name.as_ref().map(StackString::as_str);
         let start_time: Date = query.start_time.map_or(
             (OffsetDateTime::now_utc() - Duration::days(7)).date(),
             Into::into,
         );
-        WeatherDataDB::get_by_name_dates(
+        let end_time = query.end_time.map(Into::into);
+        let total = WeatherDataDB::get_total_by_name_dates(
+            pool, name, Some(server), Some(start_time), end_time
+        ).await.map_err(Into::<Error>::into)?;
+        let data: Vec<_> = WeatherDataDB::get_by_name_dates(
             pool,
             query.name.as_ref().map(StackString::as_str),
             Some(server),
             Some(start_time),
-            query.end_time.map(Into::into),
+            end_time,
+            Some(offset),
+            Some(limit),
         )
         .await
         .map_err(Into::<Error>::into)?
         .map_ok(Into::<WeatherDataDBWrapper>::into)
         .try_collect()
         .await
-        .map_err(Into::<Error>::into)?
+        .map_err(Into::<Error>::into)?;
+        (total, data)
     } else {
-        Vec::new()
+        (0, Vec::new())
     };
-    Ok(JsonBase::new(history).into())
+    let pagination = Pagination {
+        limit,
+        offset,
+        total,
+    };
+    let result = PaginatedWeatherDataDB {pagination, data};
+    Ok(JsonBase::new(result).into())
 }
 
 #[derive(Serialize, Deserialize, Schema)]
@@ -496,6 +521,8 @@ pub async fn history_plot(
             query.server.as_ref().map(StackString::as_str),
             start_date,
             end_date,
+            Some(0),
+            Some(1),
         )
         .await
         .map_err(Into::<Error>::into)?
@@ -509,6 +536,8 @@ pub async fn history_plot(
             query.server.as_ref().map(StackString::as_str),
             query.start_time.map(Into::into),
             query.end_time.map(Into::into),
+            Some(0),
+            Some(1),
         )
         .await
         .map_err(Into::<Error>::into)?
@@ -642,6 +671,8 @@ async fn get_history_data(
             query.server.as_ref().map(StackString::as_str),
             start_date,
             end_date,
+            None,
+            None,
         )
         .await
         .map_err(Into::<Error>::into)?
@@ -655,6 +686,8 @@ async fn get_history_data(
             query.server.as_ref().map(StackString::as_str),
             query.start_time.map(Into::into),
             query.end_time.map(Into::into),
+            None,
+            None,
         )
         .await
         .map_err(Into::<Error>::into)?
