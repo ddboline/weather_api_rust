@@ -292,6 +292,8 @@ pub async fn get_by_name_dates(
     server: Option<&str>,
     start_date: Option<Date>,
     end_date: Option<Date>,
+    offset: Option<usize>,
+    limit: Option<usize>,
 ) -> Result<Vec<WeatherDataDB>, Error> {
     if !input.exists() {
         return Err(format_err!("Path does not exist"));
@@ -308,117 +310,140 @@ pub async fn get_by_name_dates(
         vec![input.to_path_buf()]
     };
     debug!("{input_files:?}");
+    let mut total = 0;
     let mut output = Vec::new();
     for input_file in input_files {
         let df = get_by_name_dates_file(&input_file, name, server, start_date, end_date).await?;
         debug!("df {input_file:?} {:?}", df.shape());
+        let (file_total, _) = df.shape();
+        let mut skip = 0;
+        let mut take = file_total;
+        if let Some(offset) = offset {
+            if offset > total + file_total {
+                total += file_total;
+                continue;
+            }
+            if offset > total {
+                skip = offset - total;
+            }
+        }
+        if let Some(limit) = limit {
+            if limit <= output.len() {
+                break;
+            }
+            if limit - output.len() < file_total {
+                take = limit - output.len();
+            }
+        }
+        debug!("total {total} file_total {file_total} skip {skip} take {take}");
+        total += file_total;
         let columns = WeatherDataColumns {
             id: df
                 .column("id")?
                 .str()?
                 .into_iter()
-                .filter_map(|i| i.map(Into::into))
+                .filter_map(|i| i.map(Into::into)).skip(skip).take(take)
                 .collect(),
-            dt: df.column("dt")?.i32()?.into_iter().flatten().collect(),
+            dt: df.column("dt")?.i32()?.into_iter().flatten().skip(skip).take(take).collect(),
             created_at: df
                 .column("created_at")?
                 .datetime()?
                 .into_iter()
-                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis))
+                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis)).skip(skip).take(take)
                 .collect(),
             location_name: df
                 .column("location_name")?
                 .str()?
                 .into_iter()
-                .filter_map(|i| i.map(Into::into))
+                .filter_map(|i| i.map(Into::into)).skip(skip).take(take)
                 .collect(),
             latitude: df
                 .column("latitude")?
                 .f64()?
                 .into_iter()
-                .flatten()
+                .flatten().skip(skip).take(take)
                 .collect(),
             longitude: df
                 .column("longitude")?
                 .f64()?
                 .into_iter()
-                .flatten()
+                .flatten().skip(skip).take(take)
                 .collect(),
             condition: df
                 .column("condition")?
                 .str()?
                 .into_iter()
-                .filter_map(|i| i.map(Into::into))
+                .filter_map(|i| i.map(Into::into)).skip(skip).take(take)
                 .collect(),
             temperature: df
                 .column("temperature")?
                 .f64()?
                 .into_iter()
-                .flatten()
+                .flatten().skip(skip).take(take)
                 .collect(),
             temperature_minimum: df
                 .column("temperature_minimum")?
                 .f64()?
                 .into_iter()
-                .flatten()
+                .flatten().skip(skip).take(take)
                 .collect(),
             temperature_maximum: df
                 .column("temperature_maximum")?
                 .f64()?
                 .into_iter()
-                .flatten()
+                .flatten().skip(skip).take(take)
                 .collect(),
             pressure: df
                 .column("pressure")?
                 .f64()?
                 .into_iter()
-                .flatten()
+                .flatten().skip(skip).take(take)
                 .collect(),
             humidity: df
                 .column("humidity")?
                 .i32()?
                 .into_iter()
-                .flatten()
+                .flatten().skip(skip).take(take)
                 .collect(),
-            visibility: df.column("visibility")?.f64()?.into_iter().collect(),
-            rain: df.column("rain")?.f64()?.into_iter().collect(),
-            snow: df.column("snow")?.f64()?.into_iter().collect(),
+            visibility: df.column("visibility")?.f64()?.into_iter().skip(skip).take(take).collect(),
+            rain: df.column("rain")?.f64()?.into_iter().skip(skip).take(take).collect(),
+            snow: df.column("snow")?.f64()?.into_iter().skip(skip).take(take).collect(),
             wind_speed: df
                 .column("wind_speed")?
                 .f64()?
                 .into_iter()
-                .flatten()
+                .flatten().skip(skip).take(take)
                 .collect(),
-            wind_direction: df.column("wind_direction")?.f64()?.into_iter().collect(),
+            wind_direction: df.column("wind_direction")?.f64()?.into_iter().skip(skip).take(take).collect(),
             country: df
                 .column("country")?
                 .str()?
                 .into_iter()
-                .filter_map(|i| i.map(Into::into))
+                .filter_map(|i| i.map(Into::into)).skip(skip).take(take)
                 .collect(),
             sunrise: df
                 .column("sunrise")?
                 .datetime()?
                 .into_iter()
-                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis))
+                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis)).skip(skip).take(take)
                 .collect(),
             sunset: df
                 .column("sunset")?
                 .datetime()?
                 .into_iter()
-                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis))
+                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis)).skip(skip).take(take)
                 .collect(),
             timezone: df
                 .column("timezone")?
                 .i32()?
                 .into_iter()
-                .flatten()
+                .flatten().skip(skip).take(take)
                 .collect(),
             server: df
                 .column("server")?
                 .str()?
                 .into_iter()
-                .filter_map(|i| i.map(Into::into))
+                .filter_map(|i| i.map(Into::into)).skip(skip).take(take)
                 .collect(),
         };
         let rows = columns.into_weather_data();
