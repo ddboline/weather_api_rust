@@ -234,7 +234,6 @@ impl WeatherDataDB {
             r#"
                 SELECT count(*) as count FROM weather_data
                 {where_str}
-                ORDER BY created_at
             "#
         );
         let query = query_dyn!(&query, ..bindings)?;
