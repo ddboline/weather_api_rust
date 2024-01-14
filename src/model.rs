@@ -193,16 +193,18 @@ impl WeatherDataDB {
         query.fetch_opt(conn).await.map_err(Into::into)
     }
 
-    /// # Errors
-    /// Return error if db query fails
-    pub async fn get_by_name_dates(
+    pub async fn get_total_by_name_dates(
         pool: &PgPool,
         name: Option<&str>,
         server: Option<&str>,
         start_date: Option<Date>,
         end_date: Option<Date>,
-    ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
-        let conn = pool.get().await?;
+    ) -> Result<usize, Error> {
+        #[derive(FromSqlRow)]
+        struct Count {
+            count: i64,
+        }
+
         let start_date = start_date.map(|d| PrimitiveDateTime::new(d, time!(00:00)).assume_utc());
         let end_date = end_date.map(|d| PrimitiveDateTime::new(d, time!(00:00)).assume_utc());
         let mut bindings = Vec::new();
@@ -230,40 +232,73 @@ impl WeatherDataDB {
         };
         let query = format_sstr!(
             r#"
+                SELECT count(*) as count FROM weather_data
+                {where_str}
+                ORDER BY created_at
+            "#
+        );
+        let query = query_dyn!(&query, ..bindings)?;
+        let conn = pool.get().await?;
+        let count: Count = query.fetch_one(&conn).await?;
+        Ok(count.count.try_into()?)
+    }
+
+    /// # Errors
+    /// Return error if db query fails
+    pub async fn get_by_name_dates(
+        pool: &PgPool,
+        name: Option<&str>,
+        server: Option<&str>,
+        start_date: Option<Date>,
+        end_date: Option<Date>,
+        offset: Option<usize>,
+        limit: Option<usize>,
+    ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
+        let conn = pool.get().await?;
+        let start_date = start_date.map(|d| PrimitiveDateTime::new(d, time!(00:00)).assume_utc());
+        let end_date = end_date.map(|d| PrimitiveDateTime::new(d, time!(00:00)).assume_utc());
+        let mut bindings = Vec::new();
+        let mut constraints = Vec::new();
+        if let Some(name) = &name {
+            constraints.push(format_sstr!("location_name = $name"));
+            bindings.push(("name", name as Parameter));
+        }
+        if let Some(server) = &server {
+            constraints.push(format_sstr!("server = $server"));
+            bindings.push(("server", server as Parameter));
+        }
+        if let Some(start_date) = &start_date {
+            constraints.push(format_sstr!("created_at >= $start_date"));
+            bindings.push(("start_date", start_date as Parameter));
+        }
+        if let Some(end_date) = &end_date {
+            constraints.push(format_sstr!("created_at <= $end_date"));
+            bindings.push(("end_date", end_date as Parameter));
+        }
+        let where_str = if constraints.is_empty() {
+            "".into()
+        } else {
+            format_sstr!("WHERE {}", constraints.join(" AND "))
+        };
+        let mut query = format_sstr!(
+            r#"
                 SELECT * FROM weather_data
                 {where_str}
                 ORDER BY created_at
             "#
         );
+        if let Some(offset) = &offset {
+            query.push_str(&format_sstr!(" OFFSET {offset}"));
+        }
+        if let Some(limit) = &limit {
+            query.push_str(&format_sstr!(" LIMIT {limit}"));
+        }
         let query = query_dyn!(&query, ..bindings)?;
         query.fetch_streaming(&conn).await.map_err(Into::into)
     }
 
     /// # Errors
     /// Return error if db query fails
-    pub async fn get(
-        pool: &PgPool,
-        offset: Option<usize>,
-        limit: Option<usize>,
-        order: bool,
-    ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
-        let conn = pool.get().await?;
-        let mut query = format_sstr!("SELECT * FROM weather_data");
-        if order {
-            query.push_str(" ORDER BY created_at DESC");
-        } else {
-            query.push_str(" ORDER BY created_at");
-        };
-        if let Some(offset) = offset {
-            query.push_str(&format_sstr!(" OFFSET {offset}"));
-        }
-        if let Some(limit) = limit {
-            query.push_str(&format_sstr!(" LIMIT {limit}"));
-        }
-        let query = query_dyn!(&query)?;
-        query.fetch_streaming(&conn).await.map_err(Into::into)
-    }
-
     pub async fn get_total_locations(
         pool: &PgPool,
     ) -> Result<usize, Error> {
