@@ -57,9 +57,9 @@ pub enum ParseOpts {
         filepath: Option<PathBuf>,
         #[clap(short, long)]
         table: Option<StackString>,
-        #[clap(short='o', long="offset")]
+        #[clap(short = 'o', long = "offset")]
         offset: Option<usize>,
-        #[clap(short='l', long="limit")]
+        #[clap(short = 'l', long = "limit")]
         limit: Option<usize>,
     },
     /// Export DB data into parquet files
@@ -78,9 +78,9 @@ pub enum ParseOpts {
         start_date: Option<DateType>,
         #[clap(short='e', long="end_date", value_parser=parse_date_from_str)]
         end_date: Option<DateType>,
-        #[clap(short='o', long="offset")]
+        #[clap(short = 'o', long = "offset")]
         offset: Option<usize>,
-        #[clap(short='l', long="limit")]
+        #[clap(short = 'l', long = "limit")]
         limit: Option<usize>,
     },
     Sync {

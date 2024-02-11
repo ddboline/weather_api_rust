@@ -298,9 +298,7 @@ impl WeatherDataDB {
 
     /// # Errors
     /// Return error if db query fails
-    pub async fn get_total_locations(
-        pool: &PgPool,
-    ) -> Result<usize, Error> {
+    pub async fn get_total_locations(pool: &PgPool) -> Result<usize, Error> {
         #[derive(FromSqlRow)]
         struct Count {
             count: i64,

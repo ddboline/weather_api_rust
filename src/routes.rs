@@ -317,11 +317,11 @@ struct LocationCount {
 #[derive(Debug, Serialize, Deserialize, Schema)]
 #[schema(component = "Pagination")]
 struct Pagination {
-    #[schema(description="Number of Entries Returned")]
+    #[schema(description = "Number of Entries Returned")]
     limit: usize,
-    #[schema(description="Number of Entries to Skip")]
+    #[schema(description = "Number of Entries to Skip")]
     offset: usize,
-    #[schema(description="Total Number of Entries")]
+    #[schema(description = "Total Number of Entries")]
     total: usize,
 }
 
@@ -352,7 +352,9 @@ pub async fn locations(
     let limit = query.limit.unwrap_or(10);
 
     let (total, data) = if let Some(pool) = &data.pool {
-        let total = WeatherDataDB::get_total_locations(pool).await.map_err(Into::<Error>::into)?;
+        let total = WeatherDataDB::get_total_locations(pool)
+            .await
+            .map_err(Into::<Error>::into)?;
         let history: Vec<_> = WeatherDataDB::get_locations(pool, Some(offset), Some(limit))
             .await
             .map_err(Into::<Error>::into)?
@@ -369,7 +371,7 @@ pub async fn locations(
         offset,
         total,
     };
-    let result = PaginatedLocationCount {pagination, data};
+    let result = PaginatedLocationCount { pagination, data };
     Ok(JsonBase::new(result).into())
 }
 
@@ -415,8 +417,14 @@ pub async fn history(
         );
         let end_time = query.end_time.map(Into::into);
         let total = WeatherDataDB::get_total_by_name_dates(
-            pool, name, Some(server), Some(start_time), end_time
-        ).await.map_err(Into::<Error>::into)?;
+            pool,
+            name,
+            Some(server),
+            Some(start_time),
+            end_time,
+        )
+        .await
+        .map_err(Into::<Error>::into)?;
         let data: Vec<_> = WeatherDataDB::get_by_name_dates(
             pool,
             query.name.as_ref().map(StackString::as_str),
@@ -441,7 +449,7 @@ pub async fn history(
         offset,
         total,
     };
-    let result = PaginatedWeatherDataDB {pagination, data};
+    let result = PaginatedWeatherDataDB { pagination, data };
     Ok(JsonBase::new(result).into())
 }
 
