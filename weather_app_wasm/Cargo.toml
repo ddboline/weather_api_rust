@@ -1,24 +1,24 @@
 [package]
 name = "weather_app_wasm"
-version = "0.9.14"
+version = "0.9.15"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-weather_api_common = {path = "../weather_api_common/"}
-dioxus-web = "0.4"
-dioxus = "0.4"
-weather_util_rust = {version="0.16", default-features=false}
 anyhow = "1.0"
-time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
-log = "0.4"
-wasm-logger = "0.2"
-serde = "1.0"
-url = "2.3"
-web-sys = {version="0.3", features=["Geolocation", "Navigator", "Request", "RequestInit", "Response", "Window"]}
-js-sys = "0.3"
-wasm-bindgen = {version="0.2", features=["serde-serialize"]}
-wasm-bindgen-futures = "0.4"
+dioxus = "0.4"
+dioxus-web = "0.4"
 futures-channel = "0.3"
 futures-util = "0.3"
+js-sys = "0.3"
+log = "0.4"
+serde = "1.0"
+time = {version="0.3", features=["serde-human-readable", "macros", "formatting"]}
+wasm-bindgen = {version="0.2", features=["serde-serialize"]}
+wasm-bindgen-futures = "0.4"
+wasm-logger = "0.2"
+weather_api_common = {path = "../weather_api_common/"}
+weather_util_rust = {version="0.16", default-features=false}
+web-sys = {version="0.3", features=["Geolocation", "Navigator", "Request", "RequestInit", "Response", "Window"]}
+url = "2.3"
