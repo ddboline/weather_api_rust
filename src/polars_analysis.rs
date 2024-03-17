@@ -1,12 +1,12 @@
 use anyhow::{format_err, Error};
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, DateTime};
 use futures::TryStreamExt;
 use log::{debug, info};
 use polars::{
     df as dataframe,
     io::SerReader,
     prelude::{
-        col, lit, DataFrame, LazyFrame, NamedFrom, ParquetReader, ParquetWriter, ScanArgsParquet,
+        col, lit, DataFrame, LazyFrame, ParquetReader, ParquetWriter, ScanArgsParquet,
         SortOptions, TimeUnit, UniqueKeepStrategy,
     },
 };
@@ -20,12 +20,11 @@ use crate::{model::WeatherDataDB, pgpool::PgPool};
 
 fn convert_offset_naive(input: OffsetDateTime) -> NaiveDateTime {
     let d: OffsetDateTime = input.to_offset(UtcOffset::UTC);
-    NaiveDateTime::from_timestamp_opt(d.unix_timestamp(), d.nanosecond())
-        .expect("Invalid timestamp")
+    DateTime::from_timestamp(d.unix_timestamp(), d.nanosecond()).expect("Invalid Timestamp").naive_utc()
 }
 
 fn convert_naive_offset(input: NaiveDateTime) -> OffsetDateTime {
-    OffsetDateTime::from_unix_timestamp(input.timestamp()).expect("Invalid timestamp")
+    OffsetDateTime::from_unix_timestamp(input.and_utc().timestamp()).expect("Invalid timestamp")
 }
 
 fn stackstring_to_series(col: &[StackString]) -> Vec<&str> {
@@ -358,7 +357,7 @@ pub async fn get_by_name_dates(
                 .column("created_at")?
                 .datetime()?
                 .into_iter()
-                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis))
+                .filter_map(|t| t.and_then(|t| DateTime::from_timestamp_millis(t).map(|d| d.naive_utc())))
                 .skip(skip)
                 .take(take)
                 .collect(),
@@ -482,7 +481,7 @@ pub async fn get_by_name_dates(
                 .column("sunrise")?
                 .datetime()?
                 .into_iter()
-                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis))
+                .filter_map(|t| t.and_then(|t_| DateTime::from_timestamp_millis(t_).map(|d| d.naive_utc())))
                 .skip(skip)
                 .take(take)
                 .collect(),
@@ -490,7 +489,7 @@ pub async fn get_by_name_dates(
                 .column("sunset")?
                 .datetime()?
                 .into_iter()
-                .filter_map(|t| t.and_then(NaiveDateTime::from_timestamp_millis))
+                .filter_map(|t| t.and_then(|t_| DateTime::from_timestamp_millis(t_).map(|d| d.naive_utc())))
                 .skip(skip)
                 .take(take)
                 .collect(),
