@@ -91,8 +91,13 @@ pub async fn frontpage(
             WeatherComponent,
             WeatherComponentProps { weather, forecast },
         );
-        drop(app.rebuild());
-        dioxus_ssr::render(&app)
+        app.rebuild_in_place();
+        let mut renderer = dioxus_ssr::Renderer::default();
+        let mut buffer = String::new();
+        renderer
+            .render_to(&mut buffer, &app)
+            .map_err(Into::<Error>::into)?;
+        buffer
     };
     WEATHER_STRING_LENGTH
         .insert_lenth("/weather/index.html", body.len())
@@ -133,8 +138,13 @@ pub async fn forecast_plot(
             ForecastComponent,
             ForecastComponentProps { weather, plots },
         );
-        drop(app.rebuild());
-        dioxus_ssr::render(&app)
+        app.rebuild_in_place();
+        let mut renderer = dioxus_ssr::Renderer::default();
+        let mut buffer = String::new();
+        renderer
+            .render_to(&mut buffer, &app)
+            .map_err(Into::<Error>::into)?;
+        buffer
     };
 
     WEATHER_STRING_LENGTH
@@ -569,8 +579,13 @@ pub async fn history_plot(
             ForecastComponent,
             ForecastComponentProps { weather, plots },
         );
-        drop(app.rebuild());
-        dioxus_ssr::render(&app)
+        app.rebuild_in_place();
+        let mut renderer = dioxus_ssr::Renderer::default();
+        let mut buffer = String::new();
+        renderer
+            .render_to(&mut buffer, &app)
+            .map_err(Into::<Error>::into)?;
+        buffer
     };
 
     WEATHER_STRING_LENGTH

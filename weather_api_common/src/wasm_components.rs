@@ -1,5 +1,5 @@
 use dioxus::prelude::{
-    component, use_future, use_state, Element, Scope, UseFuture, UseFutureState,
+    component, use_resource, use_signal, Element, Readable, Resource, UseResourceState, Writable,
 };
 use std::collections::{HashMap, HashSet};
 use time::{Date, Duration, Month, PrimitiveDateTime, Time};
@@ -23,23 +23,20 @@ use crate::{
 const DEFAULT_HISTORY_DAYS: i64 = 7;
 
 #[component]
-pub fn IndexComponent(cx: Scope) -> Element {
+pub fn IndexComponent() -> Element {
     let default_cache: HashMap<WeatherLocation, WeatherEntry> = HashMap::new();
 
-    let (page_type, set_page_type) = use_state(cx, || WeatherPage::Index).split();
-    let (draft, set_draft) = use_state(cx, String::new).split();
-    let (search_history, set_search_history) = use_state(cx, || {
+    let page_type = use_signal(|| WeatherPage::Index);
+    let draft = use_signal(String::new);
+    let search_history = use_signal(|| {
         let history = get_history().unwrap_or_else(|_| vec![String::from("zip=10001")]);
-
         history
-    })
-    .split();
-    let (ip_location, set_ip_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
-    let (location, set_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
-    let (history_location, set_history_location) = use_state(cx, || String::from("11106")).split();
-    let (history_location_cache, set_history_location_cache) =
-        use_state(cx, || HashSet::new()).split();
-    let (start_date, set_start_date) = use_state(cx, || {
+    });
+    let mut ip_location = use_signal(|| get_parameters(DEFAULT_LOCATION));
+    let location = use_signal(|| get_parameters(DEFAULT_LOCATION));
+    let history_location = use_signal(|| String::from("11106"));
+    let mut history_location_cache = use_signal(|| HashSet::new());
+    let start_date = use_signal(|| {
         let js_date = JsDate::new_0();
         let month: Month = (js_date.get_utc_month() as u8 + 1).try_into().ok()?;
         let date = Date::from_calendar_date(
@@ -56,9 +53,8 @@ pub fn IndexComponent(cx: Scope) -> Element {
         .ok()?;
         let date = PrimitiveDateTime::new(date, time).assume_utc();
         Some((date - Duration::days(DEFAULT_HISTORY_DAYS)).date())
-    })
-    .split();
-    let (end_date, set_end_date) = use_state(cx, || {
+    });
+    let end_date = use_signal(|| {
         let js_date = JsDate::new_0();
         let month: Month = (js_date.get_utc_month() as u8 + 1).try_into().ok()?;
         let date = Date::from_calendar_date(
@@ -68,11 +64,10 @@ pub fn IndexComponent(cx: Scope) -> Element {
         )
         .ok()?;
         Some(date)
-    })
-    .split();
-    let (cache, set_cache) = use_state(cx, || default_cache).split();
-    let (weather, set_weather) = use_state(cx, || None).split();
-    let (forecast, set_forecast) = use_state(cx, || None).split();
+    });
+    let mut cache = use_signal(|| default_cache);
+    let mut weather = use_signal(|| None);
+    let mut forecast = use_signal(|| None);
 
     let mut origin: String = DEFAULT_URL.to_string();
     let mut height = 100.0f64;
@@ -93,26 +88,26 @@ pub fn IndexComponent(cx: Scope) -> Element {
     let height = (height * 750. / 856.).abs() as u64;
     let width = (width * 850. / 1105.).abs() as u64;
 
-    let location_future: &UseFuture<Option<WeatherLocation>> =
-        use_future(cx, (), |()| async move {
-            if let Ok(ip) = get_ip_address().await {
-                if let Ok(loc) = get_location_from_ip(ip).await {
-                    return Some(loc);
-                }
+    let mut location_future: Resource<Option<WeatherLocation>> = use_resource(|| async move {
+        if let Ok(ip) = get_ip_address().await {
+            if let Ok(loc) = get_location_from_ip(ip).await {
+                return Some(loc);
             }
-            None
-        });
+        }
+        None
+    });
 
-    let history_location_future: &UseFuture<Option<Vec<LocationCount>>> =
-        use_future(cx, (), |()| async move {
+    let mut history_location_future: Resource<Option<Vec<LocationCount>>> =
+        use_resource(|| async move {
             if let Ok(locations) = get_locations().await {
                 return Some(locations);
             }
             None
         });
 
-    let weather_future = use_future(cx, location, |l| {
-        let entry_opt = cache.get(&l).cloned();
+    let weather_future = use_resource(move || {
+        let l = location();
+        let entry_opt = cache().get(&l).cloned();
         async move {
             if let Some(entry) = entry_opt {
                 (l, entry)
@@ -123,43 +118,45 @@ pub fn IndexComponent(cx: Scope) -> Element {
         }
     });
 
-    cx.render({
+    {
         let mut is_complete = false;
-        if let UseFutureState::Complete(Some(loc)) = location_future.state() {
-            if loc != ip_location {
-                set_ip_location.set(loc.clone());
-                set_ip_location.needs_update();
-                is_complete = true;
+        if *location_future.state().read() == UseResourceState::Ready {
+            let result = (*location_future.read()).clone();
+            if let Some(Some(loc)) = result {
+                if loc != *ip_location.read() {
+                    ip_location.set(loc.clone());
+                    is_complete = true;
+                }
             }
         }
         if is_complete {
-            location_future.set(None);
+            location_future.cancel();
         }
 
-        if let UseFutureState::Complete((loc, entry)) = weather_future.state() {
-            if !cache.contains_key(loc) || cache.is_empty() {
-                set_cache.modify(|c| {
-                    let mut new_cache = c.clone();
-                    new_cache.insert(location.clone(), entry.clone());
-                    if let Some(WeatherEntry { weather, forecast }) = new_cache.get(location) {
-                        if let Some(weather) = weather {
-                            set_weather.modify(|_| Some(weather.clone()));
-                            set_weather.needs_update();
+        let result = (*weather_future.read()).clone();
+        if let Some((loc, entry)) = result {
+            if !cache.read().contains_key(&loc) || cache.read().is_empty() {
+                let mut new_cache = (*cache.read()).clone();
+                cache.set({
+                    let l = (*location.read()).clone();
+                    new_cache.insert(l.clone(), entry.clone());
+                    if let Some(we) = new_cache.get(&l) {
+                        if let Some(w) = &we.weather {
+                            weather.set(Some(w.clone()));
                         }
-                        if let Some(forecast) = forecast {
-                            set_forecast.modify(|_| Some(forecast.clone()));
-                            set_forecast.needs_update();
+                        if let Some(f) = &we.forecast {
+                            forecast.set(Some(f.clone()));
                         }
                     }
                     new_cache
                 });
-                set_cache.needs_update();
             }
         }
 
         is_complete = false;
-        if let UseFutureState::Complete(Some(locations)) = history_location_future.state() {
-            if history_location_cache.is_empty() {
+        let result = (*history_location_future.read()).clone();
+        if let Some(Some(locations)) = result {
+            if history_location_cache.read().is_empty() {
                 let cache: HashSet<String> = locations
                     .iter()
                     .filter_map(|lc| {
@@ -170,13 +167,12 @@ pub fn IndexComponent(cx: Scope) -> Element {
                         }
                     })
                     .collect();
-                set_history_location_cache.set(cache);
-                set_history_location_cache.needs_update();
+                history_location_cache.set(cache);
             }
             is_complete = true;
         }
         if is_complete {
-            history_location_future.set(None);
+            history_location_future.cancel();
         }
 
         index_element(
@@ -184,24 +180,17 @@ pub fn IndexComponent(cx: Scope) -> Element {
             width,
             origin,
             page_type,
-            set_page_type,
             draft,
-            set_draft,
             location,
-            set_location,
             ip_location,
             search_history,
-            set_search_history,
             history_location,
-            set_history_location,
             history_location_cache,
             location_future,
             weather,
             forecast,
             start_date,
-            set_start_date,
             end_date,
-            set_end_date,
         )
-    })
+    }
 }

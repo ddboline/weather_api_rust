@@ -1,13 +1,14 @@
 [package]
 name = "weather_api_common"
-version = "0.9.16"
+version = "0.9.17"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0"
-dioxus = "0.4"
+dioxus = "0.5"
+dioxus-core = "0.5"
 futures-channel = "0.3"
 futures-util = "0.3"
 log = "0.4"
@@ -27,4 +28,4 @@ http = "1.0"
 js-sys = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-reqwest = {version="0.11", features=["rustls-tls", "json"]}
+reqwest = {version="0.12", features=["rustls-tls", "json"]}

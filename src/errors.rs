@@ -14,7 +14,11 @@ use serde_json::Error as SerdeJsonError;
 use serde_urlencoded::ser::Error as UrlEncodedError;
 use stack_string::StackString;
 use std::{
-    borrow::Cow, convert::Infallible, fmt::Debug, num::ParseIntError, string::FromUtf8Error,
+    borrow::Cow,
+    convert::Infallible,
+    fmt::{Debug, Error as FmtError},
+    num::ParseIntError,
+    string::FromUtf8Error,
 };
 use thiserror::Error;
 use time::error::Format as FormatError;
@@ -54,6 +58,8 @@ pub enum ServiceError {
     ParseIntError(#[from] ParseIntError),
     #[error("UrlEncodedError {0}")]
     UrlEncodedError(#[from] UrlEncodedError),
+    #[error("FmtError {0}")]
+    FmtError(#[from] FmtError),
 }
 
 impl Reject for ServiceError {}

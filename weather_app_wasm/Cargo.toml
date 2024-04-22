@@ -1,14 +1,14 @@
 [package]
 name = "weather_app_wasm"
-version = "0.9.16"
+version = "0.9.17"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0"
-dioxus = "0.4"
-dioxus-web = "0.4"
+dioxus = "0.5"
+dioxus-web = "0.5"
 futures-channel = "0.3"
 futures-util = "0.3"
 js-sys = "0.3"

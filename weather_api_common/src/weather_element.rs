@@ -1,6 +1,6 @@
 use dioxus::prelude::{
-    component, dioxus_elements, rsx, use_future, use_state, Element, GlobalAttributes, IntoDynNode,
-    LazyNodes, Props, Scope, SvgAttributes, UseFuture, UseState,
+    component, dioxus_elements, rsx, use_resource, use_signal, Element, GlobalAttributes,
+    IntoDynNode, Key, Props, Readable, Resource, Signal, SvgAttributes, Writable,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -77,14 +77,11 @@ fn update_search_history(sh: &Vec<String>, s: &str) -> Vec<String> {
 }
 
 #[component]
-pub fn WeatherComponent(cx: Scope, weather: WeatherData, forecast: WeatherForecast) -> Element {
-    cx.render(weather_element(weather, forecast))
+pub fn WeatherComponent(weather: WeatherData, forecast: WeatherForecast) -> Element {
+    weather_element(&weather, &forecast)
 }
 
-pub fn weather_element<'a>(
-    weather: &'a WeatherData,
-    forecast: &'a WeatherForecast,
-) -> LazyNodes<'a, 'a> {
+pub fn weather_element(weather: &WeatherData, forecast: &WeatherForecast) -> Element {
     let weather_data = weather.get_current_conditions();
     let weather_lines: Vec<_> = weather_data.split('\n').map(str::trim_end).collect();
     let weather_cols = weather_lines.iter().map(|x| x.len()).max().unwrap_or(0) + 2;
@@ -142,21 +139,21 @@ pub fn weather_element<'a>(
         head {
             title: "Weather Plots",
             style {
-                include_str!("../../templates/style.css")
+                {include_str!("../../templates/style.css")}
             }
         },
         body {
-            location_element,
+            {location_element},
             div {
-                weather_element,
-                forecast_element,
+                {weather_element},
+                {forecast_element},
             },
         }
     }
 }
 
 #[component]
-pub fn ForecastComponent(cx: Scope, weather: WeatherData, plots: Vec<PlotData>) -> Element {
+pub fn ForecastComponent(weather: WeatherData, plots: Vec<PlotData>) -> Element {
     let name = &weather.name;
     let lat = weather.coord.lat;
     let lon = weather.coord.lon;
@@ -178,21 +175,21 @@ pub fn ForecastComponent(cx: Scope, weather: WeatherData, plots: Vec<PlotData>) 
         }
     };
 
-    cx.render(rsx! {
+    rsx! {
         head {
             title: "Weather Plots",
             style {
-                include_str!("../../templates/style.css")
+                {include_str!("../../templates/style.css")}
             }
         },
         body {
-            location_element,
-            plot_element(plots),
+            {location_element},
+            {plot_element(&plots)},
         }
-    })
+    }
 }
 
-fn plot_element(plots: &[PlotData]) -> LazyNodes {
+fn plot_element(plots: &[PlotData]) -> Element {
     let timeseries_url = if let Some(base_url) = BASE_URL {
         format!("{base_url}/weather/timeseries.js")
     } else {
@@ -222,31 +219,23 @@ fn plot_element(plots: &[PlotData]) -> LazyNodes {
         },
         br {},
         script {
-            key: "forecast-plot",
             dangerous_inner_html: "{script_body}",
         }
     }
 }
 
-fn weather_app_element<'a>(
-    draft: &'a str,
-    set_draft: &'a UseState<String>,
-    location_cache: &'a HashMap<String, WeatherLocation>,
-    set_location_cache: &'a UseState<HashMap<String, WeatherLocation>>,
-    cache: &'a HashMap<WeatherLocation, WeatherEntry>,
-    set_cache: &'a UseState<HashMap<WeatherLocation, WeatherEntry>>,
-    location: &'a WeatherLocation,
-    set_location: &'a UseState<WeatherLocation>,
-    weather: &'a WeatherData,
-    set_weather: &'a UseState<WeatherData>,
-    forecast: &'a WeatherForecast,
-    set_forecast: &'a UseState<WeatherForecast>,
-    search_history: &'a [String],
-    set_search_history: &'a UseState<Vec<String>>,
-) -> LazyNodes<'a, 'a> {
-    let country_info_element = country_info(weather);
-    let country_data_element = country_data(weather);
-    let week_weather_element = week_weather(forecast);
+fn weather_app_element(
+    mut draft: Signal<String>,
+    mut location_cache: Signal<HashMap<String, WeatherLocation>>,
+    cache: Signal<HashMap<WeatherLocation, WeatherEntry>>,
+    mut location: Signal<WeatherLocation>,
+    mut weather: Signal<WeatherData>,
+    mut forecast: Signal<WeatherForecast>,
+    mut search_history: Signal<Vec<String>>,
+) -> Element {
+    let country_info_element = country_info(&weather.read());
+    let country_data_element = country_data(&weather.read());
+    let week_weather_element = week_weather(&forecast.read());
 
     rsx! {
         link { rel: "stylesheet", href: "https://unpkg.com/tailwindcss@^2.0/dist/tailwind.min.css" },
@@ -260,69 +249,63 @@ fn weather_app_element<'a>(
                                 "type": "text",
                                 value: "{draft}",
                                 oninput: move |evt| {
-                                    let msg = evt.value.as_str();
-                                    set_draft.modify(|_| msg.into());
-                                    set_draft.needs_update();
-                                    let new_location = location_cache.get(msg).map_or_else(
+                                    let msg = (*evt.map(|data| data.value())).to_string();
+                                    draft.set(msg.clone());
+                                    let lc = location_cache.read().clone();
+                                    let new_location = lc.get(&msg).map_or_else(
                                         || {
-                                            let l = get_parameters(msg);
-                                            set_location_cache.modify(|lc| {
-                                                let mut lc = lc.clone();
-                                                lc.insert(msg.into(), l.clone());
+                                            let l = get_parameters(&msg);
+                                            location_cache.set({
+                                                let mut lc = location_cache.read().clone();
+                                                lc.insert(msg, l.clone());
                                                 lc
                                             });
-                                            set_location_cache.needs_update();
                                             l
                                         }, Clone::clone
                                     );
-                                    if let Some(WeatherEntry{weather, forecast}) = cache.get(&new_location) {
-                                        if let Some(weather) = weather {
-                                            set_weather.modify(|_| weather.clone());
-                                            set_weather.needs_update();
+                                    if let Some(we) = cache.read().get(&new_location) {
+                                        if let Some(w) = &we.weather {
+                                            weather.set(w.clone());
                                         }
-                                        if let Some(forecast) = forecast {
-                                            set_forecast.modify(|_| forecast.clone());
-                                            set_forecast.needs_update();
+                                        if let Some(f) = &we.forecast {
+                                            forecast.set(f.clone());
                                         }
-                                        set_location.modify(|_| new_location);
-                                        set_location.needs_update();
+                                        location.set(new_location);
                                     }
                                 },
                                 onkeydown: move |evt| {
-                                    let new_location = location_cache.get(draft).map_or_else(
+                                    let d = draft.read().clone();
+                                    let lc = location_cache.read().clone();
+                                    let new_location = lc.get(&d).map_or_else(
                                         || {
-                                            let l = get_parameters(draft);
-                                            set_location_cache.modify(|lc| {
-                                                let mut lc = lc.clone();
-                                                lc.insert(draft.into(), l.clone());
+                                            let l = get_parameters(&d);
+                                            location_cache.set({
+                                                let mut lc = location_cache.read().clone();
+                                                lc.insert(d, l.clone());
                                                 lc
                                             });
-                                            set_location_cache.needs_update();
                                             l
                                         }, Clone::clone
                                     );
-                                    if let Some(WeatherEntry{weather, forecast}) = cache.get(&new_location) {
-                                        if let Some(weather) = weather {
-                                            set_weather.modify(|_| weather.clone());
-                                            set_weather.needs_update();
+                                    if let Some(we) = cache.read().get(&new_location) {
+                                        if let Some(w) = &we.weather {
+                                            weather.set(w.clone());
                                         }
-                                        if let Some(forecast) = forecast {
-                                            set_forecast.modify(|_| forecast.clone());
-                                            set_forecast.needs_update();
+                                        if let Some(f) = &we.forecast {
+                                            forecast.set(f.clone());
                                         }
                                     }
-                                    #[allow(deprecated)]
-                                    if &evt.key == "Enter" {
-                                        set_draft.modify(|_| String::new());
-                                        set_draft.needs_update();
-                                        set_search_history.modify(|sh| {
-                                            let mut v: Vec<String> = sh.iter().filter(|s| s.as_str() != draft).cloned().collect();
-                                            v.push(draft.into());
+                                    let key = evt.map(|data| data.key()).data();
+                                    if *key == Key::Enter {
+                                        let d = draft.read().clone();
+                                        let sh = search_history.read().clone();
+                                        draft.set(String::new());
+                                        search_history.set({
+                                            let mut v: Vec<String> = sh.iter().filter(|s| s.as_str() != d).cloned().collect();
+                                            v.push(d);
                                             v
                                         });
-                                        set_location.modify(|_| new_location);
-                                        set_location.needs_update();
-                                        set_cache.needs_update();
+                                        location.set(new_location);
                                     }
                                 },
                             }
@@ -343,39 +326,36 @@ fn weather_app_element<'a>(
                     select { class: "bg-white border border-gray-100 w-full mt-2",
                         id: "history-selector",
                         onchange: move |x| {
-                            let s = x.data.value.as_str();
-                            let new_location = location_cache.get(s).map_or_else(|| {
-                                let l = get_parameters(s);
-                                set_location_cache.modify(|lc| {
+                            let s = x.map(|data| data.value()).data().to_string();
+                            let lc = location_cache.read().clone();
+                            let new_location = lc.get(&s).map_or_else(|| {
+                                let l = get_parameters(&s);
+                                location_cache.set({
                                     let mut lc = lc.clone();
-                                    lc.insert(s.into(), l.clone());
+                                    lc.insert(s.clone(), l.clone());
                                     lc
                                 });
-                                set_location_cache.needs_update();
-                                set_search_history.modify(|sh| {
+                                let sh = search_history.read().clone();
+                                search_history.set({
                                     let mut v: Vec<String> = sh.iter().filter(|x| x.as_str() != s).cloned().collect();
-                                    v.push(s.into());
+                                    v.push(s);
                                     v
                                 });
-                                set_search_history.needs_update();
                                 l
                             }, Clone::clone);
-                            if let Some(WeatherEntry{weather, forecast}) = cache.get(&new_location) {
-                                if let Some(weather) = weather {
-                                    set_weather.modify(|_| weather.clone());
-                                    set_weather.needs_update();
+                            if let Some(we) = cache.read().get(&new_location) {
+                                if let Some(w) = &we.weather {
+                                    weather.set(w.clone());
                                 }
-                                if let Some(forecast) = forecast {
-                                    set_forecast.modify(|_| forecast.clone());
-                                    set_forecast.needs_update();
+                                if let Some(f) = &we.forecast {
+                                    forecast.set(f.clone());
                                 }
                             }
-                            set_location.modify(|_| new_location);
-                            set_location.needs_update();
+                            location.set(new_location);
                         },
                         {
-                            search_history.iter().rev().map(|s| {
-                                let selected = &get_parameters(s) == location;
+                            search_history.read().iter().rev().map(|s| {
+                                let selected = get_parameters(s) == *location.read();
                                 rsx! {
                                     option { class: "pl-8 pr-2 py-1 border-b-2 border-gray-100 relative cursor-pointer hover:bg-yellow-50 hover:text-gray-900",
                                         key: "search-history-key-{s}",
@@ -391,10 +371,10 @@ fn weather_app_element<'a>(
                 div { class: "flex flex-wrap w-full px-2",
                     div { class: "bg-gray-900 text-white relative min-w-0 break-words rounded-lg overflow-hidden shadow-sm mb-4 w-full bg-white dark:bg-gray-600",
                         div { class: "px-6 py-6 relative",
-                            country_info_element,
-                            country_data_element,
+                            {country_info_element},
+                            {country_data_element},
                         }
-                        week_weather_element,
+                        {week_weather_element},
                     }
                 }
             }
@@ -403,33 +383,35 @@ fn weather_app_element<'a>(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone)]
 pub struct AppProps {
     pub send: Arc<Mutex<UnboundedSender<WeatherLocation>>>,
     pub recv: Arc<Mutex<UnboundedReceiver<(WeatherLocation, WeatherEntry)>>>,
 }
 
 #[cfg(target_arch = "wasm32")]
+#[derive(Clone)]
 pub struct AppProps;
 
 #[component]
-pub fn WeatherAppComponent(cx: Scope<AppProps>) -> Element {
+#[allow(unused_variables)]
+pub fn WeatherAppComponent(props: AppProps) -> Element {
     let default_cache: HashMap<WeatherLocation, WeatherEntry> = HashMap::new();
     let mut default_location_cache: HashMap<String, WeatherLocation> = HashMap::new();
     default_location_cache.insert(DEFAULT_STR.into(), get_parameters(DEFAULT_STR));
 
-    let (cache, set_cache) = use_state(cx, || default_cache).split();
-    let (location_cache, set_location_cache) = use_state(cx, || default_location_cache).split();
-    let (weather, set_weather) = use_state(cx, WeatherData::default).split();
-    let (forecast, set_forecast) = use_state(cx, WeatherForecast::default).split();
-    let (draft, set_draft) = use_state(cx, String::new).split();
-    let (search_history, set_search_history) =
-        use_state(cx, || vec![String::from(DEFAULT_STR)]).split();
+    let mut cache = use_signal(|| default_cache);
+    let location_cache = use_signal(|| default_location_cache);
+    let mut weather = use_signal(WeatherData::default);
+    let mut forecast = use_signal(WeatherForecast::default);
+    let draft = use_signal(String::new);
+    let search_history = use_signal(|| vec![String::from(DEFAULT_STR)]);
 
-    let (location, set_location) = use_state(cx, || get_parameters(DEFAULT_LOCATION)).split();
+    let mut location = use_signal(|| get_parameters(DEFAULT_LOCATION));
 
     #[cfg(not(target_arch = "wasm32"))]
-    let recv_future = use_future(cx, (), |_| {
-        let recv = cx.props.recv.clone();
+    let mut recv_future = use_resource(move || {
+        let recv = props.recv.clone();
         async move {
             let mut recv = recv.lock().await;
             recv.next().await
@@ -437,19 +419,19 @@ pub fn WeatherAppComponent(cx: Scope<AppProps>) -> Element {
     });
 
     #[cfg(not(target_arch = "wasm32"))]
-    let _send_future = use_future(cx, location, |l| {
-        let contains_key = cache.contains_key(&l);
-        let send = cx.props.send.clone();
+    let _send_future = use_resource(move || {
+        let contains_key = cache().contains_key(&location());
+        let send = props.send.clone();
         async move {
             if !contains_key {
                 let mut send = send.lock().await;
-                send.send(l.clone()).await.unwrap();
+                send.send(location()).await.unwrap();
             }
         }
     });
 
     #[cfg(target_arch = "wasm32")]
-    let location_future = use_future(cx, (), |_| async move {
+    let location_future = use_resource(|| async move {
         if let Ok(ip) = get_ip_address().await {
             if let Ok(location) = get_location_from_ip(ip).await {
                 return Some(location);
@@ -459,8 +441,9 @@ pub fn WeatherAppComponent(cx: Scope<AppProps>) -> Element {
     });
 
     #[cfg(target_arch = "wasm32")]
-    let weather_future = use_future(cx, location, |l| {
-        let entry_opt = cache.get(&l).cloned();
+    let weather_future = use_resource(move || {
+        let l = location();
+        let entry_opt = cache().get(&l).cloned();
         async move {
             if let Some(entry) = entry_opt {
                 (l, entry)
@@ -471,80 +454,77 @@ pub fn WeatherAppComponent(cx: Scope<AppProps>) -> Element {
         }
     });
 
-    cx.render({
+    {
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some(Some((loc, entry))) = recv_future.value() {
-            if (!cache.contains_key(loc)) || cache.is_empty() {
-                set_location.modify(|_| loc.clone());
-                set_location.needs_update();
-                set_cache.modify(|c| {
-                    let mut new_cache = c.clone();
-                    new_cache.insert(location.clone(), entry.clone());
-                    new_cache
-                });
-                set_cache.needs_update();
-                recv_future.restart();
-                if let Some(weather) = &entry.weather {
-                    set_weather.modify(|_| weather.clone());
-                    set_weather.needs_update();
-                }
-                if let Some(forecast) = &entry.forecast {
-                    set_forecast.modify(|_| forecast.clone());
-                    set_forecast.needs_update();
-                }
-            }
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        if let Some(Some(loc)) = location_future.value() {
-            if loc != location && (!cache.contains_key(loc) || cache.is_empty()) {
-                set_location.modify(|_| loc.clone());
-                set_location.needs_update();
-            }
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        if let Some((loc, entry)) = weather_future.value() {
-            if !cache.contains_key(loc) || cache.is_empty() {
-                set_cache.modify(|c| {
-                    let mut new_cache = c.clone();
-                    new_cache.insert(location.clone(), entry.clone());
-                    if let Some(WeatherEntry { weather, forecast }) = new_cache.get(location) {
-                        if let Some(weather) = weather {
-                            set_weather.modify(|_| weather.clone());
-                            set_weather.needs_update();
-                        }
-                        if let Some(forecast) = forecast {
-                            set_forecast.modify(|_| forecast.clone());
-                            set_forecast.needs_update();
-                        }
+        {
+            let result = (*recv_future.read()).clone();
+            if let Some(Some((loc, entry))) = result {
+                if (!cache.read().contains_key(&loc)) || cache.read().is_empty() {
+                    location.set(loc.clone());
+                    cache.set({
+                        let mut new_cache = cache.read().clone();
+                        new_cache.insert(location.read().clone(), entry.clone());
+                        new_cache
+                    });
+                    recv_future.restart();
+                    if let Some(w) = &entry.weather {
+                        weather.set(w.clone());
                     }
-                    new_cache
-                });
-                set_cache.needs_update();
+                    if let Some(f) = &entry.forecast {
+                        forecast.set(f.clone());
+                    }
+                }
+            }
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            let result = (*location_future.read()).clone();
+            if let Some(Some(loc)) = result {
+                if loc != *location.read()
+                    && (!cache.read().contains_key(&loc) || cache.read().is_empty())
+                {
+                    location.set(loc.clone());
+                }
+            }
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            let result = (*weather_future.read()).clone();
+            if let Some((loc, entry)) = result {
+                if !cache.read().contains_key(&loc) || cache.read().is_empty() {
+                    let location = location.read().clone();
+                    cache.set({
+                        let mut new_cache = cache.read().clone();
+                        new_cache.insert(location.clone(), entry.clone());
+                        if let Some(we) = new_cache.get(&location) {
+                            if let Some(w) = &we.weather {
+                                weather.set(w.clone());
+                            }
+                            if let Some(f) = &we.forecast {
+                                forecast.set(f.clone());
+                            }
+                        }
+                        new_cache
+                    });
+                }
             }
         }
 
         weather_app_element(
             draft,
-            set_draft,
             location_cache,
-            set_location_cache,
             cache,
-            set_cache,
             location,
-            set_location,
             weather,
-            set_weather,
             forecast,
-            set_forecast,
             search_history,
-            set_search_history,
         )
-    })
+    }
 }
 
-fn country_data(weather: &WeatherData) -> LazyNodes {
+fn country_data(weather: &WeatherData) -> Element {
     let temp = weather.main.temp.fahrenheit();
     let feels = weather.main.feels_like.fahrenheit();
     let min = weather.main.temp_min.fahrenheit();
@@ -580,7 +560,7 @@ fn country_data(weather: &WeatherData) -> LazyNodes {
     )
 }
 
-fn country_info(weather: &WeatherData) -> LazyNodes {
+fn country_info(weather: &WeatherData) -> Element {
     let name = &weather.name;
     let country = weather.sys.country.as_ref().map_or("", |s| s.as_str());
     let mut main = String::new();
@@ -621,7 +601,7 @@ fn country_info(weather: &WeatherData) -> LazyNodes {
     )
 }
 
-fn week_weather(forecast: &WeatherForecast) -> LazyNodes {
+fn week_weather(forecast: &WeatherForecast) -> Element {
     let high_low = forecast.get_high_low();
     rsx!(
         div { class: "divider table mx-2 text-center bg-transparent whitespace-nowrap",
@@ -630,7 +610,7 @@ fn week_weather(forecast: &WeatherForecast) -> LazyNodes {
         div { class: "px-6 py-6 relative",
             div { class: "text-center justify-between items-center flex",
                 style: "flex-flow: initial;",
-                high_low.iter().map(|(d, (h, l, r, s, i))| {
+                {high_low.iter().map(|(d, (h, l, r, s, i))| {
                     let weekday = d.weekday();
                     let low = l.fahrenheit();
                     let high = h.fahrenheit();
@@ -670,49 +650,43 @@ fn week_weather(forecast: &WeatherForecast) -> LazyNodes {
                             }
                         }
                     )
-                })
+                })}
             }
         }
     )
 }
 
-pub fn index_element<'a>(
+pub fn index_element(
     height: u64,
     width: u64,
     origin: String,
-    page_type: &WeatherPage,
-    set_page_type: &'a UseState<WeatherPage>,
-    draft: &'a str,
-    set_draft: &'a UseState<String>,
-    location: &'a WeatherLocation,
-    set_location: &'a UseState<WeatherLocation>,
-    ip_location: &'a WeatherLocation,
-    search_history: &'a [String],
-    set_search_history: &'a UseState<Vec<String>>,
-    history_location: &'a str,
-    set_history_location: &'a UseState<String>,
-    history_location_cache: &'a HashSet<String>,
-    location_future: &'a UseFuture<Option<WeatherLocation>>,
-    weather: &'a Option<WeatherData>,
-    forecast: &'a Option<WeatherForecast>,
-    start_date: &'a Option<Date>,
-    set_start_date: &'a UseState<Option<Date>>,
-    end_date: &'a Option<Date>,
-    set_end_date: &'a UseState<Option<Date>>,
-) -> LazyNodes<'a, 'a> {
+    mut page_type: Signal<WeatherPage>,
+    mut draft: Signal<String>,
+    mut location: Signal<WeatherLocation>,
+    ip_location: Signal<WeatherLocation>,
+    mut search_history: Signal<Vec<String>>,
+    mut history_location: Signal<String>,
+    history_location_cache: Signal<HashSet<String>>,
+    mut location_future: Resource<Option<WeatherLocation>>,
+    weather: Signal<Option<WeatherData>>,
+    forecast: Signal<Option<WeatherForecast>>,
+    mut start_date: Signal<Option<Date>>,
+    mut end_date: Signal<Option<Date>>,
+) -> Element {
     let base_url = BASE_URL.unwrap_or(&origin);
     let url: Url = format!("{base_url}/{page_type}")
         .parse()
         .expect("Failed to parse base url");
-    let url = match page_type {
+    let url = match *page_type.read() {
         WeatherPage::Index | WeatherPage::Plot => {
-            Url::parse_with_params(url.as_str(), location.get_options()).unwrap_or(url)
+            Url::parse_with_params(url.as_str(), location.read().get_options()).unwrap_or(url)
         }
         WeatherPage::Wasm => url,
         WeatherPage::HistoryPlot => {
-            let mut options = vec![("name", history_location)];
-            let start_date = start_date.map(|d| format!("{d}"));
-            let end_date = end_date.map(|d| format!("{d}"));
+            let hl = (*history_location.read()).clone();
+            let mut options = vec![("name", &hl)];
+            let start_date = start_date.read().map(|d| format!("{d}"));
+            let end_date = end_date.read().map(|d| format!("{d}"));
             if let Some(start_date) = &start_date {
                 options.push(("start_time", start_date));
             }
@@ -722,7 +696,7 @@ pub fn index_element<'a>(
             Url::parse_with_params(url.as_str(), &options).unwrap_or(url)
         }
     };
-    let location_selector = match page_type {
+    let location_selector = match *page_type.read() {
         WeatherPage::Index | WeatherPage::Plot => Some(rsx! {
             button {
                 id: "current-value",
@@ -733,29 +707,29 @@ pub fn index_element<'a>(
             select {
                 id: "history-selector",
                 onchange: move |x| {
-                    if x.data.value.is_empty() {
+                    let v = (*x.map(|data| data.value())).to_string();
+                    if v.is_empty() {
                         return;
                     }
-                    let s = x.data.value.as_str().to_string();
+                    let s = v.as_str().to_string();
                     let loc = get_parameters(&s);
-                    if !search_history.contains(&s) {
-                        set_search_history.modify(|sh| update_search_history(sh, &s));
-                        set_search_history.needs_update();
+                    let sh = (*search_history.read()).clone();
+                    if !sh.contains(&s) {
+                        search_history.set(update_search_history(&sh, &s));
                     }
-                    if history_location_cache.contains(&s) {
-                        set_history_location.modify(|_| s.clone());
-                        set_history_location.needs_update();
+                    let hlc = (*history_location_cache.read()).clone();
+                    if hlc.contains(&s) {
+                        history_location.set(s.clone());
                     }
-                    set_location.modify(|_| loc);
-                    set_location.needs_update();
+                    location.set(loc);
                 },
                 option {
                     value: "",
                     "",
                 },
-                search_history.iter().rev().enumerate().filter_map(|(idx, s)| {
+                {search_history.read().iter().rev().enumerate().filter_map(|(idx, s)| {
                     let loc = get_parameters(s);
-                    if &loc == location {
+                    if loc == *location.read() {
                         None
                     } else {
                         Some(
@@ -768,7 +742,7 @@ pub fn index_element<'a>(
                             }
                         )
                     }
-                })
+                })}
             },
             input {
                 "type": "button",
@@ -780,21 +754,24 @@ pub fn index_element<'a>(
                     #[cfg(target_arch = "wasm32")]
                     set_history(&history).unwrap();
 
-                    set_search_history.set(history);
-                    set_search_history.needs_update();
+                    search_history.set(history);
                 }
             },
         }),
         WeatherPage::HistoryPlot => {
-            let locations: Vec<_> = history_location_cache.iter().map(|l| l.as_str()).collect();
-            if !locations.contains(&history_location) {
+            let hlc = (*history_location_cache.read()).clone();
+            let locations: Vec<_> = hlc.iter().map(|l| l.as_str()).collect();
+            if !locations.contains(&history_location.read().as_str()) {
                 if let Some(loc) = locations.first() {
-                    set_history_location.modify(|_| loc.to_string());
-                    set_history_location.needs_update();
+                    history_location.set(loc.to_string());
                 }
             }
-            let start_date_string = start_date.map_or("2023-01-01".into(), |d| format!("{d}"));
-            let end_date_string = end_date.map_or("2024-01-01".into(), |d| format!("{d}"));
+            let start_date_string = start_date
+                .read()
+                .map_or("2023-01-01".into(), |d| format!("{d}"));
+            let end_date_string = end_date
+                .read()
+                .map_or("2024-01-01".into(), |d| format!("{d}"));
             Some(rsx! {
                 button {
                     id: "current-value",
@@ -805,21 +782,20 @@ pub fn index_element<'a>(
                 select {
                     id: "history-location-selector",
                     onchange: move |x| {
-                        if x.data.value.is_empty() {
+                        let v = (*x.map(|data| data.value())).to_string();
+                        if v.is_empty() {
                             return;
                         }
-                        let s = x.data.value.as_str().to_string();
-                        set_history_location.modify(|_| s.clone());
-                        set_history_location.needs_update();
-                        set_location.modify(|_| get_parameters(&s));
-                        set_location.needs_update();
+                        let s = v.as_str().to_string();
+                        history_location.set(s.clone());
+                        location.set(get_parameters(&s));
                     },
                     option {
                         value: "",
                         "",
                     },
-                    locations.iter().enumerate().filter_map(|(idx, s)| {
-                        if s == &history_location {
+                    {locations.iter().enumerate().filter_map(|(idx, s)| {
+                        if s == &(*history_location.read()) {
                             None
                         } else {
                             Some(
@@ -832,16 +808,16 @@ pub fn index_element<'a>(
                                 }
                             )
                         }
-                    }),
+                    })},
                 }
                 input {
                     "type": "date",
                     name: "start-date",
                     value: "{start_date_string}",
                     onchange: move |x| {
-                        if let Ok(date) = Date::parse(&x.data.value, DATE_FORMAT) {
-                            set_start_date.modify(|_| Some(date));
-                            set_start_date.needs_update();
+                        let v = (*x.map(|data| data.value())).to_string();
+                        if let Ok(date) = Date::parse(&v, DATE_FORMAT) {
+                            start_date.set(Some(date));
                         }
                     }
                 }
@@ -850,9 +826,9 @@ pub fn index_element<'a>(
                     name: "end-date",
                     value: "{end_date_string}",
                     onchange: move |x| {
-                        if let Ok(date) = Date::parse(&x.data.value, DATE_FORMAT) {
-                            set_end_date.modify(|_| Some(date));
-                            set_end_date.needs_update();
+                        let v = (*x.map(|data| data.value())).to_string();
+                        if let Ok(date) = Date::parse(&v, DATE_FORMAT) {
+                            end_date.set(Some(date));
                         }
                     }
                 }
@@ -861,12 +837,11 @@ pub fn index_element<'a>(
         WeatherPage::Wasm => None,
     };
 
-    let page_element = match page_type {
+    let page_element = match *page_type.read() {
         WeatherPage::Index => {
-            if let Some((weather, forecast)) = weather
-                .as_ref()
-                .and_then(|w| forecast.as_ref().map(|f| (w, f)))
-            {
+            let w = weather.read().clone();
+            let f = forecast.read().clone();
+            if let Some((weather, forecast)) = w.as_ref().and_then(|w| f.as_ref().map(|f| (w, f))) {
                 Some(weather_element(weather, forecast))
             } else {
                 None
@@ -890,14 +865,13 @@ pub fn index_element<'a>(
                 name: "update_location",
                 value: "Update Location",
                 onclick: move |_| {
-                    if location != ip_location {
+                    if *location.read() != *ip_location.read() {
                         let s = format!("{ip_location}");
-                        if !search_history.contains(&s) {
-                            set_search_history.modify(|sh| update_search_history(sh, &s));
-                            set_search_history.needs_update();
+                        let sh = (*search_history.read()).clone();
+                        if !sh.contains(&s) {
+                            search_history.set(update_search_history(&sh, &s));
                         }
-                        set_location.modify(|_| ip_location.clone());
-                        set_location.needs_update();
+                        location.set(ip_location.read().clone());
                         location_future.restart();
                     }
                 },
@@ -907,7 +881,7 @@ pub fn index_element<'a>(
                 name: "text",
                 value: "Text",
                 onclick: move |_| {
-                    set_page_type.modify(|_| WeatherPage::Index);
+                    page_type.set(WeatherPage::Index);
                 },
             },
             input {
@@ -915,7 +889,7 @@ pub fn index_element<'a>(
                 name: "plot",
                 value: "Plot",
                 onclick: move |_| {
-                    set_page_type.modify(|_| WeatherPage::Plot);
+                    page_type.set(WeatherPage::Plot);
                 },
             },
             input {
@@ -923,7 +897,7 @@ pub fn index_element<'a>(
                 name: "history",
                 value: "History",
                 onclick: move |_| {
-                    set_page_type.modify(|_| WeatherPage::HistoryPlot);
+                    page_type.set(WeatherPage::HistoryPlot);
                 },
             }
             input {
@@ -931,7 +905,7 @@ pub fn index_element<'a>(
                 name: "wasm",
                 value: "Wasm",
                 onclick: move |_| {
-                    set_page_type.modify(|_| WeatherPage::Wasm);
+                    page_type.set(WeatherPage::Wasm);
                 },
             },
             form {
@@ -941,9 +915,8 @@ pub fn index_element<'a>(
                     value: "{draft}",
                     id: "locationForm",
                     oninput: move |evt| {
-                        let msg = evt.value.as_str();
-                        set_draft.modify(|_| {msg.into()});
-                        set_draft.needs_update();
+                        let msg = (*evt.map(|data| data.value())).to_string();
+                        draft.set(msg);
                     },
                 },
                 input {
@@ -951,22 +924,21 @@ pub fn index_element<'a>(
                     name: "submitLocation",
                     value: "Location",
                     onclick: move |_| {
-                        if !draft.is_empty() {
-                            let loc = get_parameters(draft);
-                            if !search_history.contains(&draft.to_string()) {
-                                set_search_history.modify(|sh| update_search_history(sh, draft));
-                                set_search_history.needs_update();
+                        let d = (*draft.read()).to_string();
+                        if !d.is_empty() {
+                            let loc = get_parameters(&d);
+                            let sh = (*search_history.read()).clone();
+                            if !sh.contains(&d.to_string()) {
+                                search_history.set(update_search_history(&sh, &d));
                             }
-                            set_location.modify(|_| loc);
-                            set_location.needs_update();
-                            set_draft.set(String::new());
-                            set_draft.needs_update();
+                            location.set(loc);
+                            draft.set(String::new());
                         }
                     },
                 },
             },
-            location_selector,
+            {location_selector},
         },
-        page_element,
+        {page_element},
     }
 }

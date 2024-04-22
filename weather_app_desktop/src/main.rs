@@ -2,6 +2,7 @@
 #![allow(clippy::too_many_lines)]
 
 use anyhow::{format_err, Error};
+use dioxus::dioxus_core::VirtualDom;
 use futures_channel::mpsc::unbounded;
 use futures_util::{lock::Mutex, stream::StreamExt, SinkExt};
 use log::debug;
@@ -47,14 +48,14 @@ fn main() -> Result<(), Error> {
         Ok(())
     });
 
-    dioxus_desktop::launch_with_props(
+    let app = VirtualDom::new_with_props(
         WeatherAppComponent,
         AppProps {
             send: Arc::new(Mutex::new(send_loc)),
             recv: Arc::new(Mutex::new(recv_result)),
         },
-        dioxus_desktop::Config::default(),
     );
+    dioxus_desktop::launch::launch_virtual_dom(app, dioxus_desktop::Config::default());
     handle.join().unwrap()?;
     Ok(())
 }

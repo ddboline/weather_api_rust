@@ -1,14 +1,14 @@
 [package]
 name = "weather_api_wasm"
-version = "0.9.16"
+version = "0.9.17"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 console_error_panic_hook = "0.1"
-dioxus = "0.4"
-dioxus-web = "0.4"
+dioxus = "0.5"
+dioxus-web = "0.5"
 isocountry = "0.3"
 log = "0.4"
 serde = "1.0"
