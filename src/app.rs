@@ -35,7 +35,7 @@ use super::{
 };
 
 #[cached(
-    type = "TimedSizedCache<StackString, WeatherData>",
+    ty = "TimedSizedCache<StackString, WeatherData>",
     create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
     convert = r#"{ format_sstr!("{:?}", loc) }"#,
     result = true
@@ -76,7 +76,7 @@ pub async fn get_weather_data(
 /// # Errors
 /// Will return error if `WeatherApi::run_api` fails
 #[cached(
-    type = "TimedSizedCache<StackString, WeatherForecast>",
+    ty = "TimedSizedCache<StackString, WeatherForecast>",
     create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
     convert = r#"{ format_sstr!("{:?}", loc) }"#,
     result = true
