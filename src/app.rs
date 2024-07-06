@@ -34,6 +34,8 @@ use super::{
     },
 };
 
+/// # Errors
+/// Returns error if query fails
 #[cached(
     ty = "TimedSizedCache<StackString, WeatherData>",
     create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",

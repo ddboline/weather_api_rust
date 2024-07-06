@@ -489,22 +489,24 @@ pub fn get_forecast_plots(
     Ok(plots)
 }
 
-pub fn get_forecast_temp_plot(forecast: &WeatherForecast) -> Result<Vec<PlotPoint>, Error> {
+#[must_use]
+pub fn get_forecast_temp_plot(forecast: &WeatherForecast) -> Vec<PlotPoint> {
     let fo: UtcOffset = forecast.city.timezone.into();
     forecast
         .list
         .iter()
         .map(|entry| {
             let temp = entry.main.temp.fahrenheit();
-            Ok(PlotPoint {
+            PlotPoint {
                 datetime: entry.dt.to_offset(fo),
                 value: temp,
-            })
+            }
         })
         .collect()
 }
 
-pub fn get_forecast_precip_plot(forecast: &WeatherForecast) -> Result<Vec<PlotPoint>, Error> {
+#[must_use]
+pub fn get_forecast_precip_plot(forecast: &WeatherForecast) -> Vec<PlotPoint> {
     let fo: UtcOffset = forecast.city.timezone.into();
     forecast
         .list
@@ -520,15 +522,16 @@ pub fn get_forecast_precip_plot(forecast: &WeatherForecast) -> Result<Vec<PlotPo
             } else {
                 Precipitation::default()
             };
-            Ok(PlotPoint {
+            PlotPoint {
                 datetime: entry.dt.to_offset(fo),
                 value: (rain + snow).inches(),
-            })
+            }
         })
         .collect()
 }
 
-pub fn get_history_plots(query: &str, weather: &WeatherData) -> Result<Vec<PlotData>, Error> {
+#[must_use]
+pub fn get_history_plots(query: &str, weather: &WeatherData) -> Vec<PlotData> {
     let mut plots = Vec::new();
 
     let plot_url = format!("/weather/history-plots/temperature?{query}");
@@ -553,28 +556,30 @@ pub fn get_history_plots(query: &str, weather: &WeatherData) -> Result<Vec<PlotD
         yaxis: "in".into(),
     });
 
-    Ok(plots)
+    plots
 }
 
-pub fn get_history_temperature_plot(history: &[WeatherData]) -> Result<Vec<PlotPoint>, Error> {
+#[must_use]
+pub fn get_history_temperature_plot(history: &[WeatherData]) -> Vec<PlotPoint> {
     if let Some(weather) = history.last() {
         let fo: UtcOffset = weather.timezone.into();
         history
             .iter()
             .map(|w| {
                 let temp = w.main.temp.fahrenheit();
-                Ok(PlotPoint {
+                PlotPoint {
                     datetime: w.dt.to_offset(fo),
                     value: temp,
-                })
+                }
             })
             .collect()
     } else {
-        Ok(Vec::new())
+        Vec::new()
     }
 }
 
-pub fn get_history_precip_plot(history: &[WeatherData]) -> Result<Vec<PlotPoint>, Error> {
+#[must_use]
+pub fn get_history_precip_plot(history: &[WeatherData]) -> Vec<PlotPoint> {
     if let Some(weather) = history.last() {
         let fo: UtcOffset = weather.timezone.into();
         history
@@ -590,14 +595,14 @@ pub fn get_history_precip_plot(history: &[WeatherData]) -> Result<Vec<PlotPoint>
                 } else {
                     Precipitation::default()
                 };
-                Ok(PlotPoint {
+                PlotPoint {
                     datetime: w.dt.to_offset(fo),
                     value: (rain + snow).inches(),
-                })
+                }
             })
             .collect()
     } else {
-        Ok(Vec::new())
+        Vec::new()
     }
 }
 

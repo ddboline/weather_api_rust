@@ -193,6 +193,8 @@ impl WeatherDataDB {
         query.fetch_opt(conn).await.map_err(Into::into)
     }
 
+    /// # Errors
+    /// Returns error if query fails
     pub async fn get_total_by_name_dates(
         pool: &PgPool,
         name: Option<&str>,

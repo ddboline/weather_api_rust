@@ -22,6 +22,8 @@ impl fmt::Debug for PgPool {
 }
 
 impl PgPool {
+    /// # Errors
+    /// Returns error pool setup fails
     pub fn new(pgurl: &str) -> Result<Self, Error> {
         let pgconf: PgConfig = pgurl.parse()?;
 

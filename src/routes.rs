@@ -568,7 +568,7 @@ pub async fn history_plot(
     }
     let weather = history.first().unwrap().clone();
     let query_string = serde_urlencoded::to_string(&query).map_err(Into::<Error>::into)?;
-    let plots = get_history_plots(&query_string, &weather).map_err(Into::<Error>::into)?;
+    let plots = get_history_plots(&query_string, &weather);
 
     let body = {
         let mut app = VirtualDom::new_with_props(
@@ -637,7 +637,6 @@ pub async fn forecast_temp_plot(
 
     let forecast = get_weather_forecast(&api, &loc).await?;
     let plots = get_forecast_temp_plot(&forecast)
-        .map_err(Into::<Error>::into)?
         .into_iter()
         .map(Into::into)
         .collect();
@@ -655,7 +654,6 @@ pub async fn forecast_precip_plot(
 
     let forecast = get_weather_forecast(&api, &loc).await?;
     let plots = get_forecast_precip_plot(&forecast)
-        .map_err(Into::<Error>::into)?
         .into_iter()
         .map(Into::into)
         .collect();
@@ -729,7 +727,6 @@ pub async fn history_plots(
 
     let plots = if let Some(weather) = history.first() {
         get_history_plots(&query_string, weather)
-            .map_err(Into::<Error>::into)?
             .into_iter()
             .map(Into::into)
             .collect()
@@ -748,7 +745,6 @@ pub async fn history_temp_plot(
     let query = query.into_inner();
     let history = get_history_data(&query, &data.config, &data.pool).await?;
     let plots = get_history_temperature_plot(&history)
-        .map_err(Into::<Error>::into)?
         .into_iter()
         .map(Into::into)
         .collect();
@@ -763,7 +759,6 @@ pub async fn history_precip_plot(
     let query = query.into_inner();
     let history = get_history_data(&query, &data.config, &data.pool).await?;
     let plots = get_history_precip_plot(&history)
-        .map_err(Into::<Error>::into)?
         .into_iter()
         .map(Into::into)
         .collect();
