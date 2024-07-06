@@ -39,7 +39,7 @@ pub struct ConfigInner {
     #[serde(default = "default_port")]
     pub port: u32,
     pub locations_to_record: Option<StackString>,
-    pub database_url: Option<StackString>,
+    pub database_url: StackString,
     #[serde(default = "default_server")]
     pub server: StackString,
     #[serde(default = "default_secret_path")]

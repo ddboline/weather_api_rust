@@ -783,17 +783,16 @@ mod tests {
         };
         let weather = api.get_weather_data(&loc).await?;
         let weather_db: WeatherDataDB = weather.into();
-        if let Some(db_url) = config.database_url.as_ref() {
-            let pool = PgPool::new(db_url);
-            let written = weather_db.insert(&pool).await?;
-            info!("written {written}");
+        let db_url = &config.database_url;
+        let pool = PgPool::new(db_url)?;
+        let written = weather_db.insert(&pool).await?;
+        info!("written {written}");
 
-            let weather_fromcache =
-                WeatherDataDB::get_by_dt_name(&pool, weather_db.dt, &weather_db.location_name)
-                    .await?;
-            assert!(weather_fromcache.is_some());
-            weather_fromcache.unwrap().delete(&pool).await?;
-        }
+        let weather_fromcache =
+            WeatherDataDB::get_by_dt_name(&pool, weather_db.dt, &weather_db.location_name)
+                .await?;
+        assert!(weather_fromcache.is_some());
+        weather_fromcache.unwrap().delete(&pool).await?;
         Ok(())
     }
 }

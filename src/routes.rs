@@ -83,7 +83,7 @@ pub async fn frontpage(
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
-    let weather = get_weather_data(data.pool.as_ref(), &data.config, &api, &loc).await?;
+    let weather = get_weather_data(&data.pool, &data.config, &api, &loc).await?;
     let forecast = get_weather_forecast(&api, &loc).await?;
 
     let body = {
@@ -129,7 +129,7 @@ pub async fn forecast_plot(
     let query = query.into_inner();
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
-    let weather = get_weather_data(data.pool.as_ref(), &data.config, &api, &loc).await?;
+    let weather = get_weather_data(&data.pool, &data.config, &api, &loc).await?;
 
     let plots = get_forecast_plots(&query, &weather).map_err(Into::<Error>::into)?;
 
@@ -205,7 +205,7 @@ pub async fn weather(
 async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherData> {
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
-    let weather_data = get_weather_data(data.pool.as_ref(), &data.config, &api, &loc).await?;
+    let weather_data = get_weather_data(&data.pool, &data.config, &api, &loc).await?;
     Ok(weather_data)
 }
 
@@ -361,7 +361,8 @@ pub async fn locations(
     let offset = query.offset.unwrap_or(0);
     let limit = query.limit.unwrap_or(10);
 
-    let (total, data) = if let Some(pool) = &data.pool {
+    let (total, data) = {
+        let pool = &data.pool;
         let total = WeatherDataDB::get_total_locations(pool)
             .await
             .map_err(Into::<Error>::into)?;
@@ -373,8 +374,6 @@ pub async fn locations(
             .await
             .map_err(Into::<Error>::into)?;
         (total, history)
-    } else {
-        (0, Vec::new())
     };
     let pagination = Pagination {
         limit,
@@ -415,7 +414,8 @@ pub async fn history(
     let query = query.into_inner();
     let offset = query.offset.unwrap_or(0);
     let limit = query.limit.unwrap_or(0);
-    let (total, data) = if let Some(pool) = &data.pool {
+    let (total, data) = {
+        let pool = &data.pool;
         let server = query
             .server
             .as_ref()
@@ -451,8 +451,6 @@ pub async fn history(
         .await
         .map_err(Into::<Error>::into)?;
         (total, data)
-    } else {
-        (0, Vec::new())
     };
     let pagination = Pagination {
         limit,
@@ -488,15 +486,14 @@ pub async fn history_update(
     if appid != data.config.api_key {
         return Err(Error::BadRequest("Incorrect appid".into()).into());
     }
-    let inserts = if let Some(pool) = &data.pool {
+    let inserts = {
+        let pool = &data.pool;
         let futures = payload.updates.into_iter().map(|update| async move {
             let entry: WeatherDataDB = update.into();
             entry.insert(pool).await.map_err(Into::<Error>::into)
         });
         let results: Result<Vec<u64>, Error> = try_join_all(futures).await;
         results?.into_iter().sum()
-    } else {
-        0
     };
     Ok(JsonBase::new(inserts).into())
 }
@@ -547,7 +544,8 @@ pub async fn history_plot(
         .into_iter()
         .map(Into::<WeatherData>::into)
         .collect()
-    } else if let Some(pool) = &data.pool {
+    } else {
+        let pool = &data.pool;
         WeatherDataDB::get_by_name_dates(
             pool,
             Some(&query.name),
@@ -563,8 +561,6 @@ pub async fn history_plot(
         .try_collect()
         .await
         .map_err(Into::<Error>::into)?
-    } else {
-        Vec::new()
     };
 
     if history.is_empty() {
@@ -616,7 +612,7 @@ pub async fn forecast_plots(
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
-    let weather = get_weather_data(data.pool.as_ref(), &data.config, &api, &loc).await?;
+    let weather = get_weather_data(&data.pool, &data.config, &api, &loc).await?;
 
     let plots = get_forecast_plots(&query, &weather)
         .map_err(Into::<Error>::into)?
@@ -673,7 +669,7 @@ struct HistoryPlotsResponse(JsonBase<Vec<PlotDataWrapper>, Error>);
 async fn get_history_data(
     query: &HistoryPlotRequest,
     config: &Config,
-    pool: Option<&PgPool>,
+    pool: &PgPool,
 ) -> Result<Vec<WeatherData>, Error> {
     let now = OffsetDateTime::now_utc();
     let first_of_month = PrimitiveDateTime::new(
@@ -702,7 +698,7 @@ async fn get_history_data(
         .into_iter()
         .map(Into::<WeatherData>::into)
         .collect()
-    } else if let Some(pool) = &pool {
+    } else {
         WeatherDataDB::get_by_name_dates(
             pool,
             Some(&query.name),
@@ -718,8 +714,6 @@ async fn get_history_data(
         .try_collect()
         .await
         .map_err(Into::<Error>::into)?
-    } else {
-        Vec::new()
     };
     Ok(history)
 }
@@ -731,7 +725,7 @@ pub async fn history_plots(
 ) -> WarpResult<HistoryPlotsResponse> {
     let query = query.into_inner();
     let query_string = serde_urlencoded::to_string(&query).map_err(Into::<Error>::into)?;
-    let history = get_history_data(&query, &data.config, data.pool.as_ref()).await?;
+    let history = get_history_data(&query, &data.config, &data.pool).await?;
 
     let plots = if let Some(weather) = history.first() {
         get_history_plots(&query_string, weather)
@@ -752,7 +746,7 @@ pub async fn history_temp_plot(
     query: Query<HistoryPlotRequest>,
 ) -> WarpResult<PlotDataResponse> {
     let query = query.into_inner();
-    let history = get_history_data(&query, &data.config, data.pool.as_ref()).await?;
+    let history = get_history_data(&query, &data.config, &data.pool).await?;
     let plots = get_history_temperature_plot(&history)
         .map_err(Into::<Error>::into)?
         .into_iter()
@@ -767,7 +761,7 @@ pub async fn history_precip_plot(
     query: Query<HistoryPlotRequest>,
 ) -> WarpResult<PlotDataResponse> {
     let query = query.into_inner();
-    let history = get_history_data(&query, &data.config, data.pool.as_ref()).await?;
+    let history = get_history_data(&query, &data.config, &data.pool).await?;
     let plots = get_history_precip_plot(&history)
         .map_err(Into::<Error>::into)?
         .into_iter()

@@ -100,8 +100,7 @@ impl ParseOpts {
 
         match opts {
             Self::RunMigrations => {
-                let db_url = config.database_url.as_ref().unwrap();
-                let pool = PgPool::new(db_url);
+                let pool = PgPool::new(&config.database_url)?;
                 let mut client = pool.get().await?;
                 migrations::runner().run_async(&mut **client).await?;
             }
@@ -109,8 +108,7 @@ impl ParseOpts {
                 tokio::spawn(async move { start_app().await }).await??;
             }
             Self::Import { filepath, table: _ } => {
-                let db_url = config.database_url.as_ref().unwrap();
-                let pool = PgPool::new(db_url);
+                let pool = PgPool::new(&config.database_url)?;
 
                 let data = if let Some(filepath) = filepath {
                     read(&filepath).await?
@@ -140,8 +138,7 @@ impl ParseOpts {
                 offset,
                 limit,
             } => {
-                let db_url = config.database_url.as_ref().unwrap();
-                let pool = PgPool::new(db_url);
+                let pool = PgPool::new(&config.database_url)?;
                 let results: Vec<_> = WeatherDataDB::get_by_name_dates(
                     &pool,
                     None,
@@ -166,8 +163,7 @@ impl ParseOpts {
             }
             Self::Db { directory } => {
                 let directory = directory.unwrap_or_else(|| config.cache_dir.clone());
-                let db_url = config.database_url.as_ref().unwrap();
-                let pool = PgPool::new(db_url);
+                let pool = PgPool::new(&config.database_url)?;
                 stdout()
                     .write_all(
                         insert_db_into_parquet(&pool, &directory)
@@ -206,8 +202,7 @@ impl ParseOpts {
                 let aws_config = aws_config::load_from_env().await;
                 let sync = S3Sync::new(&aws_config);
                 let directory = directory.unwrap_or_else(|| config.cache_dir.clone());
-                let db_url = config.database_url.as_ref().unwrap();
-                let pool = PgPool::new(db_url);
+                let pool = PgPool::new(&config.database_url)?;
 
                 stdout()
                     .write_all(

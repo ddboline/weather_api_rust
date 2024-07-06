@@ -41,13 +41,13 @@ use super::{
     result = true
 )]
 pub async fn get_weather_data(
-    pool: Option<&PgPool>,
+    pool: &PgPool,
     config: &Config,
     api: &WeatherApi,
     loc: &WeatherLocation,
 ) -> Result<WeatherData, ServiceError> {
     let location_name = format_sstr!("{loc}");
-    let loc = if let Some(pool) = pool {
+    let loc = {
         if let Some(l) = WeatherLocationCache::from_weather_location_cache(pool, loc).await? {
             l.get_lat_lon_location()?
         } else if let Ok(l) = WeatherLocationCache::from_weather_location(api, loc).await {
@@ -57,19 +57,13 @@ pub async fn get_weather_data(
         } else {
             loc.clone()
         }
-    } else {
-        loc.to_lat_lon(api).await?
     };
     let weather_data = api.get_weather_data(&loc).await?;
-    if let Some(pool) = pool {
-        let mut weather_data_db: WeatherDataDB = weather_data.clone().into();
-        weather_data_db.set_location_name(&location_name);
-        weather_data_db.set_server(&config.server);
-        info!("writing {loc} to db");
-        weather_data_db.insert(pool).await?;
-    } else {
-        info!("using cache for {loc}");
-    }
+    let mut weather_data_db: WeatherDataDB = weather_data.clone().into();
+    weather_data_db.set_location_name(&location_name);
+    weather_data_db.set_server(&config.server);
+    info!("writing {loc} to db");
+    weather_data_db.insert(pool).await?;
     Ok(weather_data)
 }
 
@@ -92,7 +86,7 @@ pub async fn get_weather_forecast(
 pub struct AppState {
     pub api: Arc<WeatherApi>,
     pub config: Config,
-    pub pool: Option<PgPool>,
+    pub pool: PgPool,
 }
 
 /// # Errors
@@ -151,7 +145,15 @@ fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
 }
 
 async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
-    let pool = config.database_url.as_ref().map(|db| PgPool::new(db));
+    async fn update_db(pool: PgPool) {
+        let mut i = interval(Duration::from_secs(60));
+        loop {
+            fill_from_db(&pool).await.unwrap_or(());
+            i.tick().await;
+        }
+    }
+
+    let pool = PgPool::new(&config.database_url)?;
     let app = AppState {
         api: Arc::new(WeatherApi::new(
             &config.api_key,
@@ -165,18 +167,8 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
     let mut record_task = None;
     let mut db_task = None;
 
-    if let Some(pool) = &pool {
-        async fn update_db(pool: PgPool) {
-            let mut i = interval(Duration::from_secs(60));
-            loop {
-                fill_from_db(&pool).await.unwrap_or(());
-                i.tick().await;
-            }
-        }
-
-        TRIGGER_DB_UPDATE.set();
-        db_task.replace(spawn(update_db(pool.clone())));
-    }
+    TRIGGER_DB_UPDATE.set();
+    db_task.replace(spawn(update_db(pool.clone())));
 
     if let Some(locations_to_record) = app.config.locations_to_record.as_ref() {
         async fn update_db(app: AppState, locations: Vec<WeatherLocation>) {
@@ -185,7 +177,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
                 for loc in &locations {
                     info!("check {loc}");
                     if let Err(e) =
-                        get_weather_data(app.pool.as_ref(), &app.config, &app.api, loc).await
+                        get_weather_data(&app.pool, &app.config, &app.api, loc).await
                     {
                         error!("Encountered error {e}");
                     }
