@@ -178,9 +178,7 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
             loop {
                 for loc in &locations {
                     info!("check {loc}");
-                    if let Err(e) =
-                        get_weather_data(&app.pool, &app.config, &app.api, loc).await
-                    {
+                    if let Err(e) = get_weather_data(&app.pool, &app.config, &app.api, loc).await {
                         error!("Encountered error {e}");
                     }
                 }

@@ -791,8 +791,7 @@ mod tests {
         info!("written {written}");
 
         let weather_fromcache =
-            WeatherDataDB::get_by_dt_name(&pool, weather_db.dt, &weather_db.location_name)
-                .await?;
+            WeatherDataDB::get_by_dt_name(&pool, weather_db.dt, &weather_db.location_name).await?;
         assert!(weather_fromcache.is_some());
         weather_fromcache.unwrap().delete(&pool).await?;
         Ok(())
