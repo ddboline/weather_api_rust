@@ -37,13 +37,13 @@ use weather_util_rust::{
 use crate::{get_parameters, WeatherEntry, WeatherPage, DEFAULT_LOCATION, DEFAULT_STR};
 
 #[cfg(debug_assertions)]
-use crate::DEFAULT_URL;
+use crate::DEFAULT_HOST;
 
 #[cfg(debug_assertions)]
-static BASE_URL: Option<&str> = Some(DEFAULT_URL);
+static BASE_HOST: Option<&str> = Some(DEFAULT_HOST);
 
 #[cfg(not(debug_assertions))]
-static BASE_URL: Option<&str> = None;
+static BASE_HOST: Option<&str> = None;
 
 static DATE_FORMAT: &[FormatItem<'static>] = format_description!("[year]-[month]-[day]");
 
@@ -190,8 +190,8 @@ pub fn ForecastComponent(weather: WeatherData, plots: Vec<PlotData>) -> Element 
 }
 
 fn plot_element(plots: &[PlotData]) -> Element {
-    let timeseries_url = if let Some(base_url) = BASE_URL {
-        format!("{base_url}/weather/timeseries.js")
+    let timeseries_url = if let Some(base_host) = BASE_HOST {
+        format!("https://{base_host}/weather/timeseries.js")
     } else {
         "/weather/timeseries.js".into()
     };
@@ -659,7 +659,7 @@ fn week_weather(forecast: &WeatherForecast) -> Element {
 pub fn index_element(
     height: u64,
     width: u64,
-    origin: String,
+    host: String,
     mut page_type: Signal<WeatherPage>,
     mut draft: Signal<String>,
     mut location: Signal<WeatherLocation>,
@@ -673,8 +673,8 @@ pub fn index_element(
     mut start_date: Signal<Option<Date>>,
     mut end_date: Signal<Option<Date>>,
 ) -> Element {
-    let base_url = BASE_URL.unwrap_or(&origin);
-    let url: Url = format!("{base_url}/{page_type}")
+    let base_host = BASE_HOST.unwrap_or(&host);
+    let url: Url = format!("https://{base_host}/{page_type}")
         .parse()
         .expect("Failed to parse base url");
     let url = match *page_type.read() {

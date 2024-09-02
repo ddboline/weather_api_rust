@@ -45,7 +45,7 @@ pub struct PaginatedLocationCount {
 }
 
 pub static DEFAULT_STR: &str = "11106";
-pub static DEFAULT_URL: &str = "https://www.ddboline.net";
+pub static DEFAULT_HOST: &str = "cloud.ddboline.net";
 
 pub static DEFAULT_LOCATION: &str = "10001";
 

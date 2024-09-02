@@ -10,7 +10,7 @@ use web_sys::window;
 use weather_util_rust::weather_api::WeatherLocation;
 
 use crate::{
-    get_parameters, LocationCount, WeatherEntry, WeatherPage, DEFAULT_LOCATION, DEFAULT_URL,
+    get_parameters, LocationCount, WeatherEntry, WeatherPage, DEFAULT_LOCATION, DEFAULT_HOST,
 };
 
 use crate::{
@@ -69,13 +69,13 @@ pub fn IndexComponent() -> Element {
     let mut weather = use_signal(|| None);
     let mut forecast = use_signal(|| None);
 
-    let mut origin: String = DEFAULT_URL.to_string();
+    let mut host: String = DEFAULT_HOST.to_string();
     let mut height = 100.0f64;
     let mut width = 100.0f64;
 
     if let Some(window) = window() {
-        if let Ok(o) = window.location().origin() {
-            origin = o;
+        if let Ok(h) = window.location().host() {
+            host = h;
         }
         if let Some(h) = window.inner_height().ok().and_then(|s| s.as_f64()) {
             height = h;
@@ -178,7 +178,7 @@ pub fn IndexComponent() -> Element {
         index_element(
             height,
             width,
-            origin,
+            host,
             page_type,
             draft,
             location,

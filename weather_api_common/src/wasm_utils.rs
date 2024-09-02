@@ -14,9 +14,7 @@ use weather_util_rust::{
     weather_data::WeatherData, weather_forecast::WeatherForecast, ApiStringType,
 };
 
-use crate::{weather_element::PlotData, LocationCount, PaginatedLocationCount, WeatherEntry};
-
-static API_ENDPOINT: &str = "https://cloud.ddboline.net/weather/";
+use crate::{weather_element::PlotData, LocationCount, PaginatedLocationCount, WeatherEntry, DEFAULT_HOST};
 
 pub async fn get_ip_address() -> Result<Ipv4Addr, JsValue> {
     let url: Url = "https://ipinfo.io/ip".parse().map_err(|e| {
@@ -128,7 +126,16 @@ pub async fn run_api<T: serde::de::DeserializeOwned>(
     command: &str,
     options: &[(&'static str, ApiStringType)],
 ) -> Result<T, Error> {
-    let base_url = format!("{API_ENDPOINT}{command}");
+    let window = window().expect("window now found");
+    let location = window.location();
+    let host = location.host().expect("host not found");
+    let protocol = location.protocol().expect("protocol not found");
+
+    let base_url = if protocol != "https:" {
+        format!("https://{DEFAULT_HOST}/weather/{command}")
+    } else {
+        format!("https://{host}/weather/{command}")
+    };
     let url = Url::parse_with_params(&base_url, options)?;
     let json = js_fetch(&url, Method::GET)
         .await
@@ -186,7 +193,7 @@ pub async fn get_locations() -> Result<Vec<LocationCount>, JsValue> {
     let host = location.host()?;
     let protocol = location.protocol()?;
     let url = if protocol != "https:" {
-        format!("https://www.ddboline.net/weather/locations")
+        format!("https://{DEFAULT_HOST}/weather/locations")
     } else {
         format!("https://{host}/weather/locations")
     };
