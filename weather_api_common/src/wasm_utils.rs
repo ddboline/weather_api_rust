@@ -65,8 +65,8 @@ pub async fn get_location_from_ip(ip: Ipv4Addr) -> Result<WeatherLocation, JsVal
 }
 
 pub async fn js_fetch(url: &Url, method: Method) -> Result<JsValue, JsValue> {
-    let mut opts = RequestInit::new();
-    opts.method(method.as_str());
+    let opts = RequestInit::new();
+    opts.set_method(method.as_str());
 
     let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
     let resp = JsFuture::from(window.fetch_with_str_and_init(url.as_str(), &opts)).await?;
@@ -75,8 +75,8 @@ pub async fn js_fetch(url: &Url, method: Method) -> Result<JsValue, JsValue> {
 }
 
 pub async fn text_fetch(url: &Url, method: Method) -> Result<JsValue, JsValue> {
-    let mut opts = RequestInit::new();
-    opts.method(method.as_str());
+    let opts = RequestInit::new();
+    opts.set_method(method.as_str());
 
     let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
     let resp = JsFuture::from(window.fetch_with_str_and_init(url.as_str(), &opts)).await?;
