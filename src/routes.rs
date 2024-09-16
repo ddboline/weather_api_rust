@@ -526,42 +526,7 @@ pub async fn history_plot(
     .date();
 
     let query = query.into_inner();
-    let start_date: Option<Date> = query.start_time.map(Into::into);
-    let end_date: Option<Date> = query.end_time.map(Into::into);
-
-    let history: Vec<WeatherData> = if start_date.is_none() || start_date < Some(first_of_month) {
-        get_by_name_dates(
-            &data.config.cache_dir,
-            Some(&query.name),
-            query.server.as_ref().map(StackString::as_str),
-            start_date,
-            end_date,
-            Some(0),
-            Some(1),
-        )
-        .await
-        .map_err(Into::<Error>::into)?
-        .into_iter()
-        .map(Into::<WeatherData>::into)
-        .collect()
-    } else {
-        let pool = &data.pool;
-        WeatherDataDB::get_by_name_dates(
-            pool,
-            Some(&query.name),
-            query.server.as_ref().map(StackString::as_str),
-            query.start_time.map(Into::into),
-            query.end_time.map(Into::into),
-            Some(0),
-            Some(1),
-        )
-        .await
-        .map_err(Into::<Error>::into)?
-        .map_ok(Into::<WeatherData>::into)
-        .try_collect()
-        .await
-        .map_err(Into::<Error>::into)?
-    };
+    let history = get_history_data(&query, &data.config, &data.pool).await?;
 
     if history.is_empty() {
         return Ok(HtmlBase::new(String::new()).into());
