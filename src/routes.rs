@@ -458,18 +458,10 @@ struct HistoryUpdateResponse(JsonBase<u64, Error>);
 #[post("/weather/history")]
 pub async fn history_update(
     #[data] data: AppState,
-    query: Query<ApiOptions>,
     payload: Json<HistoryUpdateRequest>,
     _: LoggedUser,
 ) -> WarpResult<HistoryUpdateResponse> {
     let payload = payload.into_inner();
-    let query = query.into_inner();
-    let appid = query
-        .appid
-        .ok_or_else(|| Error::BadRequest("Missing appid".into()))?;
-    if appid != data.config.api_key {
-        return Err(Error::BadRequest("Incorrect appid".into()).into());
-    }
     let inserts = {
         let pool = &data.pool;
         let futures = payload.updates.into_iter().map(|update| async move {
