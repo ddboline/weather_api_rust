@@ -10,7 +10,7 @@ use web_sys::window;
 use weather_util_rust::weather_api::WeatherLocation;
 
 use crate::{
-    get_parameters, LocationCount, WeatherEntry, WeatherPage, DEFAULT_LOCATION, DEFAULT_HOST,
+    get_parameters, LocationCount, WeatherEntry, WeatherPage, DEFAULT_HOST, DEFAULT_LOCATION,
 };
 
 use crate::{

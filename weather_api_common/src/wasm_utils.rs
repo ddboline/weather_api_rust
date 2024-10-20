@@ -14,7 +14,9 @@ use weather_util_rust::{
     weather_data::WeatherData, weather_forecast::WeatherForecast, ApiStringType,
 };
 
-use crate::{weather_element::PlotData, LocationCount, PaginatedLocationCount, WeatherEntry, DEFAULT_HOST};
+use crate::{
+    weather_element::PlotData, LocationCount, PaginatedLocationCount, WeatherEntry, DEFAULT_HOST,
+};
 
 pub async fn get_ip_address() -> Result<Ipv4Addr, JsValue> {
     let url: Url = "https://ipinfo.io/ip".parse().map_err(|e| {

@@ -9,7 +9,7 @@ use stack_string::StackString;
 use std::{collections::HashMap, convert::Infallible};
 use time::{
     macros::{date, time},
-    Date, Duration, OffsetDateTime, PrimitiveDateTime,
+    Date, OffsetDateTime, PrimitiveDateTime,
 };
 use tokio::sync::RwLock;
 
@@ -361,27 +361,24 @@ pub async fn locations(
     let offset = query.offset.unwrap_or(0);
     let limit = query.limit.unwrap_or(10);
 
-    let (total, data) = {
-        let pool = &data.pool;
-        let total = WeatherDataDB::get_total_locations(pool)
-            .await
-            .map_err(Into::<Error>::into)?;
-        let history: Vec<_> = WeatherDataDB::get_locations(pool, Some(offset), Some(limit))
-            .await
-            .map_err(Into::<Error>::into)?
-            .map_ok(|(location, count)| LocationCount { location, count })
-            .try_collect()
-            .await
-            .map_err(Into::<Error>::into)?;
-        (total, history)
-    };
+    let total = WeatherDataDB::get_total_locations(&data.pool)
+        .await
+        .map_err(Into::<Error>::into)?;
+
+    let data: Vec<_> = WeatherDataDB::get_locations(&data.pool, Some(offset), Some(limit))
+        .await
+        .map_err(Into::<Error>::into)?
+        .map_ok(|(location, count)| LocationCount { location, count })
+        .try_collect()
+        .await
+        .map_err(Into::<Error>::into)?;
+
     let pagination = Pagination {
         limit,
         offset,
         total,
     };
-    let result = PaginatedLocationCount { pagination, data };
-    Ok(JsonBase::new(result).into())
+    Ok(JsonBase::new(PaginatedLocationCount { pagination, data }).into())
 }
 
 #[derive(Deserialize, Schema)]
@@ -413,52 +410,39 @@ pub async fn history(
 ) -> WarpResult<HistoryResponse> {
     let query = query.into_inner();
     let offset = query.offset.unwrap_or(0);
-    let limit = query.limit.unwrap_or(0);
-    let (total, data) = {
-        let pool = &data.pool;
-        let server = query
-            .server
-            .as_ref()
-            .map_or(data.config.server.as_str(), StackString::as_str);
-        let name = query.name.as_ref().map(StackString::as_str);
-        let start_time: Date = query.start_time.map_or(
-            (OffsetDateTime::now_utc() - Duration::days(7)).date(),
-            Into::into,
-        );
-        let end_time = query.end_time.map(Into::into);
-        let total = WeatherDataDB::get_total_by_name_dates(
-            pool,
-            name,
-            Some(server),
-            Some(start_time),
-            end_time,
-        )
-        .await
-        .map_err(Into::<Error>::into)?;
-        let data: Vec<_> = WeatherDataDB::get_by_name_dates(
-            pool,
-            query.name.as_ref().map(StackString::as_str),
-            Some(server),
-            Some(start_time),
-            end_time,
-            Some(offset),
-            Some(limit),
-        )
-        .await
-        .map_err(Into::<Error>::into)?
-        .map_ok(Into::<WeatherDataDBWrapper>::into)
-        .try_collect()
-        .await
-        .map_err(Into::<Error>::into)?;
-        (total, data)
-    };
+    let limit = query.limit.unwrap_or(10);
+
+    let server = query.server.as_ref().map(StackString::as_str);
+    let name = query.name.as_ref().map(StackString::as_str);
+    let start_time: Option<Date> = query.start_time.map(Into::into);
+    let end_time = query.end_time.map(Into::into);
+    let total =
+        WeatherDataDB::get_total_by_name_dates(&data.pool, name, server, start_time, end_time)
+            .await
+            .map_err(Into::<Error>::into)?;
+
+    let data: Vec<_> = WeatherDataDB::get_by_name_dates(
+        &data.pool,
+        query.name.as_ref().map(StackString::as_str),
+        server,
+        start_time,
+        end_time,
+        Some(offset),
+        Some(limit),
+    )
+    .await
+    .map_err(Into::<Error>::into)?
+    .map_ok(Into::<WeatherDataDBWrapper>::into)
+    .try_collect()
+    .await
+    .map_err(Into::<Error>::into)?;
+
     let pagination = Pagination {
         limit,
         offset,
         total,
     };
-    let result = PaginatedWeatherDataDB { pagination, data };
-    Ok(JsonBase::new(result).into())
+    Ok(JsonBase::new(PaginatedWeatherDataDB { pagination, data }).into())
 }
 
 #[derive(Serialize, Deserialize, Schema)]
@@ -516,15 +500,6 @@ pub async fn history_plot(
     #[data] data: AppState,
     query: Query<HistoryPlotRequest>,
 ) -> WarpResult<HistoryPlotResponse> {
-    let now = OffsetDateTime::now_utc();
-    let first_of_month = PrimitiveDateTime::new(
-        Date::from_calendar_date(now.year(), now.month(), 1)
-            .unwrap_or_else(|_| date!(2023 - 01 - 01)),
-        time!(00:00),
-    )
-    .assume_utc()
-    .date();
-
     let query = query.into_inner();
     let history = get_history_data(&query, &data.config, &data.pool).await?;
 

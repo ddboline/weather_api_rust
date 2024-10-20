@@ -44,9 +44,9 @@ pub enum ParseOpts {
     },
     /// Export history
     Export {
-        #[clap(short, long)]
+        #[clap(long)]
         server: Option<StackString>,
-        #[clap(short='b', long, value_parser=parse_date_from_str)]
+        #[clap(short='s', long, value_parser=parse_date_from_str)]
         /// Start date
         start_time: Option<DateType>,
         #[clap(short, long, value_parser=parse_date_from_str)]
