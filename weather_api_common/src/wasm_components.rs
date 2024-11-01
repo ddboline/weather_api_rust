@@ -3,7 +3,6 @@ use dioxus::prelude::{
 };
 use std::collections::{HashMap, HashSet};
 use time::{Date, Duration, Month, PrimitiveDateTime, Time};
-use log::debug;
 
 use js_sys::Date as JsDate;
 use web_sys::window;
