@@ -238,9 +238,9 @@ pub async fn insert_db_into_parquet(
             let df = ParquetReader::new(File::open(&file)?).finish()?;
             output.push(format_sstr!("{:?}", df.shape()));
             let existing_entries = df.shape().0;
-            let combined_df = df
-                .vstack(&new_df)?
-                .unique(None, UniqueKeepStrategy::First, None)?;
+            let combined_df =
+                df.vstack(&new_df)?
+                    .unique_stable(None, UniqueKeepStrategy::First, None)?;
             if combined_df.shape().0 == existing_entries {
                 continue;
             }
@@ -278,7 +278,7 @@ pub fn merge_parquet_files(input: &Path, output: &Path) -> Result<(), Error> {
 
     let mut df = df1
         .vstack(&df0)?
-        .unique(None, UniqueKeepStrategy::First, None)?;
+        .unique_stable(None, UniqueKeepStrategy::First, None)?;
     info!("final {:?}", df.shape());
     ParquetWriter::new(File::create(output)?).finish(&mut df)?;
     info!("wrote {:?} {:?}", output, df.shape());
