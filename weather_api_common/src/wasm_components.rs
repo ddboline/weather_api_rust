@@ -3,6 +3,7 @@ use dioxus::prelude::{
 };
 use std::collections::{HashMap, HashSet};
 use time::{Date, Duration, Month, PrimitiveDateTime, Time};
+use log::debug;
 
 use js_sys::Date as JsDate;
 use web_sys::window;
@@ -107,14 +108,20 @@ pub fn IndexComponent() -> Element {
 
     let weather_future = use_resource(move || {
         let l = location();
-        let entry_opt = cache().get(&l).cloned();
+        let entry_opt = (*cache.read()).get(&l).cloned();
         async move {
-            if let Some(entry) = entry_opt {
-                (l, entry)
+            let entry = if let Some(entry) = entry_opt {
+                entry
             } else {
-                let entry = get_weather_data_forecast(&l).await;
-                (l, entry)
+                get_weather_data_forecast(&l).await
+            };
+            if let Some(w) = &entry.weather {
+                weather.set(Some(w.clone()));
             }
+            if let Some(f) = &entry.forecast {
+                forecast.set(Some(f.clone()));
+            }
+            (l, entry)
         }
     });
 
@@ -140,14 +147,6 @@ pub fn IndexComponent() -> Element {
                 cache.set({
                     let l = (*location.read()).clone();
                     new_cache.insert(l.clone(), entry.clone());
-                    if let Some(we) = new_cache.get(&l) {
-                        if let Some(w) = &we.weather {
-                            weather.set(Some(w.clone()));
-                        }
-                        if let Some(f) = &we.forecast {
-                            forecast.set(Some(f.clone()));
-                        }
-                    }
                     new_cache
                 });
             }
