@@ -121,7 +121,7 @@ pub fn weather_element(weather: &WeatherData, forecast: &WeatherForecast) -> Ele
     let forecast_element = {
         let weather_forecast = forecast.get_forecast();
         let forecast_lines: Vec<_> = weather_forecast.iter().map(|s| s.trim_end()).collect();
-        let forecast_cols = forecast_lines.iter().map(|x| x.len()).max().unwrap_or(0) + 2;
+        let forecast_cols = forecast_lines.iter().map(|x| x.len()).max().unwrap_or(0) + 10;
         let forecast_rows = forecast_lines.len() + 2;
         let forecast_lines = forecast_lines.join("\n");
 
@@ -697,70 +697,78 @@ pub fn index_element(
         }
     };
     let location_selector = match *page_type.read() {
-        WeatherPage::Index | WeatherPage::Plot => Some(rsx! {
-            button {
-                id: "current-value",
-                name: "{location}",
-                value: "{location}",
-                "{location}",
-            }
-            select {
-                id: "history-selector",
-                onchange: move |x| {
-                    let v = (*x.map(|data| data.value())).to_string();
-                    if v.is_empty() {
-                        return;
-                    }
-                    let s = v.as_str().to_string();
-                    let loc = get_parameters(&s);
-                    let sh = (*search_history.read()).clone();
-                    if !sh.contains(&s) {
-                        search_history.set(update_search_history(&sh, &s));
-                    }
-                    let hlc = (*history_location_cache.read()).clone();
-                    if hlc.contains(&s) {
-                        history_location.set(s.clone());
-                    }
-                    location.set(loc);
-                },
-                option {
-                    value: "",
-                    "",
-                },
-                {search_history.read().iter().rev().enumerate().filter_map(|(idx, s)| {
-                    let loc = get_parameters(s);
-                    if loc == *location.read() {
-                        None
-                    } else {
-                        Some(
-                            rsx! {
-                                option {
-                                    key: "search-history-key-{idx}",
-                                    value: "{s}",
-                                    "{s}"
-                                }
-                            }
-                        )
-                    }
-                })}
-            },
-            input {
-                "type": "button",
-                name: "clear",
-                value: "Clear",
-                onclick: move |_| {
-                    let history = vec![String::from("10001")];
-
-                    #[cfg(target_arch = "wasm32")]
-                    set_history(&history).unwrap();
-
-                    search_history.set(history);
+        WeatherPage::Index | WeatherPage::Plot => {
+            let sh = (*search_history.read()).clone();
+            let hlc = (*history_location_cache.read()).clone();
+            let locations: HashSet<_> = sh.iter().chain(hlc.iter()).map(|l| l.as_str()).collect();
+            let mut locations: Vec<_> = locations.into_iter().collect();
+            locations.sort();
+            Some(rsx! {
+                button {
+                    id: "current-value",
+                    name: "{location}",
+                    value: "{location}",
+                    "{location}",
                 }
-            },
-        }),
+                select {
+                    id: "history-selector",
+                    onchange: move |x| {
+                        let v = (*x.map(|data| data.value())).to_string();
+                        if v.is_empty() {
+                            return;
+                        }
+                        let s = v.as_str().to_string();
+                        let loc = get_parameters(&s);
+                        let sh = (*search_history.read()).clone();
+                        if !sh.contains(&s) {
+                            search_history.set(update_search_history(&sh, &s));
+                        }
+                        let hlc = (*history_location_cache.read()).clone();
+                        if hlc.contains(&s) {
+                            history_location.set(s.clone());
+                        }
+                        location.set(loc);
+                    },
+                    option {
+                        value: "",
+                        "",
+                    },
+                    {locations.iter().enumerate().filter_map(|(idx, s)| {
+                        let loc = get_parameters(s);
+                        if loc == *location.read() {
+                            None
+                        } else {
+                            Some(
+                                rsx! {
+                                    option {
+                                        key: "search-history-key-{idx}",
+                                        value: "{s}",
+                                        "{s}"
+                                    }
+                                }
+                            )
+                        }
+                    })}
+                },
+                input {
+                    "type": "button",
+                    name: "clear",
+                    value: "Clear",
+                    onclick: move |_| {
+                        let history = vec![String::from("10001")];
+
+                        #[cfg(target_arch = "wasm32")]
+                        set_history(&history).unwrap();
+
+                        search_history.set(history);
+                    }
+                },
+            })
+        }
         WeatherPage::HistoryPlot => {
             let hlc = (*history_location_cache.read()).clone();
-            let locations: Vec<_> = hlc.iter().map(|l| l.as_str()).collect();
+            let mut locations: Vec<_> = hlc.iter().map(|l| l.as_str()).collect();
+            locations.sort();
             if !locations.contains(&history_location.read().as_str()) {
                 if let Some(loc) = locations.first() {
                     history_location.set(loc.to_string());
