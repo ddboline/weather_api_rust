@@ -18,13 +18,69 @@ use crate::{
     weather_element::PlotData, LocationCount, PaginatedLocationCount, WeatherEntry, DEFAULT_HOST,
 };
 
+enum FetchOutput {
+    Text,
+    Json,
+}
+
+async fn fetch(url: &Url, method: Method, return_type: FetchOutput) -> Result<JsValue, JsValue> {
+    let opts = RequestInit::new();
+    opts.set_method(method.as_str());
+
+    let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
+    let resp = JsFuture::from(window.fetch_with_str_and_init(url.as_str(), &opts)).await?;
+    let resp: Response = resp.dyn_into()?;
+    match return_type {
+        FetchOutput::Text => JsFuture::from(resp.text()?).await,
+        FetchOutput::Json => JsFuture::from(resp.json()?).await,
+    }
+}
+
+async fn run_api<T: serde::de::DeserializeOwned>(
+    command: &str,
+    options: &[(&'static str, ApiStringType)],
+) -> Result<T, Error> {
+    let window = window().expect("window now found");
+    let location = window.location();
+    let host = location.host().expect("host not found");
+    let protocol = location.protocol().expect("protocol not found");
+
+    let base_url = if protocol != "https:" {
+        format!("https://{DEFAULT_HOST}/weather/{command}")
+    } else {
+        format!("https://{host}/weather/{command}")
+    };
+    let url = Url::parse_with_params(&base_url, options)?;
+    let json = fetch(&url, Method::GET, FetchOutput::Json)
+        .await
+        .map_err(|e| format_err!("{:?}", e))?;
+    serde_wasm_bindgen::from_value(json).map_err(|e| format_err!("{:?}", e))
+}
+
+async fn _get_location(
+    url: &str,
+    offset: usize,
+    limit: usize,
+) -> Result<PaginatedLocationCount, JsValue> {
+    let offset = format!("{offset}");
+    let limit = format!("{limit}");
+    let options = [("offset", offset), ("limit", limit)];
+    let url = Url::parse_with_params(&url, &options).map_err(|e| {
+        error!("error {e}");
+        let e: JsValue = format!("{e}").into();
+        e
+    })?;
+    let json = fetch(&url, Method::GET, FetchOutput::Json).await?;
+    serde_wasm_bindgen::from_value(json).map_err(Into::into)
+}
+
 pub async fn get_ip_address() -> Result<Ipv4Addr, JsValue> {
     let url: Url = "https://ipinfo.io/ip".parse().map_err(|e| {
         error!("error {e}");
         let e: JsValue = format!("{e}").into();
         e
     })?;
-    let resp = text_fetch(&url, Method::GET).await?;
+    let resp = fetch(&url, Method::GET, FetchOutput::Text).await?;
     let resp = resp
         .as_string()
         .ok_or_else(|| JsValue::from_str("Failed to get ip"))?
@@ -56,32 +112,12 @@ pub async fn get_location_from_ip(ip: Ipv4Addr) -> Result<WeatherLocation, JsVal
             let e: JsValue = format!("{e}").into();
             e
         })?;
-    let json = js_fetch(&url, Method::GET).await?;
+    let json = fetch(&url, Method::GET, FetchOutput::Json).await?;
     let location: Location = serde_wasm_bindgen::from_value(json)?;
     Ok(WeatherLocation::from_lat_lon(
         location.latitude,
         location.longitude,
     ))
-}
-
-pub async fn js_fetch(url: &Url, method: Method) -> Result<JsValue, JsValue> {
-    let opts = RequestInit::new();
-    opts.set_method(method.as_str());
-
-    let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
-    let resp = JsFuture::from(window.fetch_with_str_and_init(url.as_str(), &opts)).await?;
-    let resp: Response = resp.dyn_into()?;
-    JsFuture::from(resp.json()?).await
-}
-
-pub async fn text_fetch(url: &Url, method: Method) -> Result<JsValue, JsValue> {
-    let opts = RequestInit::new();
-    opts.set_method(method.as_str());
-
-    let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
-    let resp = JsFuture::from(window.fetch_with_str_and_init(url.as_str(), &opts)).await?;
-    let resp: Response = resp.dyn_into()?;
-    JsFuture::from(resp.text()?).await
 }
 
 pub async fn get_weather_data_forecast(location: &WeatherLocation) -> WeatherEntry {
@@ -124,27 +160,6 @@ pub async fn get_history_plots(
     run_api("history-plots", &options).await
 }
 
-pub async fn run_api<T: serde::de::DeserializeOwned>(
-    command: &str,
-    options: &[(&'static str, ApiStringType)],
-) -> Result<T, Error> {
-    let window = window().expect("window now found");
-    let location = window.location();
-    let host = location.host().expect("host not found");
-    let protocol = location.protocol().expect("protocol not found");
-
-    let base_url = if protocol != "https:" {
-        format!("https://{DEFAULT_HOST}/weather/{command}")
-    } else {
-        format!("https://{host}/weather/{command}")
-    };
-    let url = Url::parse_with_params(&base_url, options)?;
-    let json = js_fetch(&url, Method::GET)
-        .await
-        .map_err(|e| format_err!("{:?}", e))?;
-    serde_wasm_bindgen::from_value(json).map_err(|e| format_err!("{:?}", e))
-}
-
 pub fn set_history(history: &[String]) -> Result<(), JsValue> {
     let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
     let local_storage = window
@@ -170,23 +185,6 @@ pub fn get_history() -> Result<Vec<String>, JsValue> {
         }),
         None => Ok(vec![String::from("zip=10001")]),
     }
-}
-
-async fn _get_location(
-    url: &str,
-    offset: usize,
-    limit: usize,
-) -> Result<PaginatedLocationCount, JsValue> {
-    let offset = format!("{offset}");
-    let limit = format!("{limit}");
-    let options = [("offset", offset), ("limit", limit)];
-    let url = Url::parse_with_params(&url, &options).map_err(|e| {
-        error!("error {e}");
-        let e: JsValue = format!("{e}").into();
-        e
-    })?;
-    let json = js_fetch(&url, Method::GET).await?;
-    serde_wasm_bindgen::from_value(json).map_err(Into::into)
 }
 
 pub async fn get_locations() -> Result<Vec<LocationCount>, JsValue> {
