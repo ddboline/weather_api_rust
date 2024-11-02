@@ -1,17 +1,13 @@
-use dioxus::prelude::{
-    component, use_resource, use_signal, Element, Readable, Resource, UseResourceState, Writable,
-};
+use dioxus::prelude::{component, use_resource, use_signal, Element, Readable, Writable};
+use js_sys::Date as JsDate;
+use log::debug;
 use std::collections::{HashMap, HashSet};
 use time::{Date, Duration, Month, PrimitiveDateTime, Time};
-
-use js_sys::Date as JsDate;
 use web_sys::window;
 
 use weather_util_rust::weather_api::WeatherLocation;
 
-use crate::{
-    get_parameters, LocationCount, WeatherEntry, WeatherPage, DEFAULT_HOST, DEFAULT_LOCATION,
-};
+use crate::{get_parameters, WeatherEntry, WeatherPage, DEFAULT_HOST, DEFAULT_LOCATION};
 
 use crate::{
     wasm_utils::{
@@ -88,72 +84,22 @@ pub fn IndexComponent() -> Element {
     let height = (height * 750. / 856.).abs() as u64;
     let width = (width * 850. / 1105.).abs() as u64;
 
-    let mut location_future: Resource<Option<WeatherLocation>> = use_resource(|| async move {
+    let location_future = use_resource(move || async move {
+        debug!("run location_future");
         if let Ok(ip) = get_ip_address().await {
             if let Ok(loc) = get_location_from_ip(ip).await {
+                if loc != *ip_location.read() {
+                    ip_location.set(loc.clone());
+                }
                 return Some(loc);
             }
         }
         None
     });
 
-    let mut history_location_future: Resource<Option<Vec<LocationCount>>> =
-        use_resource(|| async move {
-            if let Ok(locations) = get_locations().await {
-                return Some(locations);
-            }
-            None
-        });
-
-    let weather_future = use_resource(move || {
-        let l = location();
-        let entry_opt = (*cache.read()).get(&l).cloned();
-        async move {
-            let entry = if let Some(entry) = entry_opt {
-                entry
-            } else {
-                get_weather_data_forecast(&l).await
-            };
-            if let Some(w) = &entry.weather {
-                weather.set(Some(w.clone()));
-            }
-            if let Some(f) = &entry.forecast {
-                forecast.set(Some(f.clone()));
-            }
-            (l, entry)
-        }
-    });
-
-    {
-        let mut is_complete = false;
-        if *location_future.state().read() == UseResourceState::Ready {
-            let result = (*location_future.read()).clone();
-            if let Some(Some(loc)) = result {
-                if loc != *ip_location.read() {
-                    ip_location.set(loc.clone());
-                    is_complete = true;
-                }
-            }
-        }
-        if is_complete {
-            location_future.cancel();
-        }
-
-        let result = (*weather_future.read()).clone();
-        if let Some((loc, entry)) = result {
-            if !cache.read().contains_key(&loc) || cache.read().is_empty() {
-                let mut new_cache = (*cache.read()).clone();
-                cache.set({
-                    let l = (*location.read()).clone();
-                    new_cache.insert(l.clone(), entry.clone());
-                    new_cache
-                });
-            }
-        }
-
-        is_complete = false;
-        let result = (*history_location_future.read()).clone();
-        if let Some(Some(locations)) = result {
+    let _history_location_future = use_resource(move || async move {
+        debug!("run history_location_future");
+        if let Ok(locations) = get_locations().await {
             if history_location_cache.read().is_empty() {
                 let cache: HashSet<String> = locations
                     .iter()
@@ -167,28 +113,53 @@ pub fn IndexComponent() -> Element {
                     .collect();
                 history_location_cache.set(cache);
             }
-            is_complete = true;
+            return Some(locations);
         }
-        if is_complete {
-            history_location_future.cancel();
-        }
+        None
+    });
 
-        index_element(
-            height,
-            width,
-            host,
-            page_type,
-            draft,
-            location,
-            ip_location,
-            search_history,
-            history_location,
-            history_location_cache,
-            location_future,
-            weather,
-            forecast,
-            start_date,
-            end_date,
-        )
-    }
+    let _run_weather_future = use_resource(move || {
+        let l = location();
+        let entry_opt = (*cache.read()).get(&l).cloned();
+        debug!("run run_weather_future {l}");
+        async move {
+            let entry = if let Some(entry) = entry_opt {
+                entry
+            } else {
+                let entry = get_weather_data_forecast(&l).await;
+                let mut new_cache = (*cache.read()).clone();
+                cache.set({
+                    let l = (*location.read()).clone();
+                    new_cache.insert(l.clone(), entry.clone());
+                    new_cache
+                });
+                entry
+            };
+            if let Some(w) = &entry.weather {
+                weather.set(Some(w.clone()));
+            }
+            if let Some(f) = &entry.forecast {
+                forecast.set(Some(f.clone()));
+            }
+            (l, entry)
+        }
+    });
+
+    index_element(
+        height,
+        width,
+        host,
+        page_type,
+        draft,
+        location,
+        ip_location,
+        search_history,
+        history_location,
+        history_location_cache,
+        location_future,
+        weather,
+        forecast,
+        start_date,
+        end_date,
+    )
 }
