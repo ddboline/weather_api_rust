@@ -17,7 +17,6 @@ Weather API."""
 [workspace]
 members = [
     "weather_api_common",
-    "weather_app_desktop",
 ]
 exclude = [
     "weather_app_wasm",
@@ -38,12 +37,15 @@ deadpool = {version = "0.12", features=["serde", "rt_tokio_1"]}
 deadpool-postgres = {version="0.14", features=["serde"]}
 derive_more = {version="1.0", features=["full"]}
 dioxus = "0.5"
+dioxus-desktop = "0.5"
 dioxus-ssr = "0.5"
 dirs = "5.0"
 env_logger = "0.11"
 envy = "0.4"
 dotenvy = "0.15"
 futures = "0.3"
+futures-channel = "0.3"
+futures-util = "0.3"
 isocountry = "0.3"
 log = "0.4"
 maplit = "1.0"
@@ -75,4 +77,9 @@ time-tz = "2.0"
 [[bin]]
 name = "weather-api-rust"
 path = "src/main.rs"
+doc = false
+
+[[bin]]
+name = "weather-app-rust"
+path = "src/weather_app_desktop.rs"
 doc = false
