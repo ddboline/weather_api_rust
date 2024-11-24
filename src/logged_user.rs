@@ -1,10 +1,10 @@
 pub use authorized_users::{
-    get_random_key, get_secrets, token::Token, AuthorizedUser, AUTHORIZED_USERS, JWT_SECRET,
+    get_random_key, get_secrets, token::Token, AuthorizedUser as ExternalUser, AUTHORIZED_USERS, JWT_SECRET,
     KEY_LENGTH, LOGIN_HTML, SECRET_KEY, TRIGGER_DB_UPDATE,
 };
 use futures::TryStreamExt;
 use log::debug;
-use maplit::hashset;
+use maplit::hashmap;
 use rweb::{
     filters::{cookie::cookie, BoxedFilter},
     Filter, FromRequest, Rejection, Schema,
@@ -16,8 +16,10 @@ use std::{
     convert::{TryFrom, TryInto},
     env::var,
     str::FromStr,
+    collections::HashMap,
 };
 use uuid::Uuid;
+use time::OffsetDateTime;
 
 use crate::{errors::ServiceError as Error, model::AuthorizedUsers, pgpool::PgPool};
 
@@ -64,8 +66,8 @@ impl FromRequest for LoggedUser {
     }
 }
 
-impl From<AuthorizedUser> for LoggedUser {
-    fn from(user: AuthorizedUser) -> Self {
+impl From<ExternalUser> for LoggedUser {
+    fn from(user: ExternalUser) -> Self {
         Self {
             email: user.email,
             session: user.session.into(),
@@ -100,21 +102,46 @@ impl FromStr for LoggedUser {
 /// # Errors
 /// Return error if db query fails
 pub async fn fill_from_db(pool: &PgPool) -> Result<(), Error> {
-    debug!("{:?}", *TRIGGER_DB_UPDATE);
-    let users = if TRIGGER_DB_UPDATE.check() {
-        AuthorizedUsers::get_authorized_users(pool)
-            .await?
-            .map_ok(|user| user.email)
-            .try_collect()
-            .await?
-    } else {
-        AUTHORIZED_USERS.get_users()
-    };
     if let Ok("true") = var("TESTENV").as_ref().map(String::as_str) {
-        AUTHORIZED_USERS.update_users(hashset! {"user@test".into()});
+        AUTHORIZED_USERS.update_users(hashmap! {
+            "user@test".into() => ExternalUser {
+                email: "user@test".into(),
+                session: Uuid::new_v4(),
+                secret_key: StackString::default(),
+                created_at: OffsetDateTime::now_utc()
+            }
+        });
+        return Ok(());
     }
-    AUTHORIZED_USERS.update_users(users);
+    let (created_at, deleted_at) = AuthorizedUsers::get_most_recent(pool).await?;
+    let most_recent_user_db = created_at.max(deleted_at);
+    let existing_users = AUTHORIZED_USERS.get_users();
+    let most_recent_user = existing_users.values().map(|i| i.created_at).max();
+    println!("most_recent_user_db {most_recent_user_db:?} most_recent_user {most_recent_user:?}");
+    if most_recent_user_db.is_some()
+        && most_recent_user.is_some()
+        && most_recent_user_db <= most_recent_user
+    {
+        return Ok(());
+    }
 
-    debug!("{:?}", *AUTHORIZED_USERS);
+    let result: Result<HashMap<StackString, _>, _> = AuthorizedUsers::get_authorized_users(pool)
+        .await?
+        .map_ok(|u| {
+            (
+                u.email.clone(),
+                ExternalUser {
+                    email: u.email,
+                    session: Uuid::new_v4(),
+                    secret_key: StackString::default(),
+                    created_at: u.created_at,
+                },
+            )
+        })
+        .try_collect()
+        .await;
+    let users = result?;
+    AUTHORIZED_USERS.update_users(users);
+    println!("AUTHORIZED_USERS {:?}", *AUTHORIZED_USERS);
     Ok(())
 }
