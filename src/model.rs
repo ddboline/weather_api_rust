@@ -23,18 +23,42 @@ use crate::{date_time_wrapper::DateTimeWrapper, pgpool::PgPool};
 #[derive(FromSqlRow, Clone, Debug)]
 pub struct AuthorizedUsers {
     pub email: StackString,
+    pub created_at: OffsetDateTime,
 }
 
 impl AuthorizedUsers {
     /// # Errors
-    /// Return error if db query fails
+    /// Returns error if db query fails
     pub async fn get_authorized_users(
         pool: &PgPool,
     ) -> Result<impl Stream<Item = Result<Self, PgError>>, Error> {
-        let query = query!("SELECT * FROM authorized_users");
+        let query = query!("SELECT * FROM authorized_users WHERE deleted_at IS NULL");
         let conn = pool.get().await?;
         query.fetch_streaming(&conn).await.map_err(Into::into)
     }
+
+    /// # Errors
+    /// Returns error if db query fails
+    pub async fn get_most_recent(
+        pool: &PgPool,
+    ) -> Result<(Option<OffsetDateTime>, Option<OffsetDateTime>), Error> {
+        #[derive(FromSqlRow)]
+        struct CreatedDeleted {
+            created_at: Option<OffsetDateTime>,
+            deleted_at: Option<OffsetDateTime>,
+        }
+
+        let query = query!(
+            "SELECT max(created_at) as created_at, max(deleted_at) as deleted_at FROM authorized_users"
+        );
+        let conn = pool.get().await?;
+        let result: Option<CreatedDeleted> = query.fetch_opt(&conn).await?;
+        match result {
+            Some(result) => Ok((result.created_at, result.deleted_at)),
+            None => Ok((None, None)),
+        }
+    }
+
 }
 
 #[derive(FromSqlRow, Serialize, Deserialize, Debug, Clone)]
