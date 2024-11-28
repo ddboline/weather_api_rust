@@ -1,6 +1,6 @@
 pub use authorized_users::{
-    get_random_key, get_secrets, token::Token, AuthorizedUser as ExternalUser, AUTHORIZED_USERS, JWT_SECRET,
-    KEY_LENGTH, LOGIN_HTML, SECRET_KEY, TRIGGER_DB_UPDATE,
+    get_random_key, get_secrets, token::Token, AuthorizedUser as ExternalUser, AUTHORIZED_USERS,
+    JWT_SECRET, KEY_LENGTH, LOGIN_HTML, SECRET_KEY, TRIGGER_DB_UPDATE,
 };
 use futures::TryStreamExt;
 use log::debug;
@@ -13,13 +13,13 @@ use rweb_helper::UuidWrapper;
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
 use std::{
+    collections::HashMap,
     convert::{TryFrom, TryInto},
     env::var,
     str::FromStr,
-    collections::HashMap,
 };
-use uuid::Uuid;
 use time::OffsetDateTime;
+use uuid::Uuid;
 
 use crate::{errors::ServiceError as Error, model::AuthorizedUsers, pgpool::PgPool};
 
@@ -117,13 +117,13 @@ pub async fn fill_from_db(pool: &PgPool) -> Result<(), Error> {
     let most_recent_user_db = created_at.max(deleted_at);
     let existing_users = AUTHORIZED_USERS.get_users();
     let most_recent_user = existing_users.values().map(|i| i.created_at).max();
-    println!("most_recent_user_db {most_recent_user_db:?} most_recent_user {most_recent_user:?}");
     if most_recent_user_db.is_some()
         && most_recent_user.is_some()
         && most_recent_user_db <= most_recent_user
     {
         return Ok(());
     }
+    debug!("most_recent_user_db {most_recent_user_db:?} most_recent_user {most_recent_user:?}");
 
     let result: Result<HashMap<StackString, _>, _> = AuthorizedUsers::get_authorized_users(pool)
         .await?
@@ -142,6 +142,6 @@ pub async fn fill_from_db(pool: &PgPool) -> Result<(), Error> {
         .await;
     let users = result?;
     AUTHORIZED_USERS.update_users(users);
-    println!("AUTHORIZED_USERS {:?}", *AUTHORIZED_USERS);
+    debug!("AUTHORIZED_USERS {:?}", *AUTHORIZED_USERS);
     Ok(())
 }
