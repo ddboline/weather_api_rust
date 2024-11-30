@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.10.1"
+version = "0.10.2"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2018"
 
@@ -28,8 +28,8 @@ weather_api_common = {path = "weather_api_common/"}
 anyhow = "1.0"
 authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", tag="0.12.1"}
 aws-config = {version="1.5", features=["behavior-version-latest"]}
-aws-sdk-s3 = "1.62"
-bytes = "1.7"
+aws-sdk-s3 = "1.63"
+bytes = "1.9"
 cached = {version="0.54", features=["async", "async_tokio_rt_multi_thread"]}
 chrono = "0.4"
 clap = {version="4.5", features=["derive"]}
