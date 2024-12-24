@@ -12,8 +12,6 @@ use stack_string::{format_sstr, StackString};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{task::spawn, time::interval};
 
-use weather_api_common::get_parameters;
-
 use weather_util_rust::{
     weather_api::{WeatherApi, WeatherLocation},
     weather_data::WeatherData,
@@ -172,7 +170,8 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
     TRIGGER_DB_UPDATE.set();
     db_task.replace(spawn(update_db(pool.clone())));
 
-    if let Some(locations_to_record) = app.config.locations_to_record.as_ref() {
+    let locations = app.config.locations_to_record.clone();
+    if !locations.is_empty() {
         async fn update_db(app: AppState, locations: Vec<WeatherLocation>) {
             let mut i = interval(Duration::from_secs(300));
             loop {
@@ -185,8 +184,6 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
                 i.tick().await;
             }
         }
-        let locations: Vec<_> = locations_to_record.split(';').map(get_parameters).collect();
-
         let app = app.clone();
         record_task.replace(spawn(update_db(app, locations)));
     }

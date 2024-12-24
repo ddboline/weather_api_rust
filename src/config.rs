@@ -1,6 +1,6 @@
 use anyhow::Error;
 use isocountry::CountryCode;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use stack_string::{format_sstr, SmallString, StackString};
 use std::{
     ops::Deref,
@@ -8,7 +8,8 @@ use std::{
     sync::Arc,
 };
 
-use weather_util_rust::{latitude::Latitude, longitude::Longitude};
+use weather_api_common::get_parameters;
+use weather_util_rust::{latitude::Latitude, longitude::Longitude, weather_api::WeatherLocation};
 
 /// Configuration data
 #[derive(Default, Debug, Deserialize, PartialEq, Eq)]
@@ -38,7 +39,8 @@ pub struct ConfigInner {
     pub host: StackString,
     #[serde(default = "default_port")]
     pub port: u32,
-    pub locations_to_record: Option<StackString>,
+    #[serde(deserialize_with = "deserialize_semi_colon_delimited_locations")]
+    pub locations_to_record: Vec<WeatherLocation>,
     pub database_url: StackString,
     #[serde(default = "default_server")]
     pub server: StackString,
@@ -153,6 +155,11 @@ impl Deref for Config {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
+}
+
+fn deserialize_semi_colon_delimited_locations<'de, D>(deserializer: D) -> Result<Vec<WeatherLocation>, D::Error>
+where D: Deserializer<'de> {
+    String::deserialize(deserializer).map(|s| s.split(';').map(get_parameters).collect()).map_err(Into::into)
 }
 
 #[cfg(test)]
