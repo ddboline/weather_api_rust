@@ -118,7 +118,7 @@ impl S3Sync {
         }
     }
 
-    async fn _list_objects(
+    async fn list_objects(
         &self,
         bucket: &str,
         marker: Option<impl AsRef<str>>,
@@ -130,11 +130,11 @@ impl S3Sync {
         builder.send().await.map_err(Into::into)
     }
 
-    async fn _get_and_process_keys(&self, bucket: &str, pool: &PgPool) -> Result<usize, Error> {
+    async fn get_and_process_keys_impl(&self, bucket: &str, pool: &PgPool) -> Result<usize, Error> {
         let mut marker: Option<String> = None;
         let mut nkeys = 0;
         loop {
-            let mut output = self._list_objects(bucket, marker.as_ref()).await?;
+            let mut output = self.list_objects(bucket, marker.as_ref()).await?;
             if let Some(contents) = output.contents.take() {
                 if let Some(last) = contents.last() {
                     if let Some(key) = last.key() {
@@ -178,7 +178,7 @@ impl S3Sync {
 
     async fn get_and_process_keys(&self, bucket: &str, pool: &PgPool) -> Result<usize, Error> {
         let result: Result<usize, _> =
-            exponential_retry(|| async move { self._get_and_process_keys(bucket, pool).await })
+            exponential_retry(|| async move { self.get_and_process_keys_impl(bucket, pool).await })
                 .await;
         result.map_err(Into::into)
     }
@@ -289,7 +289,7 @@ impl S3Sync {
         Ok(msg)
     }
 
-    async fn _download_to_file(
+    async fn download_to_file(
         &self,
         bucket: &str,
         key: &str,
@@ -328,7 +328,7 @@ impl S3Sync {
         };
         let etag: Result<StackString, Error> = exponential_retry(|| {
             let tmp_path = tmp_path.clone();
-            async move { self._download_to_file(s3_bucket, s3_key, &tmp_path).await }
+            async move { self.download_to_file(s3_bucket, s3_key, &tmp_path).await }
         })
         .await;
         let output = local_file.to_path_buf();
@@ -350,7 +350,7 @@ impl S3Sync {
         etag
     }
 
-    async fn _upload_file(
+    async fn upload_file_impl(
         &self,
         bucket: &str,
         key: &str,
@@ -380,7 +380,7 @@ impl S3Sync {
         s3_bucket: &str,
         s3_key: &str,
     ) -> Result<StackString, Error> {
-        exponential_retry(|| async move { self._upload_file(s3_bucket, s3_key, local_file).await })
+        exponential_retry(|| async move { self.upload_file_impl(s3_bucket, s3_key, local_file).await })
             .await
     }
 }

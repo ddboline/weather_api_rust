@@ -32,7 +32,7 @@ fn main() -> Result<(), Error> {
         &config.api_path,
         &config.geo_path,
     );
-    let handle: std::thread::JoinHandle<Result<(), Error>> = std::thread::spawn(move || {
+    let _handle: std::thread::JoinHandle<Result<(), Error>> = std::thread::spawn(move || {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?
@@ -55,7 +55,5 @@ fn main() -> Result<(), Error> {
             recv: Arc::new(Mutex::new(recv_result)),
         },
     );
-    dioxus_desktop::launch::launch_virtual_dom(weather_app, dioxus_desktop::Config::default());
-    handle.join().unwrap()?;
-    Ok(())
+    dioxus_desktop::launch::launch_virtual_dom(weather_app, dioxus_desktop::Config::default())
 }

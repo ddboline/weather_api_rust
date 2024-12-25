@@ -157,9 +157,15 @@ impl Deref for Config {
     }
 }
 
-fn deserialize_semi_colon_delimited_locations<'de, D>(deserializer: D) -> Result<Vec<WeatherLocation>, D::Error>
-where D: Deserializer<'de> {
-    String::deserialize(deserializer).map(|s| s.split(';').map(get_parameters).collect()).map_err(Into::into)
+fn deserialize_semi_colon_delimited_locations<'de, D>(
+    deserializer: D,
+) -> Result<Vec<WeatherLocation>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    String::deserialize(deserializer)
+        .map(|s| s.split(';').map(get_parameters).collect())
+        .map_err(Into::into)
 }
 
 #[cfg(test)]

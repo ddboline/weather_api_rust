@@ -1,6 +1,6 @@
 use dioxus::prelude::{
-    component, dioxus_elements, rsx, use_resource, use_signal, Element, GlobalAttributes,
-    IntoDynNode, Key, Props, Readable, Resource, Signal, SvgAttributes, Writable,
+    component, dioxus_elements, rsx, use_resource, use_signal, Element, GlobalSignal, IntoDynNode,
+    Key, Props, Readable, Resource, Signal, Writable,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -685,8 +685,8 @@ pub fn index_element(
         WeatherPage::HistoryPlot => {
             let hl = (*history_location.read()).clone();
             let mut options = vec![("name", &hl)];
-            let start_date = start_date.read().map(|d| format!("{d}"));
-            let end_date = end_date.read().map(|d| format!("{d}"));
+            let start_date = (*start_date.read()).map(|d| format!("{d}"));
+            let end_date = (*end_date.read()).map(|d| format!("{d}"));
             if let Some(start_date) = &start_date {
                 options.push(("start_time", start_date));
             }
