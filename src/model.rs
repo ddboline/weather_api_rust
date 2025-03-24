@@ -257,10 +257,10 @@ impl WeatherDataDB {
             format_sstr!("WHERE {}", constraints.join(" AND "))
         };
         let query = format_sstr!(
-            r#"
+            r"
                 SELECT count(*) as count FROM weather_data
                 {where_str}
-            "#
+            "
         );
         let query = query_dyn!(&query, ..bindings)?;
         let conn = pool.get().await?;
@@ -306,11 +306,11 @@ impl WeatherDataDB {
             format_sstr!("WHERE {}", constraints.join(" AND "))
         };
         let mut query = format_sstr!(
-            r#"
+            r"
                 SELECT * FROM weather_data
                 {where_str}
                 ORDER BY created_at
-            "#
+            "
         );
         if let Some(offset) = &offset {
             query.push_str(&format_sstr!(" OFFSET {offset}"));
@@ -345,12 +345,12 @@ impl WeatherDataDB {
     ) -> Result<impl Stream<Item = Result<(StackString, i64), Error>>, Error> {
         let conn = pool.get().await?;
         let mut query = format_sstr!(
-            r#"
+            r"
                 SELECT location_name, count(*) as count
                 FROM weather_data
                 GROUP BY 1
                 ORDER BY 2 DESC
-            "#
+            "
         );
         if let Some(offset) = offset {
             query.push_str(&format_sstr!(" OFFSET {offset}"));
@@ -559,12 +559,12 @@ impl WeatherLocationCache {
             bindings.push(("country_code", country_code as Parameter));
         }
         let query = format_sstr!(
-            r#"
+            r"
                 SELECT * FROM weather_location_cache 
                 WHERE {}
                 ORDER BY created_at DESC
                 LIMIT 1
-            "#,
+            ",
             constraints.join(" AND "),
         );
         let query = query_dyn!(&query, ..bindings)?;

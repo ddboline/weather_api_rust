@@ -258,7 +258,7 @@ pub async fn insert_db_into_parquet(
 /// # Errors
 /// Returns error if input/output doesn't exist or cannot be read
 pub fn merge_parquet_files(input: &Path, output: &Path) -> Result<(), Error> {
-    info!("input {:?} output {:?}", input, output);
+    info!("input {input:?} output {output:?}",);
     if !input.exists() {
         return Err(format_err!("input {input:?} does not exist"));
     }

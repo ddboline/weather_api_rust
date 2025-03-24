@@ -257,9 +257,7 @@ async fn geo_direct(
 ) -> WarpResult<GeoDirectResponse> {
     let Query(query) = query;
     let api = query.get_weather_api(&data.api);
-    let loc = query
-        .get_weather_location(&data.config)
-        .map_err(Into::<Error>::into)?;
+    let loc = query.get_weather_location(&data.config)?;
     let geo_locations: Vec<GeoLocationWrapper> = if let WeatherLocation::CityName(city_name) = loc {
         api.get_direct_location(&city_name)
             .await
@@ -313,9 +311,7 @@ async fn geo_reverse(
 ) -> WarpResult<GeoDirectResponse> {
     let Query(query) = query;
     let api = query.get_weather_api(&data.api);
-    let loc = query
-        .get_weather_location(&data.config)
-        .map_err(Into::<Error>::into)?;
+    let loc = query.get_weather_location(&data.config)?;
     let geo_locations = if let WeatherLocation::LatLon {
         latitude,
         longitude,
@@ -435,8 +431,8 @@ async fn history(
 
     let server = query.server.as_ref().map(StackString::as_str);
     let name = query.name.as_ref().map(StackString::as_str);
-    let start_time: Option<Date> = query.start_time.map(Into::into);
-    let end_time = query.end_time.map(Into::into);
+    let start_time: Option<Date> = query.start_time;
+    let end_time = query.end_time;
     let total =
         WeatherDataDB::get_total_by_name_dates(&data.pool, name, server, start_time, end_time)
             .await
@@ -643,8 +639,8 @@ async fn get_history_data(
     .assume_utc()
     .date();
 
-    let start_date: Option<Date> = query.start_time.map(Into::into);
-    let end_date: Option<Date> = query.end_time.map(Into::into);
+    let start_date: Option<Date> = query.start_time;
+    let end_date: Option<Date> = query.end_time;
 
     let history: Vec<WeatherData> = if start_date.is_none() || start_date < Some(first_of_month) {
         get_by_name_dates(
@@ -666,8 +662,8 @@ async fn get_history_data(
             pool,
             Some(&query.name),
             query.server.as_ref().map(StackString::as_str),
-            query.start_time.map(Into::into),
-            query.end_time.map(Into::into),
+            query.start_time,
+            query.end_time,
             None,
             None,
         )

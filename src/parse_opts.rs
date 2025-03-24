@@ -118,7 +118,7 @@ impl ParseOpts {
                 let history: Vec<WeatherDataDB> = serde_json::from_slice(&data)?;
                 let futures = history.into_iter().map(|entry| {
                     let pool = pool.clone();
-                    async move { entry.insert(&pool).await.map_err(Into::<Error>::into) }
+                    async move { entry.insert(&pool).await }
                 });
                 let results: Result<Vec<u64>, Error> = try_join_all(futures).await;
                 let written: u64 = results?.into_iter().sum();
@@ -140,8 +140,8 @@ impl ParseOpts {
                     &pool,
                     None,
                     server.as_ref().map(StackString::as_str),
-                    start_time.map(Into::into),
-                    end_time.map(Into::into),
+                    start_time,
+                    end_time,
                     offset,
                     limit,
                 )
@@ -185,8 +185,8 @@ impl ParseOpts {
                     &directory,
                     name.as_ref().map(Into::into),
                     server.as_ref().map(Into::into),
-                    start_date.map(Into::into),
-                    end_date.map(Into::into),
+                    start_date,
+                    end_date,
                     offset,
                     limit,
                 )

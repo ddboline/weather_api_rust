@@ -81,7 +81,7 @@ impl From<ExternalUser> for LoggedUser {
     fn from(user: ExternalUser) -> Self {
         Self {
             email: user.email,
-            session: user.session.into(),
+            session: user.session,
             secret_key: user.secret_key,
         }
     }
@@ -94,7 +94,7 @@ impl TryFrom<Token> for LoggedUser {
             if AUTHORIZED_USERS.is_authorized(&user) {
                 return Ok(user.into());
             }
-            debug!("NOT AUTHORIZED {:?}", user);
+            debug!("NOT AUTHORIZED {user:?}",);
         }
         Err(Error::Unauthorized)
     }

@@ -21,4 +21,4 @@ wasm-logger = "0.2"
 weather_api_common = {path = "../weather_api_common/"}
 weather_util_rust = {version="0.16", default-features=false}
 web-sys = {version="0.3", features=["Geolocation", "Navigator", "Request", "RequestInit", "Response", "Window"]}
-url = "2.5.2"
+url = "2.5"

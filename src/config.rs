@@ -119,8 +119,10 @@ impl Config {
     /// use anyhow::Error;
     ///
     /// # fn main() -> Result<(), Error> {
+    /// # unsafe {
     /// # set_var("API_KEY", "api_key_value");
     /// # set_var("API_ENDPOINT", "api.openweathermap.org");
+    /// # }
     /// let config = Config::init_config(None)?;
     /// assert_eq!(config.api_key, Some("api_key_value".into()));
     /// assert_eq!(&config.api_endpoint, "api.openweathermap.org");
@@ -166,9 +168,7 @@ fn deserialize_semi_colon_delimited_locations<'de, D>(
 where
     D: Deserializer<'de>,
 {
-    String::deserialize(deserializer)
-        .map(|s| s.split(';').map(get_parameters).collect())
-        .map_err(Into::into)
+    String::deserialize(deserializer).map(|s| s.split(';').map(get_parameters).collect())
 }
 
 #[cfg(test)]

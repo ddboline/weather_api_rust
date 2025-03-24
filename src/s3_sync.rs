@@ -180,7 +180,7 @@ impl S3Sync {
         let result: Result<usize, _> =
             exponential_retry(|| async move { self.get_and_process_keys_impl(bucket, pool).await })
                 .await;
-        result.map_err(Into::into)
+        result
     }
 
     async fn process_files(&self, local_dir: &Path, pool: &PgPool) -> Result<usize, Error> {

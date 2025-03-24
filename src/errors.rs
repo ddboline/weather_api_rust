@@ -76,7 +76,7 @@ impl axum::response::IntoResponse for ServiceError {
                 (StatusCode::OK, LOGIN_HTML).into_response()
             }
             Self::BadRequest(s) => {
-                (StatusCode::BAD_REQUEST, ErrorMessage { message: s.into() }).into_response()
+                (StatusCode::BAD_REQUEST, ErrorMessage { message: s }).into_response()
             }
             e => (
                 StatusCode::INTERNAL_SERVER_ERROR,
