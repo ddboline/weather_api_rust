@@ -1,4 +1,4 @@
-use anyhow::{format_err, Error};
+use anyhow::{Error, format_err};
 use chrono::{DateTime, NaiveDateTime};
 use futures::TryStreamExt;
 use log::{debug, info};
@@ -6,12 +6,12 @@ use polars::{
     df as dataframe,
     io::SerReader,
     prelude::{
-        col, lit, DataFrame, LazyFrame, ParquetReader, ParquetWriter, ScanArgsParquet,
-        SortMultipleOptions, TimeUnit, UniqueKeepStrategy,
+        DataFrame, LazyFrame, ParquetReader, ParquetWriter, ScanArgsParquet, SortMultipleOptions,
+        TimeUnit, UniqueKeepStrategy, col, lit,
     },
 };
-use postgres_query::{query, FromSqlRow};
-use stack_string::{format_sstr, StackString};
+use postgres_query::{FromSqlRow, query};
+use stack_string::{StackString, format_sstr};
 use std::{fs::File, path::Path};
 use time::{Date, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset};
 use uuid::Uuid;

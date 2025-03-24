@@ -1,4 +1,4 @@
-use anyhow::{format_err, Error};
+use anyhow::{Error, format_err};
 use http::Method;
 use log::error;
 use serde::{Deserialize, Serialize};
@@ -7,15 +7,15 @@ use time::Date;
 use url::Url;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{window, RequestInit, Response};
+use web_sys::{RequestInit, Response, window};
 
 use weather_util_rust::{
-    format_string, latitude::Latitude, longitude::Longitude, weather_api::WeatherLocation,
-    weather_data::WeatherData, weather_forecast::WeatherForecast, ApiStringType,
+    ApiStringType, format_string, latitude::Latitude, longitude::Longitude,
+    weather_api::WeatherLocation, weather_data::WeatherData, weather_forecast::WeatherForecast,
 };
 
 use crate::{
-    weather_element::PlotData, LocationCount, PaginatedLocationCount, WeatherEntry, DEFAULT_HOST,
+    DEFAULT_HOST, LocationCount, PaginatedLocationCount, WeatherEntry, weather_element::PlotData,
 };
 
 enum FetchOutput {

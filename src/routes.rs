@@ -1,21 +1,26 @@
+use axum::extract::{Json, Query, State};
 use cached::Cached;
+use derive_more::{From, Into};
 use dioxus::prelude::VirtualDom;
-use futures::{future::try_join_all, TryStreamExt};
+use futures::{TryStreamExt, future::try_join_all};
 use isocountry::CountryCode;
-use once_cell::sync::Lazy;
-use rweb::{get, post, Json, Query, Rejection, Schema};
 use serde::{Deserialize, Serialize};
-use stack_string::StackString;
-use std::{collections::HashMap, convert::Infallible};
+use stack_string::{StackString, format_sstr};
+use std::{
+    collections::HashMap,
+    sync::{Arc, LazyLock},
+};
 use time::{
-    macros::{date, time},
     Date, OffsetDateTime, PrimitiveDateTime,
+    macros::{date, time},
 };
 use tokio::sync::RwLock;
+use utoipa::{PartialSchema, ToSchema};
+use utoipa_axum::{router::OpenApiRouter, routes};
 
-use rweb_helper::{
-    html_response::HtmlResponse as HtmlBase, json_response::JsonResponse as JsonBase, DateType,
-    RwebResponse,
+use utoipa_helper::{
+    UtoipaResponse, html_response::HtmlResponse as HtmlBase,
+    json_response::JsonResponse as JsonBase,
 };
 use weather_api_common::weather_element::{
     ForecastComponent, ForecastComponentProps, WeatherComponent, WeatherComponentProps,
@@ -25,9 +30,11 @@ use weather_util_rust::{
 };
 
 use crate::{
+    GeoLocationWrapper, PlotDataWrapper, PlotPointWrapper, WeatherDataDBWrapper,
+    WeatherDataWrapper, WeatherForecastWrapper,
     api_options::ApiOptions,
     app::{
-        get_weather_data, get_weather_forecast, AppState, GET_WEATHER_DATA, GET_WEATHER_FORECAST,
+        AppState, GET_WEATHER_DATA, GET_WEATHER_FORECAST, get_weather_data, get_weather_forecast,
     },
     config::Config,
     errors::ServiceError as Error,
@@ -37,14 +44,12 @@ use crate::{
     model::WeatherDataDB,
     pgpool::PgPool,
     polars_analysis::get_by_name_dates,
-    GeoLocationWrapper, PlotDataWrapper, PlotPointWrapper, WeatherDataDBWrapper,
-    WeatherDataWrapper, WeatherForecastWrapper,
 };
 
-pub type WarpResult<T> = Result<T, Rejection>;
-pub type HttpResult<T> = Result<T, Error>;
+type WarpResult<T> = Result<T, Error>;
+type HttpResult<T> = Result<T, Error>;
 
-static WEATHER_STRING_LENGTH: Lazy<StringLengthMap> = Lazy::new(StringLengthMap::new);
+static WEATHER_STRING_LENGTH: LazyLock<StringLengthMap> = LazyLock::new(StringLengthMap::new);
 
 struct StringLengthMap(RwLock<HashMap<StackString, usize>>);
 
@@ -70,16 +75,17 @@ impl StringLengthMap {
     }
 }
 
-#[derive(RwebResponse)]
-#[response(description = "Display Current Weather and Forecast", content = "html")]
-struct IndexResponse(HtmlBase<StackString, Error>);
+#[derive(UtoipaResponse)]
+#[response(description = "Display Current Weather and Forecast", content = "text/html")]
+#[rustfmt::skip]
+struct IndexResponse(HtmlBase::<StackString>);
 
-#[get("/weather/index.html")]
-pub async fn frontpage(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/index.html")]
+async fn frontpage(
+    data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
 ) -> WarpResult<IndexResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
@@ -105,28 +111,30 @@ pub async fn frontpage(
     Ok(HtmlBase::new(body.into()).into())
 }
 
-#[derive(RwebResponse)]
-#[response(description = "TimeseriesScript", content = "js")]
-struct TimeseriesJsResponse(HtmlBase<&'static str, Infallible>);
+#[derive(UtoipaResponse)]
+#[response(description = "TimeseriesScript", content = "text/javascript")]
+#[rustfmt::skip]
+struct TimeseriesJsResponse(HtmlBase::<&'static str>);
 
-#[get("/weather/timeseries.js")]
-pub async fn timeseries_js() -> WarpResult<TimeseriesJsResponse> {
+#[utoipa::path(get, path = "/weather/timeseries.js")]
+async fn timeseries_js() -> WarpResult<TimeseriesJsResponse> {
     Ok(HtmlBase::new(include_str!("../templates/timeseries.js")).into())
 }
 
-#[derive(RwebResponse)]
+#[derive(UtoipaResponse)]
 #[response(
     description = "Show Plot of Current Weather and Forecast",
-    content = "html"
+    content = "text/html"
 )]
-struct WeatherPlotResponse(HtmlBase<String, Error>);
+#[rustfmt::skip]
+struct WeatherPlotResponse(HtmlBase::<String>);
 
-#[get("/weather/plot.html")]
-pub async fn forecast_plot(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/plot.html")]
+async fn forecast_plot(
+    data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
 ) -> WarpResult<WeatherPlotResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
     let weather = get_weather_data(&data.pool, &data.config, &api, &loc).await?;
@@ -153,27 +161,28 @@ pub async fn forecast_plot(
     Ok(HtmlBase::new(body).into())
 }
 
-#[derive(Serialize, Deserialize, Schema, Clone)]
-#[schema(component = "Statistics")]
+#[derive(Serialize, Deserialize, ToSchema, Clone)]
+// Statistics
 pub struct StatisticsObject {
-    #[schema(description = "Weather Data Cache Hits")]
+    // Weather Data Cache Hits
     pub data_cache_hits: u64,
-    #[schema(description = "Weather Data Cache Misses")]
+    // Weather Data Cache Misses
     pub data_cache_misses: u64,
-    #[schema(description = "Forecast Cache Hits")]
+    // Forecast Cache Hits
     pub forecast_cache_hits: u64,
-    #[schema(description = "Forecast Cache Misses")]
+    // Forecast Cache Misses
     pub forecast_cache_misses: u64,
-    #[schema(description = "Weather String Length Map")]
+    // Weather String Length Map
     pub weather_string_length_map: HashMap<String, usize>,
 }
 
-#[derive(RwebResponse)]
+#[derive(UtoipaResponse)]
 #[response(description = "Get Cache Statistics")]
-struct StatisticsResponse(JsonBase<StatisticsObject, Error>);
+#[rustfmt::skip]
+struct StatisticsResponse(JsonBase::<StatisticsObject>);
 
-#[get("/weather/statistics")]
-pub async fn statistics() -> WarpResult<StatisticsResponse> {
+#[utoipa::path(get, path = "/weather/statistics")]
+async fn statistics() -> WarpResult<StatisticsResponse> {
     let data_cache = GET_WEATHER_DATA.lock().await;
     let forecast_cache = GET_WEATHER_FORECAST.lock().await;
     let weather_string_length_map = WEATHER_STRING_LENGTH.get_map().await;
@@ -189,56 +198,64 @@ pub async fn statistics() -> WarpResult<StatisticsResponse> {
     Ok(JsonBase::new(stat).into())
 }
 
-#[derive(RwebResponse)]
+#[derive(UtoipaResponse)]
 #[response(description = "Get WeatherData Api Json")]
-struct WeatherResponse(JsonBase<WeatherDataWrapper, Error>);
+#[rustfmt::skip]
+struct WeatherResponse(JsonBase::<WeatherDataWrapper>);
 
-#[get("/weather/weather")]
-pub async fn weather(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/weather")]
+async fn weather(
+    data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
 ) -> WarpResult<WeatherResponse> {
-    let weather_data = weather_json(data, query.into_inner()).await?.into();
+    let Query(query) = query;
+    let weather_data = weather_json(&data, query).await?.into();
     Ok(JsonBase::new(weather_data).into())
 }
 
-async fn weather_json(data: AppState, query: ApiOptions) -> HttpResult<WeatherData> {
+async fn weather_json(data: &AppState, query: ApiOptions) -> HttpResult<WeatherData> {
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
     let weather_data = get_weather_data(&data.pool, &data.config, &api, &loc).await?;
     Ok(weather_data)
 }
 
-#[derive(RwebResponse)]
+#[derive(UtoipaResponse)]
 #[response(description = "Get WeatherForecast Api Json")]
-struct ForecastResponse(JsonBase<WeatherForecastWrapper, Error>);
+#[rustfmt::skip]
+struct ForecastResponse(JsonBase::<WeatherForecastWrapper>);
 
-#[get("/weather/forecast")]
-pub async fn forecast(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/forecast")]
+async fn forecast(
+    data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
 ) -> WarpResult<ForecastResponse> {
-    let weather_forecast = forecast_body(data, query.into_inner()).await?.into();
+    let Query(query) = query;
+    let weather_forecast = forecast_body(&data, query).await?.into();
     Ok(JsonBase::new(weather_forecast).into())
 }
 
-async fn forecast_body(data: AppState, query: ApiOptions) -> HttpResult<WeatherForecast> {
+async fn forecast_body(data: &AppState, query: ApiOptions) -> HttpResult<WeatherForecast> {
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
     let weather_forecast = get_weather_forecast(&api, &loc).await?;
     Ok(weather_forecast)
 }
 
-#[derive(RwebResponse)]
-#[response(description = "Direct Geo Location")]
-struct GeoDirectResponse(JsonBase<Vec<GeoLocationWrapper>, Error>);
+#[derive(ToSchema, Serialize, Into, From)]
+struct GeoLocationVec(Vec<GeoLocationWrapper>);
 
-#[get("/weather/direct")]
-pub async fn geo_direct(
-    #[data] data: AppState,
+#[derive(UtoipaResponse)]
+#[response(description = "Direct Geo Location")]
+#[rustfmt::skip]
+struct GeoDirectResponse(JsonBase::<GeoLocationVec>);
+
+#[utoipa::path(get, path = "/weather/direct")]
+async fn geo_direct(
+    data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
 ) -> WarpResult<GeoDirectResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let api = query.get_weather_api(&data.api);
     let loc = query
         .get_weather_location(&data.config)
@@ -253,24 +270,25 @@ pub async fn geo_direct(
     } else {
         Vec::new()
     };
-    Ok(GeoDirectResponse(JsonBase::new(geo_locations)))
+    Ok(GeoDirectResponse(JsonBase::new(geo_locations.into())))
 }
 
-#[derive(Serialize, Deserialize, Schema)]
+#[derive(Serialize, Deserialize, ToSchema)]
 struct ZipOptions {
     zip: StackString,
 }
 
-#[derive(RwebResponse)]
+#[derive(UtoipaResponse)]
 #[response(description = "Zip Geo Location")]
-struct GeoZipResponse(JsonBase<GeoLocationWrapper, Error>);
+#[rustfmt::skip]
+struct GeoZipResponse(JsonBase::<GeoLocationWrapper>);
 
-#[get("/weather/zip")]
-pub async fn geo_zip(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/zip")]
+async fn geo_zip(
+    data: State<Arc<AppState>>,
     query: Query<ZipOptions>,
 ) -> WarpResult<GeoZipResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let api = &data.api;
     let zip_country: Vec<_> = query.zip.split(',').take(2).collect();
     let zip: u64 = zip_country
@@ -288,12 +306,12 @@ pub async fn geo_zip(
     Ok(GeoZipResponse(JsonBase::new(loc.into())))
 }
 
-#[get("/weather/reverse")]
-pub async fn geo_reverse(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/reverse")]
+async fn geo_reverse(
+    data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
 ) -> WarpResult<GeoDirectResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let api = query.get_weather_api(&data.api);
     let loc = query
         .get_weather_location(&data.config)
@@ -311,53 +329,55 @@ pub async fn geo_reverse(
             .collect()
     } else {
         Vec::new()
-    };
+    }
+    .into();
     Ok(GeoDirectResponse(JsonBase::new(geo_locations)))
 }
 
-#[derive(Debug, Serialize, Deserialize, Schema)]
-#[schema(component = "LocationCount")]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+// LocationCount
 struct LocationCount {
-    #[schema(description = "Location String")]
+    // Location String
     location: StackString,
-    #[schema(description = "Count")]
+    // Count
     count: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Schema)]
-#[schema(component = "Pagination")]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+// Pagination
 struct Pagination {
-    #[schema(description = "Number of Entries Returned")]
+    // Number of Entries Returned
     limit: usize,
-    #[schema(description = "Number of Entries to Skip")]
+    // Number of Entries to Skip
     offset: usize,
-    #[schema(description = "Total Number of Entries")]
+    // Total Number of Entries
     total: usize,
 }
 
-#[derive(Debug, Serialize, Deserialize, Schema)]
-#[schema(component = "PaginatedLocationCount")]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+// PaginatedLocationCount
 struct PaginatedLocationCount {
     pagination: Pagination,
     data: Vec<LocationCount>,
 }
 
-#[derive(RwebResponse)]
+#[derive(UtoipaResponse)]
 #[response(description = "Get Weather History Locations")]
-struct HistoryLocationsResponse(JsonBase<PaginatedLocationCount, Error>);
+#[rustfmt::skip]
+struct HistoryLocationsResponse(JsonBase::<PaginatedLocationCount>);
 
-#[derive(Deserialize, Schema)]
+#[derive(Deserialize, ToSchema)]
 struct OffsetLocation {
     offset: Option<usize>,
     limit: Option<usize>,
 }
 
-#[get("/weather/locations")]
-pub async fn locations(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/locations")]
+async fn locations(
+    data: State<Arc<AppState>>,
     query: Query<OffsetLocation>,
 ) -> WarpResult<HistoryLocationsResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let offset = query.offset.unwrap_or(0);
     let limit = query.limit.unwrap_or(10);
 
@@ -381,34 +401,35 @@ pub async fn locations(
     Ok(JsonBase::new(PaginatedLocationCount { pagination, data }).into())
 }
 
-#[derive(Deserialize, Schema)]
+#[derive(Deserialize, ToSchema)]
 struct HistoryRequest {
     name: Option<StackString>,
     server: Option<StackString>,
-    start_time: Option<DateType>,
-    end_time: Option<DateType>,
+    start_time: Option<Date>,
+    end_time: Option<Date>,
     offset: Option<usize>,
     limit: Option<usize>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Schema)]
-#[schema(component = "PaginatedWeatherDataDB")]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+// PaginatedWeatherDataDB
 struct PaginatedWeatherDataDB {
     pagination: Pagination,
     data: Vec<WeatherDataDBWrapper>,
 }
 
-#[derive(RwebResponse)]
+#[derive(UtoipaResponse)]
 #[response(description = "Get Weather History")]
-struct HistoryResponse(JsonBase<PaginatedWeatherDataDB, Error>);
+#[rustfmt::skip]
+struct HistoryResponse(JsonBase::<PaginatedWeatherDataDB>);
 
-#[get("/weather/history")]
-pub async fn history(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/history")]
+async fn history(
+    data: State<Arc<AppState>>,
     query: Query<HistoryRequest>,
     _: LoggedUser,
 ) -> WarpResult<HistoryResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let offset = query.offset.unwrap_or(0);
     let limit = query.limit.unwrap_or(10);
 
@@ -445,24 +466,25 @@ pub async fn history(
     Ok(JsonBase::new(PaginatedWeatherDataDB { pagination, data }).into())
 }
 
-#[derive(Serialize, Deserialize, Schema)]
-#[schema(component = "HistoryUpdateRequest")]
+#[derive(Serialize, Deserialize, ToSchema)]
+// HistoryUpdateRequest
 struct HistoryUpdateRequest {
     updates: Vec<WeatherDataDBWrapper>,
 }
 
-#[derive(RwebResponse)]
+#[derive(UtoipaResponse)]
 #[response(description = "Update Weather History", status = "CREATED")]
-struct HistoryUpdateResponse(JsonBase<u64, Error>);
+#[rustfmt::skip]
+struct HistoryUpdateResponse(HtmlBase::<StackString>);
 
-#[post("/weather/history")]
-pub async fn history_update(
-    #[data] data: AppState,
-    payload: Json<HistoryUpdateRequest>,
+#[utoipa::path(post, path = "/weather/history")]
+async fn history_update(
+    data: State<Arc<AppState>>,
     _: LoggedUser,
+    payload: Json<HistoryUpdateRequest>,
 ) -> WarpResult<HistoryUpdateResponse> {
-    let payload = payload.into_inner();
-    let inserts = {
+    let Json(payload) = payload;
+    let inserts: u64 = {
         let pool = &data.pool;
         let futures = payload.updates.into_iter().map(|update| async move {
             let entry: WeatherDataDB = update.into();
@@ -471,28 +493,29 @@ pub async fn history_update(
         let results: Result<Vec<u64>, Error> = try_join_all(futures).await;
         results?.into_iter().sum()
     };
-    Ok(JsonBase::new(inserts).into())
+    Ok(HtmlBase::new(format_sstr!("{inserts}")).into())
 }
 
-#[derive(Deserialize, Schema, Serialize)]
-#[schema(component = "HistoryPlotRequest")]
+#[derive(Deserialize, ToSchema, Serialize)]
+// HistoryPlotRequest")]
 struct HistoryPlotRequest {
     name: StackString,
     server: Option<StackString>,
-    start_time: Option<DateType>,
-    end_time: Option<DateType>,
+    start_time: Option<Date>,
+    end_time: Option<Date>,
 }
 
-#[derive(RwebResponse)]
-#[response(description = "Show Plot of Historical Weather", content = "html")]
-struct HistoryPlotResponse(HtmlBase<String, Error>);
+#[derive(UtoipaResponse)]
+#[response(description = "Show Plot of Historical Weather", content = "text/html")]
+#[rustfmt::skip]
+struct HistoryPlotResponse(HtmlBase::<String>);
 
-#[get("/weather/history_plot.html")]
-pub async fn history_plot(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/history_plot.html")]
+async fn history_plot(
+    data: State<Arc<AppState>>,
     query: Query<HistoryPlotRequest>,
 ) -> WarpResult<HistoryPlotResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let history = get_history_data(&query, &data.config, &data.pool).await?;
 
     if history.is_empty() {
@@ -522,79 +545,89 @@ pub async fn history_plot(
     Ok(HtmlBase::new(body).into())
 }
 
-#[derive(RwebResponse)]
+#[derive(UtoipaResponse)]
 #[response(description = "Logged in User")]
-struct UserResponse(JsonBase<LoggedUser, Error>);
+#[rustfmt::skip]
+struct UserResponse(JsonBase::<LoggedUser>);
 
-#[get("/weather/user")]
-pub async fn user(user: LoggedUser) -> WarpResult<UserResponse> {
+#[utoipa::path(get, path = "/weather/user")]
+async fn user(user: LoggedUser) -> WarpResult<UserResponse> {
     Ok(JsonBase::new(user).into())
 }
 
-#[derive(RwebResponse)]
-#[response(description = "Forecast Plot Data")]
-struct ForecastPlotsResponse(JsonBase<Vec<PlotDataWrapper>, Error>);
+#[derive(ToSchema, Serialize, Into, From)]
+struct PlotDataVec(Vec<PlotDataWrapper>);
 
-#[get("/weather/forecast-plots")]
-pub async fn forecast_plots(
-    #[data] data: AppState,
+#[derive(UtoipaResponse)]
+#[response(description = "Forecast Plot Data")]
+#[rustfmt::skip]
+struct ForecastPlotsResponse(JsonBase::<PlotDataVec>);
+
+#[utoipa::path(get, path = "/weather/forecast-plots")]
+async fn forecast_plots(
+    data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
 ) -> WarpResult<ForecastPlotsResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
     let weather = get_weather_data(&data.pool, &data.config, &api, &loc).await?;
 
-    let plots = get_forecast_plots(&query, &weather)
+    let plots: Vec<_> = get_forecast_plots(&query, &weather)
         .map_err(Into::<Error>::into)?
         .into_iter()
         .map(Into::into)
         .collect();
-    Ok(JsonBase::new(plots).into())
+    Ok(JsonBase::new(plots.into()).into())
 }
 
-#[derive(RwebResponse)]
+#[derive(ToSchema, Serialize, Into, From)]
+struct PlotDataInner(Vec<PlotPointWrapper>);
+
+#[derive(UtoipaResponse)]
 #[response(description = "Plot Data")]
-struct PlotDataResponse(JsonBase<Vec<PlotPointWrapper>, Error>);
+#[rustfmt::skip]
+struct PlotDataResponse(JsonBase::<PlotDataInner>);
 
-#[get("/weather/forecast-plots/temperature")]
-pub async fn forecast_temp_plot(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/forecast-plots/temperature")]
+async fn forecast_temp_plot(
+    data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
 ) -> WarpResult<PlotDataResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
     let forecast = get_weather_forecast(&api, &loc).await?;
-    let plots = get_forecast_temp_plot(&forecast)
+    let plots: Vec<PlotPointWrapper> = get_forecast_temp_plot(&forecast)
         .into_iter()
         .map(Into::into)
         .collect();
-    Ok(JsonBase::new(plots).into())
+    Ok(JsonBase::new(plots.into()).into())
 }
 
-#[get("/weather/forecast-plots/precipitation")]
-pub async fn forecast_precip_plot(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/forecast-plots/precipitation")]
+async fn forecast_precip_plot(
+    data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
 ) -> WarpResult<PlotDataResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let api = query.get_weather_api(&data.api);
     let loc = query.get_weather_location(&data.config)?;
 
     let forecast = get_weather_forecast(&api, &loc).await?;
-    let plots = get_forecast_precip_plot(&forecast)
+    let plots: Vec<_> = get_forecast_precip_plot(&forecast)
         .into_iter()
         .map(Into::into)
         .collect();
-    Ok(JsonBase::new(plots).into())
+    Ok(JsonBase::new(plots.into()).into())
 }
 
-#[derive(RwebResponse)]
+#[derive(UtoipaResponse)]
 #[response(description = "Historical Plot Data")]
-struct HistoryPlotsResponse(JsonBase<Vec<PlotDataWrapper>, Error>);
+#[rustfmt::skip]
+struct HistoryPlotsResponse(JsonBase::<PlotDataVec>);
 
 async fn get_history_data(
     query: &HistoryPlotRequest,
@@ -648,12 +681,12 @@ async fn get_history_data(
     Ok(history)
 }
 
-#[get("/weather/history-plots")]
-pub async fn history_plots(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/history-plots")]
+async fn history_plots(
+    data: State<Arc<AppState>>,
     query: Query<HistoryPlotRequest>,
 ) -> WarpResult<HistoryPlotsResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let query_string = serde_urlencoded::to_string(&query).map_err(Into::<Error>::into)?;
     let history = get_history_data(&query, &data.config, &data.pool).await?;
 
@@ -666,33 +699,60 @@ pub async fn history_plots(
         Vec::new()
     };
 
-    Ok(JsonBase::new(plots).into())
+    Ok(JsonBase::new(plots.into()).into())
 }
 
-#[get("/weather/history-plots/temperature")]
-pub async fn history_temp_plot(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/history-plots/temperature")]
+async fn history_temp_plot(
+    data: State<Arc<AppState>>,
     query: Query<HistoryPlotRequest>,
 ) -> WarpResult<PlotDataResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let history = get_history_data(&query, &data.config, &data.pool).await?;
-    let plots = get_history_temperature_plot(&history)
+    let plots: Vec<_> = get_history_temperature_plot(&history)
         .into_iter()
         .map(Into::into)
         .collect();
-    Ok(JsonBase::new(plots).into())
+    Ok(JsonBase::new(plots.into()).into())
 }
 
-#[get("/weather/history-plots/precipitation")]
-pub async fn history_precip_plot(
-    #[data] data: AppState,
+#[utoipa::path(get, path = "/weather/history-plots/precipitation")]
+async fn history_precip_plot(
+    data: State<Arc<AppState>>,
     query: Query<HistoryPlotRequest>,
 ) -> WarpResult<PlotDataResponse> {
-    let query = query.into_inner();
+    let Query(query) = query;
     let history = get_history_data(&query, &data.config, &data.pool).await?;
-    let plots = get_history_precip_plot(&history)
+    let plots: Vec<_> = get_history_precip_plot(&history)
         .into_iter()
         .map(Into::into)
         .collect();
-    Ok(JsonBase::new(plots).into())
+    Ok(JsonBase::new(plots.into()).into())
+}
+
+pub fn get_api_path(app: &AppState) -> OpenApiRouter {
+    let app = Arc::new(app.clone());
+
+    OpenApiRouter::new()
+        .routes(routes!(frontpage))
+        .routes(routes!(forecast_plot))
+        .routes(routes!(timeseries_js))
+        .routes(routes!(weather))
+        .routes(routes!(forecast))
+        .routes(routes!(statistics))
+        .routes(routes!(locations))
+        .routes(routes!(history))
+        .routes(routes!(history_update))
+        .routes(routes!(history_plot))
+        .routes(routes!(geo_direct))
+        .routes(routes!(geo_zip))
+        .routes(routes!(geo_reverse))
+        .routes(routes!(user))
+        .routes(routes!(forecast_plots))
+        .routes(routes!(history_plots))
+        .routes(routes!(forecast_temp_plot))
+        .routes(routes!(forecast_precip_plot))
+        .routes(routes!(history_temp_plot))
+        .routes(routes!(history_precip_plot))
+        .with_state(app)
 }

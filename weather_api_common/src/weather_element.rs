@@ -1,6 +1,6 @@
 use dioxus::prelude::{
-    component, dioxus_elements, rsx, use_resource, use_signal, Element, GlobalSignal, IntoDynNode,
-    Key, Props, Readable, Resource, Signal, Writable,
+    Element, GlobalSignal, IntoDynNode, Key, Props, Readable, Resource, Signal, Writable,
+    component, dioxus_elements, rsx, use_resource, use_signal,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -8,12 +8,12 @@ use std::{
     fmt::Write,
 };
 use time::{
-    format_description::FormatItem, macros::format_description, Date, OffsetDateTime, UtcOffset,
+    Date, OffsetDateTime, UtcOffset, format_description::FormatItem, macros::format_description,
 };
 use url::Url;
 
 #[cfg(not(target_arch = "wasm32"))]
-use futures_util::{sink::SinkExt, StreamExt};
+use futures_util::{StreamExt, sink::SinkExt};
 
 #[cfg(not(target_arch = "wasm32"))]
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -34,7 +34,7 @@ use weather_util_rust::{
     weather_forecast::WeatherForecast,
 };
 
-use crate::{get_parameters, WeatherEntry, WeatherPage, DEFAULT_LOCATION, DEFAULT_STR};
+use crate::{DEFAULT_LOCATION, DEFAULT_STR, WeatherEntry, WeatherPage, get_parameters};
 
 #[cfg(debug_assertions)]
 use crate::DEFAULT_HOST;
@@ -354,8 +354,9 @@ fn weather_app_element(
                             location.set(new_location);
                         },
                         {
-                            search_history.read().iter().rev().map(|s| {
-                                let selected = get_parameters(s) == *location.read();
+                            let tmp = search_history.read().clone();
+                            tmp.into_iter().rev().map(|s| {
+                                let selected = get_parameters(&s) == *location.read();
                                 rsx! {
                                     option { class: "pl-8 pr-2 py-1 border-b-2 border-gray-100 relative cursor-pointer hover:bg-yellow-50 hover:text-gray-900",
                                         key: "search-history-key-{s}",

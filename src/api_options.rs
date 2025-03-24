@@ -1,7 +1,7 @@
-use rweb::Schema;
 use serde::{Deserialize, Serialize};
 use stack_string::{SmallString, StackString};
 use std::borrow::Cow;
+use utoipa::ToSchema;
 
 use weather_util_rust::weather_api::{WeatherApi, WeatherLocation};
 
@@ -10,7 +10,7 @@ use crate::{
     latitude_wrapper::LatitudeWrapper, longitude_wrapper::LongitudeWrapper,
 };
 
-#[derive(Serialize, Deserialize, Schema)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct ApiOptions {
     pub zip: Option<u64>,
     pub country_code: Option<CountryCodeWrapper>,
@@ -113,7 +113,9 @@ mod test {
 
         let opt: ApiOptions = serde_json::from_str(r#"{"appid":"TEST"}"#)?;
 
-        set_var("ZIPCODE", "49934");
+        unsafe {
+            set_var("ZIPCODE", "49934");
+        }
 
         let config = Config::init_config(None)?;
 
@@ -124,8 +126,10 @@ mod test {
             assert!(false);
         }
 
-        remove_var("ZIPCODE");
-        set_var("CITY_NAME", "TEST CITY");
+        unsafe {
+            remove_var("ZIPCODE");
+            set_var("CITY_NAME", "TEST CITY");
+        }
 
         let opt: ApiOptions = serde_json::from_str(r#"{"appid":"TEST"}"#)?;
 
@@ -140,9 +144,11 @@ mod test {
             assert!(false);
         }
 
-        remove_var("CITY_NAME");
-        set_var("LAT", "40.7518359");
-        set_var("LON", "-74.0529922");
+        unsafe {
+            remove_var("CITY_NAME");
+            set_var("LAT", "40.7518359");
+            set_var("LON", "-74.0529922");
+        }
 
         let opt: ApiOptions = serde_json::from_str(r#"{"appid":"TEST"}"#)?;
 

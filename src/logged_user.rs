@@ -1,15 +1,12 @@
 pub use authorized_users::{
-    get_random_key, get_secrets, token::Token, AuthorizedUser as ExternalUser, AUTHORIZED_USERS,
-    JWT_SECRET, KEY_LENGTH, LOGIN_HTML, SECRET_KEY, TRIGGER_DB_UPDATE,
+    AUTHORIZED_USERS, AuthorizedUser as ExternalUser, JWT_SECRET, KEY_LENGTH, LOGIN_HTML,
+    SECRET_KEY, get_random_key, get_secrets, token::Token,
 };
+use axum::{extract::FromRequestParts, http::request::Parts};
+use axum_extra::extract::CookieJar;
 use futures::TryStreamExt;
 use log::debug;
 use maplit::hashmap;
-use rweb::{
-    filters::{cookie::cookie, BoxedFilter},
-    Filter, FromRequest, Rejection, Schema,
-};
-use rweb_helper::UuidWrapper;
 use serde::{Deserialize, Serialize};
 use stack_string::StackString;
 use std::{
@@ -19,50 +16,64 @@ use std::{
     str::FromStr,
 };
 use time::OffsetDateTime;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::{errors::ServiceError as Error, model::AuthorizedUsers, pgpool::PgPool};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Schema)]
-#[schema(component = "LoggedUser")]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, ToSchema)]
+// LoggedUser
 pub struct LoggedUser {
-    #[schema(description = "Email Address", example = r#""user@example.com""#)]
+    #[schema(example = r#""user@example.com""#)]
+    // Email Address
     pub email: StackString,
-    #[schema(description = "Session Id")]
-    pub session: UuidWrapper,
-    #[schema(description = "Secret Key")]
+    // Session Id
+    pub session: Uuid,
+    // Secret Key
     pub secret_key: StackString,
 }
 
 impl LoggedUser {
     /// # Errors
     /// Return error if `session_id` matches `LoggedUser`
-    pub fn verify_session_id(&self, session_id: Uuid) -> Result<(), Error> {
+    pub fn verify_session_id(self, session_id: Uuid) -> Result<Self, Error> {
         if self.session == session_id {
-            Ok(())
+            Ok(self)
         } else {
             debug!("session {} expected {}", self.session, session_id);
             Err(Error::Unauthorized)
         }
     }
 
-    #[must_use]
-    pub fn filter() -> impl Filter<Extract = (Self,), Error = Rejection> + Copy {
-        cookie("session-id")
-            .and(cookie("jwt"))
-            .and_then(|id: Uuid, user: Self| async move {
-                user.verify_session_id(id)
-                    .map(|()| user)
-                    .map_err(rweb::reject::custom)
-            })
+    fn extract_user_from_cookies(cookie_jar: &CookieJar) -> Option<LoggedUser> {
+        let session_id: Uuid = StackString::from_display(cookie_jar.get("session-id")?.encoded())
+            .strip_prefix("session-id=")?
+            .parse()
+            .ok()?;
+        debug!("session_id {session_id:?}");
+        let user: LoggedUser = StackString::from_display(cookie_jar.get("jwt")?.encoded())
+            .strip_prefix("jwt=")?
+            .parse()
+            .ok()?;
+        debug!("user {user:?}");
+        user.verify_session_id(session_id).ok()
     }
 }
 
-impl FromRequest for LoggedUser {
-    type Filter = BoxedFilter<(Self,)>;
+impl<S> FromRequestParts<S> for LoggedUser
+where
+    S: Send + Sync,
+{
+    type Rejection = Error;
 
-    fn new() -> Self::Filter {
-        Self::filter().boxed()
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let cookie_jar = CookieJar::from_request_parts(parts, state)
+            .await
+            .expect("extract failed");
+        debug!("cookie_jar {cookie_jar:?}");
+        let user = LoggedUser::extract_user_from_cookies(&cookie_jar)
+            .ok_or_else(|| Error::Unauthorized)?;
+        Ok(user)
     }
 }
 

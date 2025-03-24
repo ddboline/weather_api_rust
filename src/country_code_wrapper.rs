@@ -1,8 +1,8 @@
 use derive_more::{Deref, Display, From, Into};
 use isocountry::CountryCode;
-use rweb::openapi::{ComponentDescriptor, ComponentOrInlineSchema, Entity};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use utoipa::{PartialSchema, ToSchema};
 
 #[derive(
     Serialize,
@@ -22,12 +22,23 @@ use std::borrow::Cow;
 )]
 pub struct CountryCodeWrapper(CountryCode);
 
-impl Entity for CountryCodeWrapper {
-    fn type_name() -> Cow<'static, str> {
-        String::type_name()
+impl PartialSchema for CountryCodeWrapper {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        String::schema()
     }
-    #[inline]
-    fn describe(comp_d: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        String::describe(comp_d)
+}
+
+impl ToSchema for CountryCodeWrapper {
+    fn name() -> Cow<'static, str> {
+        String::name()
+    }
+
+    fn schemas(
+        schemas: &mut Vec<(
+            String,
+            utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+        )>,
+    ) {
+        String::schemas(schemas);
     }
 }

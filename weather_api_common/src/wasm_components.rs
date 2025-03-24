@@ -1,4 +1,4 @@
-use dioxus::prelude::{component, use_resource, use_signal, Element, Readable, Writable};
+use dioxus::prelude::{Element, Readable, Writable, component, use_resource, use_signal};
 use js_sys::Date as JsDate;
 use log::debug;
 use std::collections::{HashMap, HashSet};
@@ -7,7 +7,7 @@ use web_sys::window;
 
 use weather_util_rust::weather_api::WeatherLocation;
 
-use crate::{get_parameters, WeatherEntry, WeatherPage, DEFAULT_HOST, DEFAULT_LOCATION};
+use crate::{DEFAULT_HOST, DEFAULT_LOCATION, WeatherEntry, WeatherPage, get_parameters};
 
 use crate::{
     wasm_utils::{

@@ -1,7 +1,7 @@
 use anyhow::Error;
 use isocountry::CountryCode;
 use serde::{Deserialize, Deserializer};
-use stack_string::{format_sstr, SmallString, StackString};
+use stack_string::{SmallString, StackString, format_sstr};
 use std::{
     ops::Deref,
     path::{Path, PathBuf},
@@ -39,7 +39,10 @@ pub struct ConfigInner {
     pub host: StackString,
     #[serde(default = "default_port")]
     pub port: u32,
-    #[serde(deserialize_with = "deserialize_semi_colon_delimited_locations", default = "Vec::new")]
+    #[serde(
+        deserialize_with = "deserialize_semi_colon_delimited_locations",
+        default = "Vec::new"
+    )]
     pub locations_to_record: Vec<WeatherLocation>,
     pub database_url: StackString,
     #[serde(default = "default_server")]
@@ -172,7 +175,7 @@ where
 mod test {
     use anyhow::Error;
 
-    use crate::config::{default_api_endpoint, Config};
+    use crate::config::{Config, default_api_endpoint};
 
     #[test]
     fn test_config() -> Result<(), Error> {

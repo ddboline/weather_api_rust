@@ -1,31 +1,28 @@
 use anyhow::Error;
 use clap::Parser;
-use futures::{future::try_join_all, TryStreamExt};
+use futures::{TryStreamExt, future::try_join_all};
 use refinery::embed_migrations;
-use rweb_helper::DateType;
-use stack_string::{format_sstr, StackString};
+use stack_string::{StackString, format_sstr};
 use std::path::PathBuf;
-use time::{macros::format_description, Date};
+use time::{Date, macros::format_description};
 use tokio::{
-    fs::{read, File},
-    io::{stdin, stdout, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    fs::{File, read},
+    io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, stdin, stdout},
 };
 
 use crate::{
+    WeatherDataDB,
     app::start_app,
     config::Config,
     pgpool::PgPool,
     polars_analysis::{get_by_name_dates, insert_db_into_parquet},
     s3_sync::S3Sync,
-    WeatherDataDB,
 };
 
 embed_migrations!("migrations");
 
-fn parse_date_from_str(s: &str) -> Result<DateType, String> {
-    Date::parse(s, format_description!("[year]-[month]-[day]"))
-        .map(Into::into)
-        .map_err(|e| format!("{e}"))
+fn parse_date_from_str(s: &str) -> Result<Date, String> {
+    Date::parse(s, format_description!("[year]-[month]-[day]")).map_err(|e| format!("{e}"))
 }
 
 #[derive(Parser, Debug)]
@@ -48,10 +45,10 @@ pub enum ParseOpts {
         server: Option<StackString>,
         #[clap(short='s', long, value_parser=parse_date_from_str)]
         /// Start date
-        start_time: Option<DateType>,
+        start_time: Option<Date>,
         #[clap(short, long, value_parser=parse_date_from_str)]
         /// End date
-        end_time: Option<DateType>,
+        end_time: Option<Date>,
         #[clap(short, long)]
         /// Output file (if missinge will read from stdin)
         filepath: Option<PathBuf>,
@@ -75,9 +72,9 @@ pub enum ParseOpts {
         #[clap(short = 's', long = "server")]
         server: Option<StackString>,
         #[clap(short='b', long="start_date", value_parser=parse_date_from_str)]
-        start_date: Option<DateType>,
+        start_date: Option<Date>,
         #[clap(short='e', long="end_date", value_parser=parse_date_from_str)]
-        end_date: Option<DateType>,
+        end_date: Option<Date>,
         #[clap(short = 'o', long = "offset")]
         offset: Option<usize>,
         #[clap(short = 'l', long = "limit")]

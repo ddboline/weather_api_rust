@@ -1,7 +1,9 @@
 use derive_more::{Deref, Display, From, FromStr, Into};
-use rweb::openapi::{ComponentDescriptor, ComponentOrInlineSchema, Entity, Schema, Type};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
+use utoipa::{
+    PartialSchema, ToSchema,
+    openapi::schema::{ObjectBuilder, Type},
+};
 
 use weather_util_rust::longitude::Longitude;
 
@@ -22,17 +24,20 @@ use weather_util_rust::longitude::Longitude;
 )]
 pub struct LongitudeWrapper(Longitude);
 
-impl Entity for LongitudeWrapper {
-    fn type_name() -> Cow<'static, str> {
-        "longitude".into()
+impl PartialSchema for LongitudeWrapper {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        ObjectBuilder::new()
+            .format(Some(utoipa::openapi::SchemaFormat::Custom(
+                "longitude".into(),
+            )))
+            .schema_type(Type::Number)
+            .build()
+            .into()
     }
+}
 
-    #[inline]
-    fn describe(_: &mut ComponentDescriptor) -> ComponentOrInlineSchema {
-        ComponentOrInlineSchema::Inline(Schema {
-            schema_type: Some(Type::Number),
-            format: "longitude".into(),
-            ..Schema::default()
-        })
+impl ToSchema for LongitudeWrapper {
+    fn name() -> std::borrow::Cow<'static, str> {
+        "longitude".into()
     }
 }

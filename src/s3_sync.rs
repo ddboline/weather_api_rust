@@ -1,17 +1,17 @@
 use crate::{exponential_retry, get_md5sum, polars_analysis::merge_parquet_files};
-use anyhow::{format_err, Error};
+use anyhow::{Error, format_err};
 use aws_config::SdkConfig;
 use aws_sdk_s3::{
-    operation::list_objects::ListObjectsOutput, primitives::ByteStream, types::Object as S3Object,
-    Client as S3Client,
+    Client as S3Client, operation::list_objects::ListObjectsOutput, primitives::ByteStream,
+    types::Object as S3Object,
 };
 use futures::TryStreamExt;
 use log::debug;
 use rand::{
-    distributions::{Alphanumeric, DistString},
-    thread_rng,
+    distr::{Alphanumeric, SampleString},
+    rng as thread_rng,
 };
-use stack_string::{format_sstr, StackString};
+use stack_string::{StackString, format_sstr};
 use std::{
     borrow::Borrow,
     cmp::Ordering,
@@ -23,7 +23,7 @@ use std::{
 };
 use tokio::{
     fs::File,
-    task::{spawn, spawn_blocking, JoinHandle},
+    task::{JoinHandle, spawn, spawn_blocking},
 };
 
 use crate::{model::KeyItemCache, pgpool::PgPool};
@@ -380,8 +380,10 @@ impl S3Sync {
         s3_bucket: &str,
         s3_key: &str,
     ) -> Result<StackString, Error> {
-        exponential_retry(|| async move { self.upload_file_impl(s3_bucket, s3_key, local_file).await })
-            .await
+        exponential_retry(
+            || async move { self.upload_file_impl(s3_bucket, s3_key, local_file).await },
+        )
+        .await
     }
 }
 

@@ -1,16 +1,12 @@
-use anyhow::Error;
-use authorized_users::TRIGGER_DB_UPDATE;
-use cached::{proc_macro::cached, TimedSizedCache};
+use axum::http::{Method, StatusCode};
+use cached::{TimedSizedCache, proc_macro::cached};
 use log::{error, info};
-use rweb::{
-    filters::BoxedFilter,
-    http::header::CONTENT_TYPE,
-    openapi::{self, Info},
-    reply, Filter, Reply,
-};
-use stack_string::{format_sstr, StackString};
+use stack_string::{StackString, format_sstr};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
-use tokio::{task::spawn, time::interval};
+use tokio::{net::TcpListener, task::spawn, time::interval};
+use tower_http::cors::{Any, CorsLayer};
+use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 
 use weather_util_rust::{
     weather_api::{WeatherApi, WeatherLocation},
@@ -20,16 +16,11 @@ use weather_util_rust::{
 
 use super::{
     config::Config,
-    errors::{error_response, ServiceError},
-    logged_user::{fill_from_db, get_secrets},
+    errors::ServiceError as Error,
+    logged_user::{LoggedUser, fill_from_db, get_secrets},
     model::{WeatherDataDB, WeatherLocationCache},
     pgpool::PgPool,
-    routes::{
-        forecast, forecast_plot, forecast_plots, forecast_precip_plot, forecast_temp_plot,
-        frontpage, geo_direct, geo_reverse, geo_zip, history, history_plot, history_plots,
-        history_precip_plot, history_temp_plot, history_update, locations, statistics,
-        timeseries_js, user, weather,
-    },
+    routes::get_api_path,
 };
 
 /// # Errors
@@ -45,7 +36,7 @@ pub async fn get_weather_data(
     config: &Config,
     api: &WeatherApi,
     loc: &WeatherLocation,
-) -> Result<WeatherData, ServiceError> {
+) -> Result<WeatherData, Error> {
     let location_name = format_sstr!("{loc}");
     let loc = {
         if let Some(l) = WeatherLocationCache::from_weather_location_cache(pool, loc).await? {
@@ -78,9 +69,19 @@ pub async fn get_weather_data(
 pub async fn get_weather_forecast(
     api: &WeatherApi,
     loc: &WeatherLocation,
-) -> Result<WeatherForecast, ServiceError> {
+) -> Result<WeatherForecast, Error> {
     api.get_weather_forecast(loc).await.map_err(Into::into)
 }
+
+#[derive(OpenApi)]
+#[openapi(
+    info(
+        title = "Weather App",
+        description = "Web App to disply weather from openweatherapi",
+    ),
+    components(schemas(LoggedUser))
+)]
+struct ApiDoc;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -97,51 +98,6 @@ pub async fn start_app() -> Result<(), Error> {
 
     let port = config.port;
     run_app(&config, port).await
-}
-
-fn get_api_path(app: &AppState) -> BoxedFilter<(impl Reply,)> {
-    let frontpage_path = frontpage(app.clone()).boxed();
-    let forecast_plot_path = forecast_plot(app.clone()).boxed();
-    let timeseries_js_path = timeseries_js().boxed();
-    let weather_path = weather(app.clone()).boxed();
-    let forecast_path = forecast(app.clone()).boxed();
-    let statistics_path = statistics().boxed();
-    let locations_path = locations(app.clone()).boxed();
-    let history_path = history(app.clone()).boxed();
-    let history_update_path = history_update(app.clone()).boxed();
-    let history_plot_path = history_plot(app.clone()).boxed();
-    let geo_direct_path = geo_direct(app.clone()).boxed();
-    let geo_zip_path = geo_zip(app.clone()).boxed();
-    let geo_reverse_path = geo_reverse(app.clone()).boxed();
-    let user_path = user().boxed();
-    let forecast_plots_path = forecast_plots(app.clone()).boxed();
-    let history_plots_path = history_plots(app.clone()).boxed();
-    let forecast_temp_plot_path = forecast_temp_plot(app.clone()).boxed();
-    let forecast_precip_plot_path = forecast_precip_plot(app.clone()).boxed();
-    let history_temp_plot_path = history_temp_plot(app.clone()).boxed();
-    let history_precip_plot_path = history_precip_plot(app.clone()).boxed();
-
-    frontpage_path
-        .or(forecast_plot_path)
-        .or(weather_path)
-        .or(forecast_path)
-        .or(statistics_path)
-        .or(timeseries_js_path)
-        .or(locations_path)
-        .or(history_path)
-        .or(history_update_path)
-        .or(history_plot_path)
-        .or(geo_direct_path)
-        .or(geo_zip_path)
-        .or(geo_reverse_path)
-        .or(user_path)
-        .or(forecast_plots_path)
-        .or(history_plots_path)
-        .or(forecast_temp_plot_path)
-        .or(forecast_precip_plot_path)
-        .or(history_temp_plot_path)
-        .or(history_precip_plot_path)
-        .boxed()
 }
 
 async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
@@ -167,7 +123,6 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
     let mut record_task = None;
     let mut db_task = None;
 
-    TRIGGER_DB_UPDATE.set();
     db_task.replace(spawn(update_db(pool.clone())));
 
     let locations = app.config.locations_to_record.clone();
@@ -188,44 +143,48 @@ async fn run_app(config: &Config, port: u32) -> Result<(), Error> {
         record_task.replace(spawn(update_db(app, locations)));
     }
 
-    let (spec, api_path) = openapi::spec()
-        .info(Info {
-            title: "Weather App".into(),
-            description: "Web App to disply weather from openweatherapi".into(),
-            version: env!("CARGO_PKG_VERSION").into(),
-            ..Info::default()
-        })
-        .build(|| get_api_path(&app));
-    let spec = Arc::new(spec);
-    let spec_json_path = rweb::path!("weather" / "openapi" / "json")
-        .and(rweb::path::end())
-        .map({
-            let spec = spec.clone();
-            move || reply::json(spec.as_ref())
-        });
-    let spec_yaml = serde_yml::to_string(spec.as_ref())?;
-    let spec_yaml_path = rweb::path!("weather" / "openapi" / "yaml")
-        .and(rweb::path::end())
-        .map(move || {
-            let reply = reply::html(spec_yaml.clone());
-            reply::with_header(reply, CONTENT_TYPE, "text/yaml")
-        });
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers(["content-type".try_into()?, "jwt".try_into()?])
+        .allow_origin(Any);
 
-    let cors = rweb::cors()
-        .allow_methods(vec!["GET"])
-        .allow_header("content-type")
-        .allow_any_origin()
-        .build();
+    let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
+        .merge(get_api_path(&app))
+        .split_for_parts();
 
-    let routes = api_path
-        .or(spec_json_path)
-        .or(spec_yaml_path)
-        .recover(error_response)
-        .with(cors);
+    let spec_json = serde_json::to_string_pretty(&api)?;
+    let spec_yaml = serde_yml::to_string(&api)?;
+
+    let router = router
+        .route(
+            "/weather/openapi/json",
+            axum::routing::get(|| async move {
+                (
+                    StatusCode::OK,
+                    [("content-type", "application/json")],
+                    spec_json,
+                )
+            }),
+        )
+        .route(
+            "/weather/openapi/yaml",
+            axum::routing::get(|| async move {
+                (StatusCode::OK, [("content-type", "text/yaml")], spec_yaml)
+            }),
+        )
+        .layer(cors);
+
     let host = &config.host;
     let addr: SocketAddr = format_sstr!("{host}:{port}").parse()?;
-    rweb::serve(routes).bind(addr).await;
+    let listener = TcpListener::bind(&addr).await?;
+    axum::serve(listener, router.into_make_service()).await?;
 
+    if let Some(record_task) = record_task {
+        record_task.await?;
+    }
+    if let Some(db_task) = db_task {
+        db_task.await?;
+    }
     Ok(())
 }
 
@@ -236,7 +195,7 @@ mod test {
     use stack_string::format_sstr;
     use std::convert::TryInto;
     use time::UtcOffset;
-    use time_tz::{timezones::db::us::CENTRAL, Offset, TimeZone};
+    use time_tz::{Offset, TimeZone, timezones::db::us::CENTRAL};
 
     use weather_util_rust::{weather_data::WeatherData, weather_forecast::WeatherForecast};
 

@@ -1,16 +1,16 @@
 #![allow(clippy::used_underscore_binding)]
 #![allow(clippy::too_many_lines)]
 
-use anyhow::{format_err, Error};
+use anyhow::{Error, format_err};
 use dioxus::dioxus_core::VirtualDom;
 use futures_channel::mpsc::unbounded;
-use futures_util::{lock::Mutex, stream::StreamExt, SinkExt};
+use futures_util::{SinkExt, lock::Mutex, stream::StreamExt};
 use log::debug;
 use std::sync::Arc;
 
 use weather_api_common::{
-    weather_element::{AppProps, WeatherAppComponent},
     WeatherEntry,
+    weather_element::{AppProps, WeatherAppComponent},
 };
 use weather_util_rust::{
     config::Config,

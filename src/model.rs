@@ -1,13 +1,13 @@
-use anyhow::{format_err, Error};
+use anyhow::{Error, format_err};
 use futures::{Stream, StreamExt};
 use isocountry::CountryCode;
 use postgres_query::{
-    client::GenericClient, query, query_dyn, Error as PgError, FromSqlRow, Parameter,
+    Error as PgError, FromSqlRow, Parameter, client::GenericClient, query, query_dyn,
 };
 use serde::{Deserialize, Serialize};
-use stack_string::{format_sstr, StackString};
+use stack_string::{StackString, format_sstr};
 use std::convert::TryInto;
-use time::{macros::time, Date, OffsetDateTime, PrimitiveDateTime};
+use time::{Date, OffsetDateTime, PrimitiveDateTime, macros::time};
 use uuid::Uuid;
 
 use weather_util_rust::{
