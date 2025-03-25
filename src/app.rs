@@ -5,8 +5,8 @@ use stack_string::{StackString, format_sstr};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{net::TcpListener, task::spawn, time::interval};
 use tower_http::cors::{Any, CorsLayer};
-use utoipa_axum::router::OpenApiRouter;
 use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 
 use weather_util_rust::{
     weather_api::{WeatherApi, WeatherLocation},
@@ -20,7 +20,7 @@ use super::{
     logged_user::{fill_from_db, get_secrets},
     model::{WeatherDataDB, WeatherLocationCache},
     pgpool::PgPool,
-    routes::{get_api_path, ApiDoc},
+    routes::{ApiDoc, get_api_path},
 };
 
 /// # Errors
@@ -292,7 +292,13 @@ mod test {
         assert_eq!(weather.coord.lon, 0.0.try_into()?);
 
         let url = format_sstr!("http://localhost:{test_port}/weather/openapi/yaml");
-        let spec_yaml = client.get(url.as_str()).send().await?.error_for_status()?.text().await?;
+        let spec_yaml = client
+            .get(url.as_str())
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
 
         tokio::fs::write("./scripts/openapi.yaml", &spec_yaml).await?;
         Ok(())

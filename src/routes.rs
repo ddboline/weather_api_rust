@@ -15,13 +15,12 @@ use time::{
     macros::{date, time},
 };
 use tokio::sync::RwLock;
-use utoipa::{PartialSchema, ToSchema};
+use utoipa::{OpenApi, PartialSchema, ToSchema};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use utoipa_helper::{
     UtoipaResponse, html_response::HtmlResponse as HtmlBase,
     json_response::JsonResponse as JsonBase,
 };
-use utoipa::OpenApi;
 
 use weather_api_common::weather_element::{
     ForecastComponent, ForecastComponentProps, WeatherComponent, WeatherComponentProps,
@@ -31,8 +30,9 @@ use weather_util_rust::{
 };
 
 use crate::{
-    GeoLocationWrapper, PlotDataWrapper, PlotPointWrapper, WeatherDataDBWrapper,
-    WeatherDataWrapper, WeatherForecastWrapper,
+    CityEntryWrapper, CoordWrapper, ForecastMainWrapper, GeoLocationWrapper, PlotDataWrapper,
+    PlotPointWrapper, SysWrapper, WeatherCondWrapper, WeatherDataDBWrapper, WeatherDataWrapper,
+    WeatherForecastWrapper, WeatherMainWrapper, WindWrapper,
     api_options::ApiOptions,
     app::{
         AppState, GET_WEATHER_DATA, GET_WEATHER_FORECAST, get_weather_data, get_weather_forecast,
@@ -45,13 +45,6 @@ use crate::{
     model::WeatherDataDB,
     pgpool::PgPool,
     polars_analysis::get_by_name_dates,
-    CoordWrapper,
-    WeatherCondWrapper,
-    WeatherMainWrapper,
-    WindWrapper,
-    SysWrapper,
-    CityEntryWrapper,
-    ForecastMainWrapper,
 };
 
 type WarpResult<T> = Result<T, Error>;
@@ -124,7 +117,11 @@ async fn frontpage(
 #[rustfmt::skip]
 struct TimeseriesJsResponse(HtmlBase::<&'static str>);
 
-#[utoipa::path(get, path = "/weather/timeseries.js", responses(TimeseriesJsResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/timeseries.js",
+    responses(TimeseriesJsResponse, Error)
+)]
 async fn timeseries_js() -> WarpResult<TimeseriesJsResponse> {
     Ok(HtmlBase::new(include_str!("../templates/timeseries.js")).into())
 }
@@ -137,7 +134,11 @@ async fn timeseries_js() -> WarpResult<TimeseriesJsResponse> {
 #[rustfmt::skip]
 struct WeatherPlotResponse(HtmlBase::<String>);
 
-#[utoipa::path(get, path = "/weather/plot.html", responses(WeatherPlotResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/plot.html",
+    responses(WeatherPlotResponse, Error)
+)]
 async fn forecast_plot(
     data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
@@ -189,7 +190,11 @@ pub struct StatisticsObject {
 #[rustfmt::skip]
 struct StatisticsResponse(JsonBase::<StatisticsObject>);
 
-#[utoipa::path(get, path = "/weather/statistics", responses(StatisticsResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/statistics",
+    responses(StatisticsResponse, Error)
+)]
 async fn statistics() -> WarpResult<StatisticsResponse> {
     let data_cache = GET_WEATHER_DATA.lock().await;
     let forecast_cache = GET_WEATHER_FORECAST.lock().await;
@@ -376,7 +381,11 @@ struct OffsetLocation {
     limit: Option<usize>,
 }
 
-#[utoipa::path(get, path = "/weather/locations", responses(HistoryLocationsResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/locations",
+    responses(HistoryLocationsResponse, Error)
+)]
 async fn locations(
     data: State<Arc<AppState>>,
     query: Query<OffsetLocation>,
@@ -481,7 +490,11 @@ struct HistoryUpdateRequest {
 #[rustfmt::skip]
 struct HistoryUpdateResponse(HtmlBase::<StackString>);
 
-#[utoipa::path(post, path = "/weather/history", responses(HistoryUpdateResponse, Error))]
+#[utoipa::path(
+    post,
+    path = "/weather/history",
+    responses(HistoryUpdateResponse, Error)
+)]
 async fn history_update(
     data: State<Arc<AppState>>,
     _: LoggedUser,
@@ -514,7 +527,11 @@ struct HistoryPlotRequest {
 #[rustfmt::skip]
 struct HistoryPlotResponse(HtmlBase::<String>);
 
-#[utoipa::path(get, path = "/weather/history_plot.html", responses(HistoryPlotResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/history_plot.html",
+    responses(HistoryPlotResponse, Error)
+)]
 async fn history_plot(
     data: State<Arc<AppState>>,
     query: Query<HistoryPlotRequest>,
@@ -567,7 +584,11 @@ struct PlotDataVec(Vec<PlotDataWrapper>);
 #[rustfmt::skip]
 struct ForecastPlotsResponse(JsonBase::<PlotDataVec>);
 
-#[utoipa::path(get, path = "/weather/forecast-plots", responses(ForecastPlotsResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/forecast-plots",
+    responses(ForecastPlotsResponse, Error)
+)]
 async fn forecast_plots(
     data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
@@ -594,7 +615,11 @@ struct PlotDataInner(Vec<PlotPointWrapper>);
 #[rustfmt::skip]
 struct PlotDataResponse(JsonBase::<PlotDataInner>);
 
-#[utoipa::path(get, path = "/weather/forecast-plots/temperature", responses(PlotDataResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/forecast-plots/temperature",
+    responses(PlotDataResponse, Error)
+)]
 async fn forecast_temp_plot(
     data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
@@ -611,7 +636,11 @@ async fn forecast_temp_plot(
     Ok(JsonBase::new(plots.into()).into())
 }
 
-#[utoipa::path(get, path = "/weather/forecast-plots/precipitation", responses(PlotDataResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/forecast-plots/precipitation",
+    responses(PlotDataResponse, Error)
+)]
 async fn forecast_precip_plot(
     data: State<Arc<AppState>>,
     query: Query<ApiOptions>,
@@ -685,7 +714,11 @@ async fn get_history_data(
     Ok(history)
 }
 
-#[utoipa::path(get, path = "/weather/history-plots", responses(HistoryPlotsResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/history-plots",
+    responses(HistoryPlotsResponse, Error)
+)]
 async fn history_plots(
     data: State<Arc<AppState>>,
     query: Query<HistoryPlotRequest>,
@@ -706,7 +739,11 @@ async fn history_plots(
     Ok(JsonBase::new(plots.into()).into())
 }
 
-#[utoipa::path(get, path = "/weather/history-plots/temperature", responses(PlotDataResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/history-plots/temperature",
+    responses(PlotDataResponse, Error)
+)]
 async fn history_temp_plot(
     data: State<Arc<AppState>>,
     query: Query<HistoryPlotRequest>,
@@ -720,7 +757,11 @@ async fn history_temp_plot(
     Ok(JsonBase::new(plots.into()).into())
 }
 
-#[utoipa::path(get, path = "/weather/history-plots/precipitation", responses(PlotDataResponse, Error))]
+#[utoipa::path(
+    get,
+    path = "/weather/history-plots/precipitation",
+    responses(PlotDataResponse, Error)
+)]
 async fn history_precip_plot(
     data: State<Arc<AppState>>,
     query: Query<HistoryPlotRequest>,
