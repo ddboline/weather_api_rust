@@ -1,396 +1,272 @@
-openapi: 3.0.1
+openapi: '3.1.0'
 info:
   title: Weather App
   description: Web App to disply weather from openweatherapi
-  version: 0.9.13
+  contact:
+    name: Daniel Boline
+    email: ddboline@gmail.com
+  license:
+    name: ''
+  version: '0.11.0'
 paths:
-  /weather/index.html:
+  /weather/direct:
     get:
-      parameters:
-      - name: zip
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: lat
-        in: query
-        required: false
-        schema:
-          format: latitude
-          nullable: true
-          type: number
-      - name: lon
-        in: query
-        required: false
-        schema:
-          format: longitude
-          nullable: true
-          type: number
-      - name: appid
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
+      operationId: geo_direct
       responses:
         '200':
-          description: Display Current Weather and Forecast
+          description: Direct Geo Location
           content:
             text/html:
               schema:
-                type: string
+                type: array
+                items:
+                  $ref: '#/components/schemas/GeoLocation'
         '400':
           description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
-        '500':
-          description: Internal Server Error
-  /weather/plot.html:
-    get:
-      parameters:
-      - name: zip
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: lat
-        in: query
-        required: false
-        schema:
-          format: latitude
-          nullable: true
-          type: number
-      - name: lon
-        in: query
-        required: false
-        schema:
-          format: longitude
-          nullable: true
-          type: number
-      - name: appid
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      responses:
-        '200':
-          description: Show Plot of Current Weather and Forecast
-          content:
-            text/html:
-              schema:
-                type: string
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
-        '500':
-          description: Internal Server Error
-  /weather/timeseries.js:
-    get:
-      responses:
-        '200':
-          description: TimeseriesScript
-          content:
-            text/javascript:
-              schema:
-                type: string
-  /weather/weather:
-    get:
-      parameters:
-      - name: zip
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: lat
-        in: query
-        required: false
-        schema:
-          format: latitude
-          nullable: true
-          type: number
-      - name: lon
-        in: query
-        required: false
-        schema:
-          format: longitude
-          nullable: true
-          type: number
-      - name: appid
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      responses:
-        '200':
-          description: Get WeatherData Api Json
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WeatherData'
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
   /weather/forecast:
     get:
-      parameters:
-      - name: zip
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: lat
-        in: query
-        required: false
-        schema:
-          format: latitude
-          nullable: true
-          type: number
-      - name: lon
-        in: query
-        required: false
-        schema:
-          format: longitude
-          nullable: true
-          type: number
-      - name: appid
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
+      operationId: forecast
       responses:
         '200':
           description: Get WeatherForecast Api Json
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: '#/components/schemas/WeatherForecast'
+                type: object
+                required:
+                - list
+                - city
+                properties:
+                  city:
+                    $ref: '#/components/schemas/CityEntry'
+                  list:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/_ForecastEntryWrapper'
         '400':
           description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
-        '500':
-          description: Internal Server Error
-  /weather/statistics:
-    get:
-      responses:
-        '200':
-          description: Get Cache Statistics
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Statistics'
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
-  /weather/locations:
-    get:
-      parameters:
-      - name: offset
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: limit
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      responses:
-        '200':
-          description: Get Weather History Locations
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedLocationCount'
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/forecast-plots:
+    get:
+      operationId: forecast_plots
+      responses:
+        '200':
+          description: Forecast Plot Data
+          content:
+            text/html:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlotData'
         '400':
           description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/forecast-plots/precipitation:
+    get:
+      operationId: forecast_precip_plot
+      responses:
+        '200':
+          description: Plot Data
+          content:
+            text/html:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlotPoint'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/forecast-plots/temperature:
+    get:
+      operationId: forecast_temp_plot
+      responses:
+        '200':
+          description: Plot Data
+          content:
+            text/html:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlotPoint'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
   /weather/history:
     get:
-      parameters:
-      - name: name
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: server
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: start_time
-        in: query
-        required: false
-        schema:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
-      - name: end_time
-        in: query
-        required: false
-        schema:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
-      - name: offset
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: limit
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
+      operationId: history
       responses:
         '200':
           description: Get Weather History
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: '#/components/schemas/PaginatedWeatherDataDB'
+                type: object
+                required:
+                - pagination
+                - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WeatherDataDB'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
         '400':
           description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
     post:
-      parameters:
-      - name: zip
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: lat
-        in: query
-        required: false
-        schema:
-          format: latitude
-          nullable: true
-          type: number
-      - name: lon
-        in: query
-        required: false
-        schema:
-          format: longitude
-          nullable: true
-          type: number
-      - name: appid
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
+      operationId: history_update
       requestBody:
         content:
           application/json:
@@ -401,48 +277,160 @@ paths:
         '201':
           description: Update Weather History
           content:
-            application/json:
+            text/html:
               schema:
-                type: integer
-                minimum: 0
+                type: string
         '400':
           description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/history-plots:
+    get:
+      operationId: history_plots
+      responses:
+        '200':
+          description: Historical Plot Data
+          content:
+            text/html:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlotData'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/history-plots/precipitation:
+    get:
+      operationId: history_precip_plot
+      responses:
+        '200':
+          description: Plot Data
+          content:
+            text/html:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlotPoint'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/history-plots/temperature:
+    get:
+      operationId: history_temp_plot
+      responses:
+        '200':
+          description: Plot Data
+          content:
+            text/html:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlotPoint'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
   /weather/history_plot.html:
     get:
-      parameters:
-      - name: name
-        in: query
-        required: true
-        schema:
-          type: string
-      - name: server
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: start_time
-        in: query
-        required: false
-        schema:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
-      - name: end_time
-        in: query
-        required: false
-        schema:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
+      operationId: history_plot
       responses:
         '200':
           description: Show Plot of Historical Weather
@@ -452,525 +440,724 @@ paths:
                 type: string
         '400':
           description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
-        '500':
-          description: Internal Server Error
-  /weather/direct:
-    get:
-      parameters:
-      - name: zip
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: lat
-        in: query
-        required: false
-        schema:
-          format: latitude
-          nullable: true
-          type: number
-      - name: lon
-        in: query
-        required: false
-        schema:
-          format: longitude
-          nullable: true
-          type: number
-      - name: appid
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      responses:
-        '200':
-          description: Direct Geo Location
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/GeoLocation'
-                type: array
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
-  /weather/zip:
-    get:
-      parameters:
-      - name: zip
-        in: query
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Zip Geo Location
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GeoLocation'
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/index.html:
+    get:
+      operationId: frontpage
+      responses:
+        '200':
+          description: Display Current Weather and Forecast
+          content:
+            text/html:
+              schema:
+                type: string
         '400':
           description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/locations:
+    get:
+      operationId: locations
+      responses:
+        '200':
+          description: Get Weather History Locations
+          content:
+            text/html:
+              schema:
+                type: object
+                required:
+                - pagination
+                - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LocationCount'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/plot.html:
+    get:
+      operationId: forecast_plot
+      responses:
+        '200':
+          description: Show Plot of Current Weather and Forecast
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
   /weather/reverse:
     get:
-      parameters:
-      - name: zip
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: lat
-        in: query
-        required: false
-        schema:
-          format: latitude
-          nullable: true
-          type: number
-      - name: lon
-        in: query
-        required: false
-        schema:
-          format: longitude
-          nullable: true
-          type: number
-      - name: appid
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
+      operationId: geo_reverse
       responses:
         '200':
           description: Direct Geo Location
           content:
-            application/json:
+            text/html:
               schema:
+                type: array
                 items:
                   $ref: '#/components/schemas/GeoLocation'
-                type: array
         '400':
           description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/statistics:
+    get:
+      operationId: statistics
+      responses:
+        '200':
+          description: Get Cache Statistics
+          content:
+            text/html:
+              schema:
+                type: object
+                required:
+                - data_cache_hits
+                - data_cache_misses
+                - forecast_cache_hits
+                - forecast_cache_misses
+                - weather_string_length_map
+                properties:
+                  data_cache_hits:
+                    type: integer
+                    format: int64
+                    minimum: 0
+                  data_cache_misses:
+                    type: integer
+                    format: int64
+                    minimum: 0
+                  forecast_cache_hits:
+                    type: integer
+                    format: int64
+                    minimum: 0
+                  forecast_cache_misses:
+                    type: integer
+                    format: int64
+                    minimum: 0
+                  weather_string_length_map:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                      minimum: 0
+                    propertyNames:
+                      type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/timeseries.js:
+    get:
+      operationId: timeseries_js
+      responses:
+        '200':
+          description: TimeseriesScript
+          content:
+            text/javascript:
+              schema:
+                type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
   /weather/user:
     get:
+      operationId: user
       responses:
         '200':
           description: Logged in User
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: '#/components/schemas/LoggedUser'
+                type: object
+                required:
+                - email
+                - session
+                - secret_key
+                properties:
+                  email:
+                    $ref: '#/components/schemas/str'
+                  secret_key:
+                    $ref: '#/components/schemas/str'
+                  session:
+                    type: string
+                    format: uuid
         '400':
           description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
-        '500':
-          description: Internal Server Error
-  /weather/forecast-plots:
-    get:
-      parameters:
-      - name: zip
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: lat
-        in: query
-        required: false
-        schema:
-          format: latitude
-          nullable: true
-          type: number
-      - name: lon
-        in: query
-        required: false
-        schema:
-          format: longitude
-          nullable: true
-          type: number
-      - name: appid
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      responses:
-        '200':
-          description: Forecast Plot Data
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/PlotData'
-                type: array
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
-  /weather/history-plots:
-    get:
-      parameters:
-      - name: name
-        in: query
-        required: true
-        schema:
-          type: string
-      - name: server
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: start_time
-        in: query
-        required: false
-        schema:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
-      - name: end_time
-        in: query
-        required: false
-        schema:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
-      responses:
-        '200':
-          description: Historical Plot Data
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/PlotData'
-                type: array
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
-        '500':
-          description: Internal Server Error
-  /weather/forecast-plots/temperature:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/weather:
     get:
-      parameters:
-      - name: zip
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: lat
-        in: query
-        required: false
-        schema:
-          format: latitude
-          nullable: true
-          type: number
-      - name: lon
-        in: query
-        required: false
-        schema:
-          format: longitude
-          nullable: true
-          type: number
-      - name: appid
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
+      operationId: weather
       responses:
         '200':
-          description: Plot Data
+          description: Get WeatherData Api Json
+          content:
+            text/html:
+              schema:
+                type: object
+                required:
+                - coord
+                - weather
+                - base
+                - main
+                - wind
+                - dt
+                - sys
+                - timezone
+                - name
+                properties:
+                  base:
+                    $ref: '#/components/schemas/String'
+                  coord:
+                    $ref: '#/components/schemas/Coord'
+                  dt:
+                    type: string
+                    format: date-time
+                  main:
+                    $ref: '#/components/schemas/WeatherMain'
+                  name:
+                    $ref: '#/components/schemas/String'
+                  rain:
+                    oneOf:
+                    - type: 'null'
+                    - $ref: '#/components/schemas/RainWrapper'
+                  snow:
+                    oneOf:
+                    - type: 'null'
+                    - $ref: '#/components/schemas/SnowWrapper'
+                  sys:
+                    $ref: '#/components/schemas/Sys'
+                  timezone:
+                    type: integer
+                    format: int32
+                  visibility:
+                    type:
+                    - number
+                    - 'null'
+                    format: double
+                  weather:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WeatherCond'
+                  wind:
+                    $ref: '#/components/schemas/Wind'
+        '400':
+          description: Bad Request
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/PlotPoint'
-                type: array
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
-  /weather/forecast-plots/precipitation:
-    get:
-      parameters:
-      - name: zip
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: integer
-          minimum: 0
-      - name: country_code
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: lat
-        in: query
-        required: false
-        schema:
-          format: latitude
-          nullable: true
-          type: number
-      - name: lon
-        in: query
-        required: false
-        schema:
-          format: longitude
-          nullable: true
-          type: number
-      - name: appid
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      responses:
-        '200':
-          description: Plot Data
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/PlotPoint'
-                type: array
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
-        '500':
-          description: Internal Server Error
-  /weather/history-plots/temperature:
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+  /weather/zip:
     get:
-      parameters:
-      - name: name
-        in: query
-        required: true
-        schema:
-          type: string
-      - name: server
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: start_time
-        in: query
-        required: false
-        schema:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
-      - name: end_time
-        in: query
-        required: false
-        schema:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
+      operationId: geo_zip
       responses:
         '200':
-          description: Plot Data
+          description: Zip Geo Location
+          content:
+            text/html:
+              schema:
+                type: object
+                required:
+                - name
+                - lat
+                - lon
+                - country
+                properties:
+                  country:
+                    $ref: '#/components/schemas/String'
+                  lat:
+                    type: number
+                    format: double
+                  lon:
+                    type: number
+                    format: double
+                  name:
+                    $ref: '#/components/schemas/String'
+                  zip:
+                    oneOf:
+                    - type: 'null'
+                    - $ref: '#/components/schemas/String'
+        '400':
+          description: Bad Request
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/PlotPoint'
-                type: array
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
+        '401':
+          description: Not Authorized
+          content:
+            text/html:
+              schema:
+                type: string
         '500':
           description: Internal Server Error
-  /weather/history-plots/precipitation:
-    get:
-      parameters:
-      - name: name
-        in: query
-        required: true
-        schema:
-          type: string
-      - name: server
-        in: query
-        required: false
-        schema:
-          nullable: true
-          type: string
-      - name: start_time
-        in: query
-        required: false
-        schema:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
-      - name: end_time
-        in: query
-        required: false
-        schema:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
-      responses:
-        '200':
-          description: Plot Data
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/PlotPoint'
-                type: array
-        '400':
-          description: Bad Request
-        '404':
-          description: Not Found
-        '405':
-          description: Method not allowed
-        '500':
-          description: Internal Server Error
+                type: object
+                required:
+                - message
+                properties:
+                  message:
+                    $ref: '#/components/schemas/str'
 components:
   schemas:
-    WeatherData:
+    CityEntry:
+      type: object
+      required:
+      - timezone
+      - sunrise
+      - sunset
       properties:
-        coord:
-          $ref: '#/components/schemas/Coordinates'
-        weather:
-          description: Weather Conditions
-          items:
-            $ref: '#/components/schemas/WeatherConditions'
-          type: array
-        base:
+        sunrise:
           type: string
-        main:
-          $ref: '#/components/schemas/WeatherMain'
-        visibility:
-          description: Visibility (m)
-          nullable: true
-          type: number
-        wind:
-          $ref: '#/components/schemas/Wind'
-        rain:
-          $ref: '#/components/schemas/Rain_Opt'
-        snow:
-          $ref: '#/components/schemas/Snow_Opt'
-        dt:
-          description: Current Datetime (Unix Timestamp)
           format: date-time
+        sunset:
           type: string
-        sys:
-          $ref: '#/components/schemas/SystemData'
+          format: date-time
         timezone:
-          description: Timezone (seconds offset from UTC)
           type: integer
+          format: int32
+    Coord:
+      type: object
+      required:
+      - lon
+      - lat
+      properties:
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+    ForecastMain:
+      type: object
+      required:
+      - temp
+      - feels_like
+      - temp_min
+      - temp_max
+      - pressure
+      - sea_level
+      - grnd_level
+      - humidity
+      properties:
+        feels_like:
+          type: number
+          format: double
+        grnd_level:
+          type: number
+          format: double
+        humidity:
+          type: integer
+          format: int64
+        pressure:
+          type: number
+          format: double
+        sea_level:
+          type: number
+          format: double
+        temp:
+          type: number
+          format: double
+        temp_max:
+          type: number
+          format: double
+        temp_min:
+          type: number
+          format: double
+    GeoLocation:
+      type: object
+      required:
+      - name
+      - lat
+      - lon
+      - country
+      properties:
+        country:
+          $ref: '#/components/schemas/String'
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
         name:
-          description: Location Name
+          $ref: '#/components/schemas/String'
+        zip:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/String'
+    HistoryUpdateRequest:
+      type: object
+      required:
+      - updates
+      properties:
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeatherDataDB'
+    LocationCount:
+      type: object
+      required:
+      - location
+      - count
+      properties:
+        count:
+          type: integer
+          format: int64
+        location:
+          $ref: '#/components/schemas/str'
+    LoggedUser:
+      type: object
+      required:
+      - email
+      - session
+      - secret_key
+      properties:
+        email:
+          $ref: '#/components/schemas/str'
+        secret_key:
+          $ref: '#/components/schemas/str'
+        session:
           type: string
+          format: uuid
+    Pagination:
+      type: object
+      required:
+      - limit
+      - offset
+      - total
+      properties:
+        limit:
+          type: integer
+          minimum: 0
+        offset:
+          type: integer
+          minimum: 0
+        total:
+          type: integer
+          minimum: 0
+    PlotData:
+      type: object
+      required:
+      - plot_data
+      - title
+      - xaxis
+      - yaxis
+      properties:
+        plot_data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlotPoint'
+        title:
+          type: string
+        xaxis:
+          type: string
+        yaxis:
+          type: string
+    PlotPoint:
+      type: object
+      required:
+      - datetime
+      - value
+      properties:
+        datetime:
+          type: string
+          format: date-time
+        value:
+          type: number
+          format: double
+    RainWrapper:
+      type: object
+      properties:
+        one_hour:
+          type:
+          - number
+          - 'null'
+          format: double
+        three_hour:
+          type:
+          - number
+          - 'null'
+          format: double
+    SnowWrapper:
+      type: object
+      properties:
+        one_hour:
+          type:
+          - number
+          - 'null'
+          format: double
+        three_hour:
+          type:
+          - number
+          - 'null'
+          format: double
+    String:
+      type: string
+    Sys:
+      type: object
+      required:
+      - sunrise
+      - sunset
+      properties:
+        country:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/String'
+        sunrise:
+          type: string
+          format: date-time
+        sunset:
+          type: string
+          format: date-time
+    WeatherCond:
+      type: object
+      required:
+      - id
+      - main
+      - description
+      - icon
+      properties:
+        description:
+          $ref: '#/components/schemas/String'
+        icon:
+          $ref: '#/components/schemas/String'
+        id:
+          type: integer
+          minimum: 0
+        main:
+          $ref: '#/components/schemas/String'
+    WeatherData:
       type: object
       required:
       - coord
@@ -982,389 +1169,43 @@ components:
       - sys
       - timezone
       - name
-    Coordinates:
       properties:
-        lon:
-          description: Longitude
-          type: number
-        lat:
-          description: Latitude
-          type: number
-      type: object
-      required:
-      - lon
-      - lat
-    WeatherConditions:
-      properties:
-        id:
-          type: integer
-          minimum: 0
-        main:
-          type: string
-        description:
-          type: string
-        icon:
-          type: string
-      type: object
-      required:
-      - id
-      - main
-      - description
-      - icon
-    WeatherMain:
-      properties:
-        temp:
-          description: Temperature (K)
-          type: number
-        feels_like:
-          description: Feels Like Temperature (K)
-          type: number
-        temp_min:
-          description: Minimum Temperature (K)
-          type: number
-        temp_max:
-          description: Maximum Temperature (K)
-          type: number
-        pressure:
-          description: Atmospheric Pressure (hPa, h=10^2)
-          type: number
-        humidity:
-          description: Humidity %
-          type: integer
-      type: object
-      required:
-      - temp
-      - feels_like
-      - temp_min
-      - temp_max
-      - pressure
-      - humidity
-    Wind:
-      properties:
-        speed:
-          description: Speed (m/s)
-          type: number
-        deg:
-          description: Direction (degrees)
-          nullable: true
-          type: number
-      type: object
-      required:
-      - speed
-    Rain:
-      properties:
-        three_hour:
-          description: Rain (mm over previous 3 hours)
-          nullable: true
-          type: number
-        one_hour:
-          description: Rain (mm over previous hour)
-          nullable: true
-          type: number
-      type: object
-    Rain_Opt:
-      properties:
-        three_hour:
-          description: Rain (mm over previous 3 hours)
-          nullable: true
-          type: number
-        one_hour:
-          description: Rain (mm over previous hour)
-          nullable: true
-          type: number
-      nullable: true
-      type: object
-    Snow:
-      properties:
-        three_hour:
-          description: Snow (mm over previous 3 hours)
-          nullable: true
-          type: number
-        one_hour:
-          description: Rain (mm over previous hour)
-          nullable: true
-          type: number
-      type: object
-    Snow_Opt:
-      properties:
-        three_hour:
-          description: Snow (mm over previous 3 hours)
-          nullable: true
-          type: number
-        one_hour:
-          description: Rain (mm over previous hour)
-          nullable: true
-          type: number
-      nullable: true
-      type: object
-    SystemData:
-      properties:
-        country:
-          nullable: true
-          type: string
-        sunrise:
-          description: Sunrise (Unix Timestamp)
-          format: date-time
-          type: string
-        sunset:
-          description: Sunset (Unix Timestamp)
-          format: date-time
-          type: string
-      type: object
-      required:
-      - sunrise
-      - sunset
-    WeatherForecast:
-      properties:
-        list:
-          description: Main Forecast Entries
-          items:
-            $ref: '#/components/schemas/ForecastEntry'
-          type: array
-        city:
-          $ref: '#/components/schemas/CityEntry'
-      type: object
-      required:
-      - list
-      - city
-    ForecastEntry:
-      properties:
+        base:
+          $ref: '#/components/schemas/String'
+        coord:
+          $ref: '#/components/schemas/Coord'
         dt:
-          description: Forecasted DateTime (Unix Timestamp)
-          format: date-time
           type: string
+          format: date-time
         main:
-          $ref: '#/components/schemas/ForecastMain'
-        weather:
-          items:
-            $ref: '#/components/schemas/WeatherConditions'
-          type: array
+          $ref: '#/components/schemas/WeatherMain'
+        name:
+          $ref: '#/components/schemas/String'
         rain:
-          $ref: '#/components/schemas/Rain_Opt'
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/RainWrapper'
         snow:
-          $ref: '#/components/schemas/Snow_Opt'
-      type: object
-      required:
-      - dt
-      - main
-      - weather
-    ForecastMain:
-      properties:
-        temp:
-          description: Temperature (K)
-          type: number
-        feels_like:
-          description: Feels Like Temperature (K)
-          type: number
-        temp_min:
-          description: Minimum Temperature (K)
-          type: number
-        temp_max:
-          description: Maximum Temperature (K)
-          type: number
-        pressure:
-          description: Atmospheric Pressure (hPa, h=10^2)
-          type: number
-        sea_level:
-          description: Pressure at Sea Level (hPa, h=10^2)
-          type: number
-        grnd_level:
-          description: Pressure at Ground Level (hPa, h=10^2)
-          type: number
-        humidity:
-          description: Humidity %
-          type: integer
-      type: object
-      required:
-      - temp
-      - feels_like
-      - temp_min
-      - temp_max
-      - pressure
-      - sea_level
-      - grnd_level
-      - humidity
-    CityEntry:
-      properties:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/SnowWrapper'
+        sys:
+          $ref: '#/components/schemas/Sys'
         timezone:
-          description: Timezone (seconds offset from UTC)
           type: integer
-        sunrise:
-          description: Sunrise (Unix Timestamp)
-          format: date-time
-          type: string
-        sunset:
-          description: Sunset (Unix Timestamp)
-          format: date-time
-          type: string
-      type: object
-      required:
-      - timezone
-      - sunrise
-      - sunset
-    Statistics:
-      properties:
-        data_cache_hits:
-          description: Weather Data Cache Hits
-          type: integer
-          minimum: 0
-        data_cache_misses:
-          description: Weather Data Cache Misses
-          type: integer
-          minimum: 0
-        forecast_cache_hits:
-          description: Forecast Cache Hits
-          type: integer
-          minimum: 0
-        forecast_cache_misses:
-          description: Forecast Cache Misses
-          type: integer
-          minimum: 0
-        weather_string_length_map:
-          description: Weather String Length Map
-          additionalProperties:
-            type: integer
-            minimum: 0
-          type: object
-      type: object
-      required:
-      - data_cache_hits
-      - data_cache_misses
-      - forecast_cache_hits
-      - forecast_cache_misses
-      - weather_string_length_map
-    PaginatedLocationCount:
-      properties:
-        pagination:
-          $ref: '#/components/schemas/Pagination'
-        data:
-          items:
-            $ref: '#/components/schemas/LocationCount'
-          type: array
-      type: object
-      required:
-      - pagination
-      - data
-    Pagination:
-      properties:
-        limit:
-          description: Number of Entries Returned
-          type: integer
-          minimum: 0
-        offset:
-          description: Number of Entries to Skip
-          type: integer
-          minimum: 0
-        total:
-          description: Total Number of Entries
-          type: integer
-          minimum: 0
-      type: object
-      required:
-      - limit
-      - offset
-      - total
-    LocationCount:
-      properties:
-        location:
-          description: Location String
-          type: string
-        count:
-          description: Count
-          type: integer
-      type: object
-      required:
-      - location
-      - count
-    PaginatedWeatherDataDB:
-      properties:
-        pagination:
-          $ref: '#/components/schemas/Pagination'
-        data:
-          items:
-            $ref: '#/components/schemas/WeatherDataDB'
-          type: array
-      type: object
-      required:
-      - pagination
-      - data
-    WeatherDataDB:
-      properties:
-        id:
-          description: ID
-          format: uuid
-          example: 334518f4-1bfd-4f20-9978-bfad0dc033e1
-          type: string
-        dt:
-          description: Unix Timestamp
-          type: integer
-        created_at:
-          description: Created At Datetime
-          format: date-time
-          type: string
-        location_name:
-          description: Location Name
-          type: string
-        latitude:
-          description: Latitude
-          type: number
-        longitude:
-          description: Longitude
-          type: number
-        condition:
-          description: Condition
-          type: string
-        temperature:
-          description: Temperature (K)
-          type: number
-        temperature_minimum:
-          description: Minimum Temperature (K)
-          type: number
-        temperature_maximum:
-          description: Maximum Temperature (K)
-          type: number
-        pressure:
-          description: Pressure (kPa)
-          type: number
-        humidity:
-          description: Humidity (percent x 100)
-          type: integer
+          format: int32
         visibility:
-          description: Visibility (meters)
-          nullable: true
-          type: number
-        rain:
-          description: Rain (mm per hour)
-          nullable: true
-          type: number
-        snow:
-          description: Snow (mm per hour)
-          nullable: true
-          type: number
-        wind_speed:
-          description: Wind Speed (m/s)
-          type: number
-        wind_direction:
-          description: Wind Direction (degrees)
-          nullable: true
-          type: number
-        country:
-          description: Country Code (ISO 3166-1 alpha-2)
-          type: string
-        sunrise:
-          description: Sunrise Datetime
-          format: date-time
-          type: string
-        sunset:
-          description: Sunset Datetime
-          format: date-time
-          type: string
-        timezone:
-          description: Timezone UTC Offset (seconds)
-          type: integer
-        server:
-          description: Server (dilepton-tower/dilepton-cloud)
-          type: string
+          type:
+          - number
+          - 'null'
+          format: double
+        weather:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeatherCond'
+        wind:
+          $ref: '#/components/schemas/Wind'
+    WeatherDataDB:
       type: object
       required:
       - id
@@ -1385,105 +1226,153 @@ components:
       - sunset
       - timezone
       - server
-    HistoryUpdateRequest:
       properties:
-        updates:
-          items:
-            $ref: '#/components/schemas/WeatherDataDB'
-          type: array
-      type: object
-      required:
-      - updates
-    HistoryPlotRequest:
-      properties:
-        name:
-          type: string
-        server:
-          nullable: true
-          type: string
-        start_time:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
-        end_time:
-          format: date
-          nullable: true
-          example: 2023-01-01
-          type: string
-      type: object
-      required:
-      - name
-    GeoLocation:
-      properties:
-        name:
-          type: string
-        lat:
-          type: number
-        lon:
-          type: number
+        condition:
+          $ref: '#/components/schemas/String'
         country:
+          $ref: '#/components/schemas/String'
+        created_at:
           type: string
-        zip:
-          nullable: true
-          type: string
-      type: object
-      required:
-      - name
-      - lat
-      - lon
-      - country
-    LoggedUser:
-      properties:
-        email:
-          description: Email Address
-          example: user@example.com
-          type: string
-        session:
-          description: Session Id
-          format: uuid
-          example: 334518f4-1bfd-4f20-9978-bfad0dc033e1
-          type: string
-        secret_key:
-          description: Secret Key
-          type: string
-      type: object
-      required:
-      - email
-      - session
-      - secret_key
-    PlotData:
-      properties:
-        plot_data:
-          description: Plot Data
-          items:
-            $ref: '#/components/schemas/PlotPoint'
-          type: array
-        title:
-          description: Plot Title
-          type: string
-        xaxis:
-          description: Plot X-axis Label
-          type: string
-        yaxis:
-          description: Plot Y-axis Label
-          type: string
-      type: object
-      required:
-      - plot_data
-      - title
-      - xaxis
-      - yaxis
-    PlotPoint:
-      properties:
-        datetime:
-          description: Datetime
           format: date-time
+        dt:
+          type: integer
+          format: int32
+        humidity:
+          type: integer
+          format: int32
+        id:
           type: string
-        value:
-          description: Value
+          format: uuid
+        latitude:
           type: number
+          format: double
+        location_name:
+          $ref: '#/components/schemas/String'
+        longitude:
+          type: number
+          format: double
+        pressure:
+          type: number
+          format: double
+        rain:
+          type:
+          - number
+          - 'null'
+          format: double
+        server:
+          $ref: '#/components/schemas/String'
+        snow:
+          type:
+          - number
+          - 'null'
+          format: double
+        sunrise:
+          type: string
+          format: date-time
+        sunset:
+          type: string
+          format: date-time
+        temperature:
+          type: number
+          format: double
+        temperature_maximum:
+          type: number
+          format: double
+        temperature_minimum:
+          type: number
+          format: double
+        timezone:
+          type: integer
+          format: int32
+        visibility:
+          type:
+          - number
+          - 'null'
+          format: double
+        wind_direction:
+          type:
+          - number
+          - 'null'
+          format: double
+        wind_speed:
+          type: number
+          format: double
+    WeatherForecast:
       type: object
       required:
-      - datetime
-      - value
+      - list
+      - city
+      properties:
+        city:
+          $ref: '#/components/schemas/CityEntry'
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/_ForecastEntryWrapper'
+    WeatherMain:
+      type: object
+      required:
+      - temp
+      - feels_like
+      - temp_min
+      - temp_max
+      - pressure
+      - humidity
+      properties:
+        feels_like:
+          type: number
+          format: double
+        humidity:
+          type: integer
+          format: int64
+        pressure:
+          type: number
+          format: double
+        temp:
+          type: number
+          format: double
+        temp_max:
+          type: number
+          format: double
+        temp_min:
+          type: number
+          format: double
+    Wind:
+      type: object
+      required:
+      - speed
+      properties:
+        deg:
+          type:
+          - number
+          - 'null'
+          format: double
+        speed:
+          type: number
+          format: double
+    _ForecastEntryWrapper:
+      type: object
+      required:
+      - dt
+      - main
+      - weather
+      properties:
+        dt:
+          type: string
+          format: date-time
+        main:
+          $ref: '#/components/schemas/ForecastMain'
+        rain:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/RainWrapper'
+        snow:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/SnowWrapper'
+        weather:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeatherCond'
+    str:
+      type: string
