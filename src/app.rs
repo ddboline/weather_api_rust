@@ -5,8 +5,8 @@ use stack_string::{StackString, format_sstr};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{net::TcpListener, task::spawn, time::interval};
 use tower_http::cors::{Any, CorsLayer};
-use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
+use utoipa::OpenApi;
 
 use weather_util_rust::{
     weather_api::{WeatherApi, WeatherLocation},
@@ -17,10 +17,10 @@ use weather_util_rust::{
 use super::{
     config::Config,
     errors::ServiceError as Error,
-    logged_user::{LoggedUser, fill_from_db, get_secrets},
+    logged_user::{fill_from_db, get_secrets},
     model::{WeatherDataDB, WeatherLocationCache},
     pgpool::PgPool,
-    routes::get_api_path,
+    routes::{get_api_path, ApiDoc},
 };
 
 /// # Errors
@@ -72,16 +72,6 @@ pub async fn get_weather_forecast(
 ) -> Result<WeatherForecast, Error> {
     api.get_weather_forecast(loc).await.map_err(Into::into)
 }
-
-#[derive(OpenApi)]
-#[openapi(
-    info(
-        title = "Weather App",
-        description = "Web App to disply weather from openweatherapi",
-    ),
-    components(schemas(LoggedUser))
-)]
-struct ApiDoc;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -300,6 +290,11 @@ mod test {
             .await?;
         assert_eq!(weather.coord.lat, 0.0.try_into()?);
         assert_eq!(weather.coord.lon, 0.0.try_into()?);
+
+        let url = format_sstr!("http://localhost:{test_port}/weather/openapi/yaml");
+        let spec_yaml = client.get(url.as_str()).send().await?.error_for_status()?.text().await?;
+
+        tokio::fs::write("./scripts/openapi.yaml", &spec_yaml).await?;
         Ok(())
     }
 }

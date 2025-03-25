@@ -61,11 +61,12 @@ derive_utoipa_schema!(CoordWrapper, _CoordWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// Coordinates")]
+// Coordinates
+#[schema(as = Coord)]
 struct _CoordWrapper {
-    // Longitude")]
+    // Longitude
     lon: f64,
-    // Latitude")]
+    // Latitude
     lat: f64,
 }
 
@@ -76,51 +77,52 @@ derive_utoipa_schema!(WeatherDataDBWrapper, _WeatherDataDBWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// WeatherDataDB")]
+// WeatherDataDB
+#[schema(as = WeatherDataDB)]
 struct _WeatherDataDBWrapper {
-    // ID")]
+    // ID
     id: Uuid,
-    // Unix Timestamp")]
+    // Unix Timestamp
     dt: i32,
-    // Created At Datetime")]
+    // Created At Datetime
     created_at: OffsetDateTime,
-    // Location Name")]
+    // Location Name
     location_name: StringType,
-    // Latitude")]
+    // Latitude
     latitude: f64,
-    // Longitude")]
+    // Longitude
     longitude: f64,
-    // Condition")]
+    // Condition
     condition: StringType,
-    // Temperature (K)")]
+    // Temperature (K)
     temperature: f64,
-    // Minimum Temperature (K)")]
+    // Minimum Temperature (K)
     temperature_minimum: f64,
-    // Maximum Temperature (K)")]
+    // Maximum Temperature (K)
     temperature_maximum: f64,
-    // Pressure (kPa)")]
+    // Pressure (kPa)
     pressure: f64,
-    // Humidity (percent x 100)")]
+    // Humidity (percent x 100)
     humidity: i32,
-    // Visibility (meters)")]
+    // Visibility (meters)
     visibility: Option<f64>,
-    // Rain (mm per hour)")]
+    // Rain (mm per hour)
     rain: Option<f64>,
-    // Snow (mm per hour)")]
+    // Snow (mm per hour)
     snow: Option<f64>,
-    // Wind Speed (m/s)")]
+    // Wind Speed (m/s)
     wind_speed: f64,
-    // Wind Direction (degrees)")]
+    // Wind Direction (degrees)
     wind_direction: Option<f64>,
-    // Country Code (ISO 3166-1 alpha-2)")]
+    // Country Code (ISO 3166-1 alpha-2)
     country: StringType,
-    // Sunrise Datetime")]
+    // Sunrise Datetime
     sunrise: OffsetDateTime,
-    // Sunset Datetime")]
+    // Sunset Datetime
     sunset: OffsetDateTime,
-    // Timezone UTC Offset (seconds)")]
+    // Timezone UTC Offset (seconds)
     timezone: i32,
-    // Server (dilepton-tower/dilepton-cloud)")]
+    // Server (dilepton-tower/dilepton-cloud)
     server: StringType,
 }
 
@@ -132,25 +134,26 @@ derive_utoipa_schema!(WeatherDataWrapper, _WeatherDataWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// WeatherData")]
+// WeatherData
+#[schema(as = WeatherData)]
 struct _WeatherDataWrapper {
-    // Coordinates")]
+    // Coordinates
     coord: CoordWrapper,
-    // Weather Conditions")]
+    // Weather Conditions
     weather: Vec<WeatherCondWrapper>,
     base: StringType,
     main: WeatherMainWrapper,
-    // Visibility (m)")]
+    // Visibility (m)
     visibility: Option<f64>,
     wind: WindWrapper,
     rain: Option<RainWrapper>,
     snow: Option<SnowWrapper>,
-    // Current Datetime (Unix Timestamp)")]
+    // Current Datetime (Unix Timestamp)
     dt: OffsetDateTime,
     sys: SysWrapper,
-    // Timezone (seconds offset from UTC)")]
+    // Timezone (seconds offset from UTC)
     timezone: i32,
-    // Location Name")]
+    // Location Name
     name: StringType,
 }
 
@@ -161,7 +164,8 @@ derive_utoipa_schema!(WeatherCondWrapper, _WeatherCondWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// WeatherConditions")]
+// WeatherConditions
+#[schema(as = WeatherCond)]
 struct _WeatherCondWrapper {
     id: usize,
     main: StringType,
@@ -176,19 +180,20 @@ derive_utoipa_schema!(WeatherMainWrapper, _WeatherMainWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// WeatherMain")]
+// WeatherMain
+#[schema(as = WeatherMain)]
 struct _WeatherMainWrapper {
-    // Temperature (K)")]
+    // Temperature (K)
     temp: f64,
-    // Feels Like Temperature (K)")]
+    // Feels Like Temperature (K)
     feels_like: f64,
-    // Minimum Temperature (K)")]
+    // Minimum Temperature (K)
     temp_min: f64,
-    // Maximum Temperature (K)")]
+    // Maximum Temperature (K)
     temp_max: f64,
-    // Atmospheric Pressure (hPa, h=10^2)")]
+    // Atmospheric Pressure (hPa, h=10^2)
     pressure: f64,
-    // Humidity %")]
+    // Humidity %
     humidity: i64,
 }
 
@@ -199,22 +204,23 @@ derive_utoipa_schema!(WindWrapper, _WindWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// Wind")]
+// Wind
+#[schema(as = Wind)]
 struct _WindWrapper {
-    // Speed (m/s)")]
+    // Speed (m/s)
     speed: f64,
-    // Direction (degrees)")]
+    // Direction (degrees)
     deg: Option<f64>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, ToSchema, Copy)]
-// Rain")]
+// Rain
 pub struct RainWrapper {
     #[serde(alias = "3h", skip_serializing_if = "Option::is_none")]
-    // Rain (mm over previous 3 hours)")]
+    // Rain (mm over previous 3 hours)
     pub three_hour: Option<f64>,
     #[serde(alias = "1h", skip_serializing_if = "Option::is_none")]
-    // Rain (mm over previous hour)")]
+    // Rain (mm over previous hour)
     pub one_hour: Option<f64>,
 }
 
@@ -228,13 +234,13 @@ impl From<Rain> for RainWrapper {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, ToSchema, Copy)]
-// Snow")]
+// Snow
 pub struct SnowWrapper {
     #[serde(alias = "3h", skip_serializing_if = "Option::is_none")]
-    // Snow (mm over previous 3 hours)")]
+    // Snow (mm over previous 3 hours)
     pub three_hour: Option<f64>,
     #[serde(alias = "1h", skip_serializing_if = "Option::is_none")]
-    // Rain (mm over previous hour)")]
+    // Rain (mm over previous hour)
     pub one_hour: Option<f64>,
 }
 
@@ -254,12 +260,13 @@ derive_utoipa_schema!(SysWrapper, _SysWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// SystemData")]
+// SystemData
+#[schema(as = Sys)]
 struct _SysWrapper {
     country: Option<StringType>,
-    // Sunrise (Unix Timestamp)")]
+    // Sunrise (Unix Timestamp)
     sunrise: OffsetDateTime,
-    // Sunset (Unix Timestamp)")]
+    // Sunset (Unix Timestamp)
     sunset: OffsetDateTime,
 }
 
@@ -270,11 +277,12 @@ derive_utoipa_schema!(WeatherForecastWrapper, _WeatherForecastWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// WeatherForecast")]
+// WeatherForecast
+#[schema(as = WeatherForecast)]
 struct _WeatherForecastWrapper {
-    // Main Forecast Entries")]
+    // Main Forecast Entries
     list: Vec<ForecastEntryWrapper>,
-    // City Information")]
+    // City Information
     city: CityEntryWrapper,
 }
 
@@ -285,7 +293,8 @@ derive_utoipa_schema!(GeoLocationWrapper, _GeoLocationWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// GeoLocation")]
+// GeoLocation
+#[schema(as = GeoLocation)]
 struct _GeoLocationWrapper {
     name: StringType,
     lat: f64,
@@ -301,9 +310,9 @@ derive_utoipa_schema!(ForecastEntryWrapper, _ForecastEntryWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// ForecastEntry")]
+// ForecastEntry
 struct _ForecastEntryWrapper {
-    // Forecasted DateTime (Unix Timestamp)")]
+    // Forecasted DateTime (Unix Timestamp)
     dt: OffsetDateTime,
     main: ForecastMainWrapper,
     weather: Vec<WeatherCondWrapper>,
@@ -318,13 +327,14 @@ derive_utoipa_schema!(CityEntryWrapper, _CityEntryWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// CityEntry")]
+// CityEntry
+#[schema(as = CityEntry)]
 struct _CityEntryWrapper {
-    // Timezone (seconds offset from UTC)")]
+    // Timezone (seconds offset from UTC)
     timezone: i32,
-    // Sunrise (Unix Timestamp)")]
+    // Sunrise (Unix Timestamp)
     sunrise: OffsetDateTime,
-    // Sunset (Unix Timestamp)")]
+    // Sunset (Unix Timestamp)
     sunset: OffsetDateTime,
 }
 
@@ -335,23 +345,24 @@ derive_utoipa_schema!(ForecastMainWrapper, _ForecastMainWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// ForecastMain")]
+// ForecastMain
+#[schema(as = ForecastMain)]
 struct _ForecastMainWrapper {
-    // Temperature (K)")]
+    // Temperature (K)
     temp: f64,
-    // Feels Like Temperature (K)")]
+    // Feels Like Temperature (K)
     feels_like: f64,
-    // Minimum Temperature (K)")]
+    // Minimum Temperature (K)
     temp_min: f64,
-    // Maximum Temperature (K)")]
+    // Maximum Temperature (K)
     temp_max: f64,
-    // Atmospheric Pressure (hPa, h=10^2)")]
+    // Atmospheric Pressure (hPa, h=10^2)
     pressure: f64,
-    // Pressure at Sea Level (hPa, h=10^2)")]
+    // Pressure at Sea Level (hPa, h=10^2)
     sea_level: f64,
-    // Pressure at Ground Level (hPa, h=10^2)")]
+    // Pressure at Ground Level (hPa, h=10^2)
     grnd_level: f64,
-    // Humidity %")]
+    // Humidity %
     humidity: i64,
 }
 
@@ -383,11 +394,12 @@ derive_utoipa_schema!(PlotPointWrapper, _PlotPointWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// PlotPoint")]
+// PlotPoint
+#[schema(as = PlotPoint)]
 struct _PlotPointWrapper {
-    // Datetime")]
+    // Datetime
     datetime: OffsetDateTime,
-    // Value")]
+    // Value
     value: f64,
 }
 
@@ -398,15 +410,16 @@ derive_utoipa_schema!(PlotDataWrapper, _PlotDataWrapper);
 
 #[allow(dead_code)]
 #[derive(ToSchema)]
-// PlotData")]
+// PlotData
+#[schema(as = PlotData)]
 struct _PlotDataWrapper {
-    // Plot Data")]
+    // Plot Data
     plot_data: Vec<PlotPointWrapper>,
-    // Plot Title")]
+    // Plot Title
     title: String,
-    // Plot X-axis Label")]
+    // Plot X-axis Label
     xaxis: String,
-    // Plot Y-axis Label")]
+    // Plot Y-axis Label
     yaxis: String,
 }
 
