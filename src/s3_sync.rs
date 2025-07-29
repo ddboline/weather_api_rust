@@ -164,7 +164,7 @@ impl S3Sync {
                             let mut key_item: KeyItemCache = key.try_into()?;
                             key_item.has_remote = true;
                             key_item.insert(pool).await?;
-                        };
+                        }
                         nkeys += 1;
                     }
                 }
@@ -228,7 +228,7 @@ impl S3Sync {
                         Ok(())
                     });
                     tasks.push(task);
-                };
+                }
             }
         }
         let updates = tasks.len();
@@ -332,7 +332,7 @@ impl S3Sync {
         })
         .await;
         let output = local_file.to_path_buf();
-        debug!("input {tmp_path:?} output {output:?}");
+        debug!("input {} output {}", tmp_path.display(), output.display());
         if output.exists() {
             let input_md5 = get_md5sum(&tmp_path).await?;
             let output_md5 = get_md5sum(&output).await?;

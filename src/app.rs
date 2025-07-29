@@ -27,7 +27,7 @@ use super::{
 /// Returns error if query fails
 #[cached(
     ty = "TimedSizedCache<StackString, WeatherData>",
-    create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, std::time::Duration::new(3600, 0)) }",
     convert = r#"{ format_sstr!("{:?}", loc) }"#,
     result = true
 )]
@@ -62,7 +62,7 @@ pub async fn get_weather_data(
 /// Will return error if `WeatherApi::run_api` fails
 #[cached(
     ty = "TimedSizedCache<StackString, WeatherForecast>",
-    create = "{ TimedSizedCache::with_size_and_lifespan(100, 3600) }",
+    create = "{ TimedSizedCache::with_size_and_lifespan(100, std::time::Duration::new(3600, 0)) }",
     convert = r#"{ format_sstr!("{:?}", loc) }"#,
     result = true
 )]

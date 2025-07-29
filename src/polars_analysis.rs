@@ -258,12 +258,12 @@ pub async fn insert_db_into_parquet(
 /// # Errors
 /// Returns error if input/output doesn't exist or cannot be read
 pub fn merge_parquet_files(input: &Path, output: &Path) -> Result<(), Error> {
-    info!("input {input:?} output {output:?}",);
+    info!("input {} output {}", input.display(), output.display());
     if !input.exists() {
-        return Err(format_err!("input {input:?} does not exist"));
+        return Err(format_err!("input {} does not exist", input.display()));
     }
     if !output.exists() {
-        return Err(format_err!("output {output:?} does not exist"));
+        return Err(format_err!("output {} does not exist", output.display()));
     }
     let df0 = ParquetReader::new(File::open(input)?).finish()?;
     let entries0 = df0.shape().0;
@@ -281,7 +281,7 @@ pub fn merge_parquet_files(input: &Path, output: &Path) -> Result<(), Error> {
         .unique_stable(None, UniqueKeepStrategy::First, None)?;
     info!("final {:?}", df.shape());
     ParquetWriter::new(File::create(output)?).finish(&mut df)?;
-    info!("wrote {:?} {:?}", output, df.shape());
+    info!("wrote {} {:?}", output.display(), df.shape());
     Ok(())
 }
 
@@ -315,7 +315,7 @@ pub async fn get_by_name_dates(
     let mut output = Vec::new();
     for input_file in input_files {
         let df = get_by_name_dates_file(&input_file, name, server, start_date, end_date).await?;
-        debug!("df {input_file:?} {:?}", df.shape());
+        debug!("df {} {:?}", input_file.display(), df.shape());
         let (file_total, _) = df.shape();
         let mut skip = 0;
         let mut take = file_total;
