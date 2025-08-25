@@ -9,6 +9,7 @@
 #![allow(clippy::unused_async)]
 #![allow(clippy::unsafe_derive_deserialize)]
 #![allow(clippy::missing_errors_doc)]
+#![allow(clippy::needless_for_each)]
 
 pub mod api_options;
 pub mod app;

@@ -459,21 +459,21 @@ pub fn WeatherAppComponent(props: AppProps) -> Element {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let result = (*recv_future.read()).clone();
-            if let Some(Some((loc, entry))) = result {
-                if (!cache.read().contains_key(&loc)) || cache.read().is_empty() {
-                    location.set(loc.clone());
-                    cache.set({
-                        let mut new_cache = cache.read().clone();
-                        new_cache.insert(location.read().clone(), entry.clone());
-                        new_cache
-                    });
-                    recv_future.restart();
-                    if let Some(w) = &entry.weather {
-                        weather.set(w.clone());
-                    }
-                    if let Some(f) = &entry.forecast {
-                        forecast.set(f.clone());
-                    }
+            if let Some(Some((loc, entry))) = result
+                && ((!cache.read().contains_key(&loc)) || cache.read().is_empty())
+            {
+                location.set(loc.clone());
+                cache.set({
+                    let mut new_cache = cache.read().clone();
+                    new_cache.insert(location.read().clone(), entry.clone());
+                    new_cache
+                });
+                recv_future.restart();
+                if let Some(w) = &entry.weather {
+                    weather.set(w.clone());
+                }
+                if let Some(f) = &entry.forecast {
+                    forecast.set(f.clone());
                 }
             }
         }
@@ -770,10 +770,10 @@ pub fn index_element(
             let hlc = (*history_location_cache.read()).clone();
             let mut locations: Vec<_> = hlc.iter().map(|l| l.as_str()).collect();
             locations.sort();
-            if !locations.contains(&history_location.read().as_str()) {
-                if let Some(loc) = locations.first() {
-                    history_location.set(loc.to_string());
-                }
+            if !locations.contains(&history_location.read().as_str())
+                && let Some(loc) = locations.first()
+            {
+                history_location.set(loc.to_string());
             }
             let start_date_string = start_date
                 .read()

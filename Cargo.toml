@@ -1,6 +1,6 @@
 [package]
 name = "weather_api_rust"
-version = "0.11.1"
+version = "0.11.2"
 authors = ["Daniel Boline <ddboline@gmail.com>"]
 edition = "2024"
 
@@ -53,7 +53,7 @@ log = "0.4"
 maplit = "1.0"
 mime = "0.3"
 parking_lot = "0.12"
-polars = {version="0.49", features=["temporal", "parquet", "lazy"]}
+polars = {version="0.50", features=["temporal", "parquet", "lazy"]}
 postgres_query = {git = "https://github.com/ddboline/rust-postgres-query", tag = "0.3.8", features=["deadpool"]}
 postgres-types = {version="0.2", features=["with-time-0_3", "with-uuid-1", "with-serde_json-1"]}
 rand = "0.9"

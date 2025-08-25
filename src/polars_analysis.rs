@@ -6,8 +6,8 @@ use polars::{
     df as dataframe,
     io::SerReader,
     prelude::{
-        DataFrame, LazyFrame, ParquetReader, ParquetWriter, ScanArgsParquet, SortMultipleOptions,
-        TimeUnit, UniqueKeepStrategy, col, lit,
+        DataFrame, LazyFrame, ParquetReader, ParquetWriter, PlPathRef, ScanArgsParquet,
+        SortMultipleOptions, TimeUnit, UniqueKeepStrategy, col, lit,
     },
 };
 use postgres_query::{FromSqlRow, query};
@@ -338,6 +338,7 @@ pub async fn get_by_name_dates(
         }
         debug!("total {total} file_total {file_total} skip {skip} take {take}");
         total += file_total;
+
         let columns = WeatherDataColumns {
             id: df
                 .column("id")?
@@ -358,10 +359,8 @@ pub async fn get_by_name_dates(
             created_at: df
                 .column("created_at")?
                 .datetime()?
-                .into_iter()
-                .filter_map(|t| {
-                    t.and_then(|t| DateTime::from_timestamp_millis(t).map(|d| d.naive_utc()))
-                })
+                .as_datetime_iter()
+                .flatten()
                 .skip(skip)
                 .take(take)
                 .collect(),
@@ -484,20 +483,16 @@ pub async fn get_by_name_dates(
             sunrise: df
                 .column("sunrise")?
                 .datetime()?
-                .into_iter()
-                .filter_map(|t| {
-                    t.and_then(|t_| DateTime::from_timestamp_millis(t_).map(|d| d.naive_utc()))
-                })
+                .as_datetime_iter()
+                .flatten()
                 .skip(skip)
                 .take(take)
                 .collect(),
             sunset: df
                 .column("sunset")?
                 .datetime()?
-                .into_iter()
-                .filter_map(|t| {
-                    t.and_then(|t_| DateTime::from_timestamp_millis(t_).map(|d| d.naive_utc()))
-                })
+                .as_datetime_iter()
+                .flatten()
                 .skip(skip)
                 .take(take)
                 .collect(),
@@ -533,7 +528,7 @@ async fn get_by_name_dates_file(
     end_date: Option<Date>,
 ) -> Result<DataFrame, Error> {
     let args = ScanArgsParquet::default();
-    let mut df = LazyFrame::scan_parquet(input, args)?;
+    let mut df = LazyFrame::scan_parquet(PlPathRef::from_local_path(input).into_owned(), args)?;
     if let Some(name) = name {
         df = df.filter(col("location_name").eq(lit(name)));
     }

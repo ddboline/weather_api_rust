@@ -136,10 +136,10 @@ impl S3Sync {
         loop {
             let mut output = self.list_objects(bucket, marker.as_ref()).await?;
             if let Some(contents) = output.contents.take() {
-                if let Some(last) = contents.last() {
-                    if let Some(key) = last.key() {
-                        marker.replace(key.into());
-                    }
+                if let Some(last) = contents.last()
+                    && let Some(key) = last.key()
+                {
+                    marker.replace(key.into());
                 }
                 for object in contents {
                     if let Some(key) = KeyItem::from_s3_object(object) {

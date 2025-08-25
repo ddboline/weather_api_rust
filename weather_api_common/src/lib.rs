@@ -55,14 +55,12 @@ pub fn get_parameters(search_str: &str) -> WeatherLocation {
         opts = WeatherLocation::from_zipcode(zip);
     } else if search_str.contains(',') {
         let mut iter = search_str.split(',');
-        if let Some(lat) = iter.next() {
-            if let Ok(lat) = lat.parse() {
-                if let Some(lon) = iter.next() {
-                    if let Ok(lon) = lon.parse() {
-                        opts = WeatherLocation::from_lat_lon(lat, lon);
-                    }
-                }
-            }
+        if let Some(lat) = iter.next()
+            && let Ok(lat) = lat.parse()
+            && let Some(lon) = iter.next()
+            && let Ok(lon) = lon.parse()
+        {
+            opts = WeatherLocation::from_lat_lon(lat, lon);
         }
     }
     opts
