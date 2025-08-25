@@ -26,7 +26,7 @@ exclude = [
 [dependencies]
 weather_api_common = {path = "weather_api_common/"}
 anyhow = "1.0"
-authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", tag="0.13.2"}
+authorized_users = { git = "https://github.com/ddboline/auth_server_rust.git", tag="0.13.3"}
 aws-config = {version="1.8", features=["behavior-version-latest"]}
 aws-sdk-s3 = "1.100"
 axum = { version = "0.8", features = ["multipart"] }
