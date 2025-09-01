@@ -287,7 +287,7 @@ pub fn merge_parquet_files(input: &Path, output: &Path) -> Result<(), Error> {
 
 /// # Errors
 /// Returns error if path does not exist
-pub async fn get_by_name_dates(
+pub fn get_by_name_dates(
     input: &Path,
     name: Option<&str>,
     server: Option<&str>,
@@ -314,7 +314,7 @@ pub async fn get_by_name_dates(
     let mut total = 0;
     let mut output = Vec::new();
     for input_file in input_files {
-        let df = get_by_name_dates_file(&input_file, name, server, start_date, end_date).await?;
+        let df = get_by_name_dates_file(&input_file, name, server, start_date, end_date)?;
         debug!("df {} {:?}", input_file.display(), df.shape());
         let (file_total, _) = df.shape();
         let mut skip = 0;
@@ -520,7 +520,7 @@ pub async fn get_by_name_dates(
     Ok(output)
 }
 
-async fn get_by_name_dates_file(
+fn get_by_name_dates_file(
     input: &Path,
     name: Option<&str>,
     server: Option<&str>,
