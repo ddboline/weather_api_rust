@@ -14,7 +14,7 @@ use time::{
     Date, OffsetDateTime, PrimitiveDateTime,
     macros::{date, time},
 };
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, task::spawn_blocking};
 use utoipa::{OpenApi, PartialSchema, ToSchema};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use utoipa_helper::{
@@ -669,8 +669,7 @@ async fn get_history_data(
 ) -> Result<Vec<WeatherData>, Error> {
     let now = OffsetDateTime::now_utc();
     let first_of_month = PrimitiveDateTime::new(
-        Date::from_calendar_date(now.year(), now.month(), 1)
-            .unwrap_or_else(|_| date!(2023 - 01 - 01)),
+        Date::from_calendar_date(now.year(), now.month(), 1).unwrap_or(date!(2023 - 01 - 01)),
         time!(00:00),
     )
     .assume_utc()
@@ -680,16 +679,21 @@ async fn get_history_data(
     let end_date: Option<Date> = query.end_time;
 
     let history: Vec<WeatherData> = if start_date.is_none() || start_date < Some(first_of_month) {
-        get_by_name_dates(
-            &config.cache_dir,
-            Some(&query.name),
-            query.server.as_ref().map(StackString::as_str),
-            start_date,
-            end_date,
-            None,
-            None,
-        )
-        .await
+        let name = query.name.clone();
+        let server = query.server.clone();
+        let config = config.clone();
+        spawn_blocking(move || {
+            get_by_name_dates(
+                &config.cache_dir,
+                Some(&name),
+                server.as_ref().map(StackString::as_str),
+                start_date,
+                end_date,
+                None,
+                None,
+            )
+        })
+        .await?
         .map_err(Into::<Error>::into)?
         .into_iter()
         .map(Into::<WeatherData>::into)

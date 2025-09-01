@@ -8,6 +8,7 @@ use time::{Date, macros::format_description};
 use tokio::{
     fs::{File, read},
     io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, stdin, stdout},
+    task::spawn_blocking,
 };
 
 use crate::{
@@ -181,16 +182,18 @@ impl ParseOpts {
                 limit,
             } => {
                 let directory = directory.unwrap_or_else(|| config.cache_dir.clone());
-                let rows = get_by_name_dates(
-                    &directory,
-                    name.as_ref().map(Into::into),
-                    server.as_ref().map(Into::into),
-                    start_date,
-                    end_date,
-                    offset,
-                    limit,
-                )
-                .await?;
+                let rows = spawn_blocking(move || {
+                    get_by_name_dates(
+                        &directory,
+                        name.as_ref().map(Into::into),
+                        server.as_ref().map(Into::into),
+                        start_date,
+                        end_date,
+                        offset,
+                        limit,
+                    )
+                })
+                .await??;
                 stdout()
                     .write_all(format_sstr!("{}\n", rows.len()).as_bytes())
                     .await?;
