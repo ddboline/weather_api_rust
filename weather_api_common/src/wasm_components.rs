@@ -1,4 +1,5 @@
-use dioxus::prelude::{Element, Readable, Writable, component, use_resource, use_signal};
+use dioxus::prelude::{Element, component, use_resource, use_signal};
+use dioxus_signals::{ReadableExt, WritableExt};
 use js_sys::Date as JsDate;
 use log::debug;
 use std::collections::{HashMap, HashSet};
