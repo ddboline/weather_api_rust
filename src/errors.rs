@@ -6,7 +6,6 @@ use axum::{
         header::{CONTENT_TYPE, InvalidHeaderName},
     },
 };
-use log::error;
 use postgres_query::Error as PgError;
 use serde::Serialize;
 use serde_json::Error as SerdeJsonError;

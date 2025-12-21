@@ -1,7 +1,8 @@
 use dioxus::prelude::{
-    Element, GlobalSignal, IntoDynNode, Key, Props, Readable, Resource, Signal, Writable,
+    Element, Key, Props, Resource, Signal,
     component, dioxus_elements, rsx, use_resource, use_signal,
 };
+use dioxus_signals::{ReadableExt, WritableExt};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
