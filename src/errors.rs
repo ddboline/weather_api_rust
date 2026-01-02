@@ -10,7 +10,7 @@ use postgres_query::Error as PgError;
 use serde::Serialize;
 use serde_json::Error as SerdeJsonError;
 use serde_urlencoded::ser::Error as UrlEncodedError;
-use serde_yml::Error as YamlError;
+use serde_yaml_ng::Error as YamlError;
 use stack_string::{StackString, format_sstr};
 use std::{
     fmt::{Debug, Error as FmtError},
@@ -174,7 +174,7 @@ mod test {
     use postgres_query::Error as PgError;
     use serde_json::Error as SerdeJsonError;
     use serde_urlencoded::ser::Error as UrlEncodedError;
-    use serde_yml::Error as YamlError;
+    use serde_yaml_ng::Error as YamlError;
     use std::{
         fmt::Error as FmtError, net::AddrParseError, num::ParseIntError, string::FromUtf8Error,
     };
