@@ -1,6 +1,6 @@
 use dioxus::prelude::{
-    Element, Key, Props, Resource, Signal,
-    component, dioxus_elements, rsx, use_resource, use_signal,
+    Element, Key, Props, Resource, Signal, component, dioxus_elements, rsx, use_resource,
+    use_signal,
 };
 use dioxus_signals::{ReadableExt, WritableExt};
 use serde::{Deserialize, Serialize};

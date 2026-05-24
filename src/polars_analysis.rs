@@ -6,7 +6,8 @@ use polars::{
     df as dataframe,
     io::SerReader,
     prelude::{
-        LazyFrame, DataFrame, ParquetReader, ParquetWriter, ScanArgsParquet, PlRefPath, SortMultipleOptions, TimeUnit, UniqueKeepStrategy, col, lit
+        DataFrame, LazyFrame, ParquetReader, ParquetWriter, PlRefPath, ScanArgsParquet,
+        SortMultipleOptions, TimeUnit, UniqueKeepStrategy, col, lit,
     },
 };
 use postgres_query::{FromSqlRow, query};
