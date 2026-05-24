@@ -6,7 +6,7 @@ use polars::{
     df as dataframe,
     io::SerReader,
     prelude::{
-        LazyFrame, DataFrame, ParquetReader, ParquetWriter, ScanArgsParquet, PlPathRef, SortMultipleOptions, TimeUnit, UniqueKeepStrategy, col, lit
+        LazyFrame, DataFrame, ParquetReader, ParquetWriter, ScanArgsParquet, PlRefPath, SortMultipleOptions, TimeUnit, UniqueKeepStrategy, col, lit
     },
 };
 use postgres_query::{FromSqlRow, query};
@@ -527,7 +527,7 @@ fn get_by_name_dates_file(
     end_date: Option<Date>,
 ) -> Result<DataFrame, Error> {
     let args = ScanArgsParquet::default();
-    let mut df = LazyFrame::scan_parquet(PlPathRef::from_local_path(input).into_owned(), args)?;
+    let mut df = LazyFrame::scan_parquet(PlRefPath::try_from_path(input)?, args)?;
     if let Some(name) = name {
         df = df.filter(col("location_name").eq(lit(name)));
     }

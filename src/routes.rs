@@ -196,8 +196,8 @@ struct StatisticsResponse(JsonBase::<StatisticsObject>);
     responses(StatisticsResponse, Error)
 )]
 async fn statistics() -> WarpResult<StatisticsResponse> {
-    let data_cache = GET_WEATHER_DATA.lock().await;
-    let forecast_cache = GET_WEATHER_FORECAST.lock().await;
+    let data_cache = GET_WEATHER_DATA.read().await;
+    let forecast_cache = GET_WEATHER_FORECAST.read().await;
     let weather_string_length_map = WEATHER_STRING_LENGTH.get_map().await;
 
     let stat = StatisticsObject {

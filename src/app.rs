@@ -1,5 +1,5 @@
 use axum::http::{Method, StatusCode, header::CONTENT_TYPE};
-use cached::{TimedSizedCache, proc_macro::cached};
+use cached::{LruTtlCache, macros::cached};
 use log::{error, info};
 use stack_string::{StackString, format_sstr};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
@@ -26,8 +26,8 @@ use super::{
 /// # Errors
 /// Returns error if query fails
 #[cached(
-    ty = "TimedSizedCache<StackString, WeatherData>",
-    create = "{ TimedSizedCache::with_size_and_lifespan(100, std::time::Duration::new(3600, 0)) }",
+    ty = "LruTtlCache<StackString, WeatherData>",
+    create = "{ LruTtlCache::with_size_and_ttl(100, std::time::Duration::new(3600, 0)) }",
     convert = r#"{ format_sstr!("{:?}", loc) }"#,
     result = true
 )]
@@ -61,8 +61,8 @@ pub async fn get_weather_data(
 /// # Errors
 /// Will return error if `WeatherApi::run_api` fails
 #[cached(
-    ty = "TimedSizedCache<StackString, WeatherForecast>",
-    create = "{ TimedSizedCache::with_size_and_lifespan(100, std::time::Duration::new(3600, 0)) }",
+    ty = "LruTtlCache<StackString, WeatherForecast>",
+    create = "{ LruTtlCache::with_size_and_ttl(100, std::time::Duration::new(3600, 0)) }",
     convert = r#"{ format_sstr!("{:?}", loc) }"#,
     result = true
 )]
